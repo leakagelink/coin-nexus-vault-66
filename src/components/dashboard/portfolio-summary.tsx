@@ -16,9 +16,11 @@ export function PortfolioSummary() {
             price={245678.90}
             change={5432.10}
             changePercent={2.26}
-            symbol="INR"
+            symbol="USD"
             size="lg"
             showIcon={false}
+            showDualCurrency={true}
+            usdtPrice={245678.90}
           />
         </CardContent>
       </Card>
@@ -29,8 +31,11 @@ export function PortfolioSummary() {
           <Wallet className="h-4 w-4 text-primary" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">₹12,345.67</div>
-          <p className="text-xs text-muted-foreground">Ready to trade</p>
+          <div className="flex flex-col">
+            <div className="text-2xl font-bold">$12,345.67</div>
+            <div className="text-lg text-muted-foreground">₹{(12345.67 * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground mt-1">Ready to trade</p>
+          </div>
         </CardContent>
       </Card>
       
@@ -44,9 +49,11 @@ export function PortfolioSummary() {
             price={1234.56}
             change={234.56}
             changePercent={23.45}
-            symbol="INR"
+            symbol="USD"
             size="md"
             showIcon={false}
+            showDualCurrency={true}
+            usdtPrice={1234.56}
           />
         </CardContent>
       </Card>

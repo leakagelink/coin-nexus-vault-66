@@ -29,6 +29,11 @@ export function CryptoCard({
   const [showTradingModal, setShowTradingModal] = useState(false);
   const isPositive = change >= 0;
 
+  // Convert USD to INR (approximate rate: 1 USD = 84 INR)
+  const usdToInrRate = 84;
+  const inrPrice = price * usdToInrRate;
+  const inrChange = change * usdToInrRate;
+
   return (
     <>
       <Card className="glass hover-glow transition-all duration-300 hover:scale-105">
@@ -50,12 +55,20 @@ export function CryptoCard({
           
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">₹{price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-              <div className={`flex items-center gap-1 text-sm font-medium ${
+              <div className="flex flex-col">
+                <span className="text-xl font-bold">${price.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+                <span className="text-sm text-muted-foreground">₹{inrPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className={`flex flex-col items-end gap-1 text-sm font-medium ${
                 isPositive ? 'text-success' : 'text-danger'
               }`}>
-                {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                {isPositive ? '+' : ''}₹{Math.abs(change).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                <div className="flex items-center gap-1">
+                  {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                  {isPositive ? '+' : ''}${Math.abs(change).toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                </div>
+                <div className="text-xs">
+                  ₹{Math.abs(inrChange).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </div>
               </div>
             </div>
             
@@ -65,13 +78,15 @@ export function CryptoCard({
 
             {volume && (
               <div className="text-xs text-muted-foreground">
-                Volume: ₹{volume.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                <div>Volume: ${volume.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
+                <div>₹{(volume * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
               </div>
             )}
             
             {marketCap && (
               <div className="text-xs text-muted-foreground">
-                Market Cap: ₹{marketCap.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                <div>Market Cap: ${marketCap.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
+                <div>₹{(marketCap * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
               </div>
             )}
           </div>

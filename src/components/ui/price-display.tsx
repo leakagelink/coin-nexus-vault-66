@@ -10,6 +10,8 @@ interface PriceDisplayProps {
   size?: "sm" | "md" | "lg";
   showIcon?: boolean;
   className?: string;
+  showDualCurrency?: boolean;
+  usdtPrice?: number;
 }
 
 export function PriceDisplay({ 
@@ -19,7 +21,9 @@ export function PriceDisplay({
   symbol,
   size = "md",
   showIcon = true,
-  className 
+  className,
+  showDualCurrency = false,
+  usdtPrice
 }: PriceDisplayProps) {
   const isPositive = change >= 0;
   
@@ -28,11 +32,27 @@ export function PriceDisplay({
     md: "text-base",
     lg: "text-xl font-semibold"
   };
+
+  // Convert USDT to INR (approximate rate: 1 USDT = 84 INR)
+  const usdToInrRate = 84;
+  const inrPrice = showDualCurrency && usdtPrice ? usdtPrice * usdToInrRate : price * usdToInrRate;
   
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className={cn("font-mono", sizeClasses[size])}>
-        ₹{price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+        {showDualCurrency ? (
+          <div className="flex flex-col">
+            <span>${price.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+            <span className="text-sm text-muted-foreground">
+              ₹{inrPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        ) : (
+          <>
+            {symbol === 'USD' || symbol === 'USDT' ? '$' : '₹'}
+            {price.toLocaleString(symbol === 'USD' || symbol === 'USDT' ? 'en-US' : 'en-IN', { maximumFractionDigits: 2 })}
+          </>
+        )}
       </div>
       <div className={cn(
         "flex items-center gap-1 text-sm",
@@ -42,7 +62,9 @@ export function PriceDisplay({
           isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />
         )}
         <span>
-          {isPositive ? "+" : ""}₹{Math.abs(change).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          {isPositive ? "+" : ""}
+          {symbol === 'USD' || symbol === 'USDT' ? '$' : '₹'}
+          {Math.abs(change).toLocaleString(symbol === 'USD' || symbol === 'USDT' ? 'en-US' : 'en-IN', { maximumFractionDigits: 2 })}
         </span>
         <span>
           ({isPositive ? "+" : ""}{changePercent.toFixed(2)}%)

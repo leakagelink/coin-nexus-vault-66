@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,6 +127,9 @@ const Portfolio = () => {
     }
   };
 
+  // USD to INR conversion rate
+  const usdToInrRate = 84;
+
   return (
     <Layout>
       <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
@@ -153,15 +155,24 @@ const Portfolio = () => {
           <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Total Value</p>
-              <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
+              <div className="flex flex-col">
+                <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
+                <p className="text-lg text-muted-foreground">₹{(totalValue * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+              </div>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Cost</p>
-              <p className="text-2xl font-bold">${totalCost.toFixed(2)}</p>
+              <div className="flex flex-col">
+                <p className="text-2xl font-bold">${totalCost.toFixed(2)}</p>
+                <p className="text-lg text-muted-foreground">₹{(totalCost * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+              </div>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Available Balance</p>
-              <p className="text-2xl font-bold">${Number(walletData?.balance || 0).toFixed(2)}</p>
+              <div className="flex flex-col">
+                <p className="text-2xl font-bold">${Number(walletData?.balance || 0).toFixed(2)}</p>
+                <p className="text-lg text-muted-foreground">₹{(Number(walletData?.balance || 0) * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+              </div>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">P&L</p>
@@ -171,6 +182,8 @@ const Portfolio = () => {
                 changePercent={totalPnLPercent}
                 symbol="USD"
                 size="lg"
+                showDualCurrency={true}
+                usdtPrice={totalValue}
               />
             </div>
           </CardContent>
@@ -209,12 +222,21 @@ const Portfolio = () => {
                             <h3 className="font-semibold">{position.symbol}</h3>
                             <p className="text-sm text-muted-foreground">{position.coin_name}</p>
                             <p className="text-sm">Amount: {Number(position.amount).toFixed(6)}</p>
-                            <p className="text-xs text-muted-foreground">Avg: ${Number(position.buy_price).toFixed(4)}</p>
+                            <div className="text-xs text-muted-foreground">
+                              <div>Avg: ${Number(position.buy_price).toFixed(4)}</div>
+                              <div>₹{(Number(position.buy_price) * usdToInrRate).toFixed(2)}</div>
+                            </div>
                           </div>
                           <div className="text-right">
                             <div className="mb-2">
-                              <p className="text-lg font-bold">${currentValue.toFixed(2)}</p>
-                              <p className="text-sm text-muted-foreground">${livePrice.toFixed(4)} each</p>
+                              <div className="flex flex-col">
+                                <p className="text-lg font-bold">${currentValue.toFixed(2)}</p>
+                                <p className="text-sm text-muted-foreground">₹{(currentValue * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                              </div>
+                              <div className="text-sm text-muted-foreground mt-1">
+                                <div>${livePrice.toFixed(4)} each</div>
+                                <div>₹{(livePrice * usdToInrRate).toFixed(2)} each</div>
+                              </div>
                             </div>
                             <PriceDisplay
                               price={currentValue}
@@ -222,6 +244,8 @@ const Portfolio = () => {
                               changePercent={pnlPercent}
                               symbol="USD"
                               size="sm"
+                              showDualCurrency={true}
+                              usdtPrice={currentValue}
                             />
                             <div className="mt-3">
                               <Button 
