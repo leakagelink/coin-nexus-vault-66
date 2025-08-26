@@ -96,10 +96,17 @@ export type Database = {
           coin_name: string
           created_at: string | null
           current_price: number | null
+          current_value: number | null
           id: string
+          open_price: number | null
+          pnl: number | null
+          pnl_percentage: number | null
           position_type: string | null
+          quantity: number | null
           status: string | null
           symbol: string
+          total_investment: number | null
+          trade_type: string | null
           updated_at: string | null
           user_id: string | null
         }
@@ -109,10 +116,17 @@ export type Database = {
           coin_name: string
           created_at?: string | null
           current_price?: number | null
+          current_value?: number | null
           id?: string
+          open_price?: number | null
+          pnl?: number | null
+          pnl_percentage?: number | null
           position_type?: string | null
+          quantity?: number | null
           status?: string | null
           symbol: string
+          total_investment?: number | null
+          trade_type?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -122,10 +136,17 @@ export type Database = {
           coin_name?: string
           created_at?: string | null
           current_price?: number | null
+          current_value?: number | null
           id?: string
+          open_price?: number | null
+          pnl?: number | null
+          pnl_percentage?: number | null
           position_type?: string | null
+          quantity?: number | null
           status?: string | null
           symbol?: string
+          total_investment?: number | null
+          trade_type?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -163,6 +184,48 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trades: {
+        Row: {
+          coin_name: string
+          created_at: string
+          id: string
+          price: number
+          quantity: number
+          status: string
+          symbol: string
+          total_amount: number
+          trade_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          coin_name: string
+          created_at?: string
+          id?: string
+          price: number
+          quantity: number
+          status?: string
+          symbol: string
+          total_amount: number
+          trade_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          coin_name?: string
+          created_at?: string
+          id?: string
+          price?: number
+          quantity?: number
+          status?: string
+          symbol?: string
+          total_amount?: number
+          trade_type?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

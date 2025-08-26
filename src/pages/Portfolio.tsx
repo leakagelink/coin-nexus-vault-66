@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,13 +11,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { PriceDisplay } from "@/components/ui/price-display";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
 import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
+import { useToast } from "@/hooks/use-toast";
 
 const Portfolio = () => {
   const { user } = useAuth();
   const { prices } = useLCWPrices();
   const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
+  const { toast } = useToast();
 
-  const { data: portfolio, isLoading } = useQuery({
+  const { data: portfolio, isLoading, refetch } = useQuery({
     queryKey: ['portfolio', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -49,6 +52,67 @@ const Portfolio = () => {
 
   const handleAddPosition = () => {
     setShowAddCryptoModal(true);
+  };
+
+  const closePosition = async (position: any) => {
+    if (!user) return;
+    const symbol = position.symbol;
+    const livePrice = prices[symbol]?.price || position.current_price;
+    const qty = Number(position.amount);
+    const proceeds = qty * livePrice;
+
+    try {
+      // Credit wallet
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .single();
+
+      const currentBalance = Number(wallet?.balance || 0);
+      const { error: walletErr } = await supabase
+        .from('wallets')
+        .update({
+          balance: currentBalance + proceeds,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+      if (walletErr) throw walletErr;
+
+      // Insert trade record
+      const { error: tradeErr } = await supabase.from('trades').insert({
+        user_id: user.id,
+        symbol,
+        coin_name: position.coin_name,
+        trade_type: 'sell',
+        quantity: qty,
+        price: livePrice,
+        total_amount: proceeds,
+        status: 'completed',
+      });
+      if (tradeErr) throw tradeErr;
+
+      // Delete position
+      const { error: posErr } = await supabase
+        .from('portfolio_positions')
+        .delete()
+        .eq('id', position.id);
+      if (posErr) throw posErr;
+
+      toast({
+        title: 'Position closed',
+        description: `Sold ${qty.toFixed(6)} ${symbol} at ${livePrice.toFixed(4)} USDT`,
+      });
+
+      refetch();
+    } catch (e) {
+      console.error('Error closing position:', e);
+      toast({
+        title: 'Error',
+        description: 'Failed to close position',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -140,6 +204,15 @@ const Portfolio = () => {
                               size="sm"
                             />
                             <p className="text-xs text-muted-foreground mt-1">Avg: ${position.buy_price.toFixed(4)}</p>
+                            <div className="mt-3">
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => closePosition(position)}
+                              >
+                                Close
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       );
