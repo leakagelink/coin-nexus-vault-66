@@ -44,68 +44,28 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
     }
     
     setSubmitting(true);
-    console.log("Admin adding funds", { target_user_id: userId, amount: value, admin_id: user.id });
+    console.log("Admin adding funds via RPC", { target_user_id: userId, amount: value, admin_id: user.id, notes });
     
     try {
-      // First, ensure the wallet exists for the user
-      const { data: existingWallet, error: walletCheckError } = await supabase
-        .from('wallets')
-        .select('id, balance')
-        .eq('user_id', userId)
-        .single();
+      // Use SECURITY DEFINER RPC to bypass RLS and perform atomic wallet + transaction updates
+      const { data, error } = await (supabase as any).rpc("admin_add_funds", {
+        target_user_id: userId,
+        amount: value,
+        admin_id: user.id,
+        notes,
+      });
 
-      if (walletCheckError && walletCheckError.code !== 'PGRST116') {
-        console.error("Wallet check error:", walletCheckError);
-        throw walletCheckError;
-      }
-
-      // If wallet doesn't exist, create one first
-      if (!existingWallet) {
-        const { error: createWalletError } = await supabase
-          .from('wallets')
-          .insert({
-            user_id: userId,
-            balance: 0,
-            currency: 'INR'
-          });
-
-        if (createWalletError) {
-          console.error("Create wallet error:", createWalletError);
-          throw createWalletError;
-        }
-      }
-
-      // Now update the wallet balance
-      const { error: updateError } = await supabase
-        .from('wallets')
-        .update({
-          balance: (existingWallet?.balance || 0) + value,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId);
-
-      if (updateError) {
-        console.error("Update wallet error:", updateError);
-        throw updateError;
-      }
-
-      // Create transaction record
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: userId,
-          transaction_type: 'deposit',
-          amount: value,
-          total_value: value,
-          status: 'completed'
+      if (error) {
+        console.error("admin_add_funds RPC error:", error);
+        toast({
+          title: "Add funds failed",
+          description: error.message || "An unexpected error occurred.",
+          variant: "destructive",
         });
-
-      if (transactionError) {
-        console.error("Transaction record error:", transactionError);
-        throw transactionError;
+        return;
       }
-      
-      console.log("Add funds success");
+
+      console.log("Add funds success via RPC", data);
       toast({
         title: "Funds added successfully",
         description: `₹${value.toLocaleString("en-IN")} added to ${userLabel || "user"}.`,
@@ -114,11 +74,8 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
       setOpen(false);
       setAmount("");
       setNotes("Admin credit");
-      
-      if (onSuccess) {
-        onSuccess();
-      }
-      
+      onSuccess?.();
+
     } catch (error: any) {
       console.error("Exception in add funds:", error);
       toast({
