@@ -13,7 +13,8 @@ import Portfolio from "./pages/Portfolio";
 import Wallet from "./pages/Wallet";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
-import Admin from "./pages/Admin"; // Added
+import Admin from "./pages/Admin";
+import Trades from "./pages/Trades";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,7 +41,8 @@ const App = () => {
                 <Route path="/portfolio" element={<Portfolio />} />
                 <Route path="/wallet" element={<Wallet />} />
                 <Route path="/account" element={<Account />} />
-                <Route path="/admin" element={<Admin />} /> {/* Added admin route */}
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/trades" element={<Trades />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
