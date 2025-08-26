@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_panel_views: {
+        Row: {
+          admin_id: string | null
+          created_at: string | null
+          id: string
+          view_name: string
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string
+          view_name: string
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string
+          view_name?: string
+        }
+        Relationships: []
+      }
       bank_accounts: {
         Row: {
           account_holder_name: string
@@ -58,10 +79,12 @@ export type Database = {
           created_at: string
           id: string
           payment_method: string
+          processed_at: string | null
           status: string
           transaction_reference: string | null
           updated_at: string
           user_id: string
+          wallet_updated: boolean | null
         }
         Insert: {
           admin_notes?: string | null
@@ -70,10 +93,12 @@ export type Database = {
           created_at?: string
           id?: string
           payment_method: string
+          processed_at?: string | null
           status?: string
           transaction_reference?: string | null
           updated_at?: string
           user_id: string
+          wallet_updated?: boolean | null
         }
         Update: {
           admin_notes?: string | null
@@ -82,10 +107,12 @@ export type Database = {
           created_at?: string
           id?: string
           payment_method?: string
+          processed_at?: string | null
           status?: string
           transaction_reference?: string | null
           updated_at?: string
           user_id?: string
+          wallet_updated?: boolean | null
         }
         Relationships: []
       }
@@ -351,9 +378,11 @@ export type Database = {
           bank_account_id: string | null
           created_at: string
           id: string
+          processed_at: string | null
           status: string
           updated_at: string
           user_id: string
+          wallet_updated: boolean | null
         }
         Insert: {
           admin_notes?: string | null
@@ -362,9 +391,11 @@ export type Database = {
           bank_account_id?: string | null
           created_at?: string
           id?: string
+          processed_at?: string | null
           status?: string
           updated_at?: string
           user_id: string
+          wallet_updated?: boolean | null
         }
         Update: {
           admin_notes?: string | null
@@ -373,9 +404,11 @@ export type Database = {
           bank_account_id?: string | null
           created_at?: string
           id?: string
+          processed_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string
+          wallet_updated?: boolean | null
         }
         Relationships: [
           {
@@ -402,6 +435,14 @@ export type Database = {
       }
       is_admin: {
         Args: { user_id: string }
+        Returns: boolean
+      }
+      process_deposit_approval: {
+        Args: { admin_id: string; deposit_id: string }
+        Returns: boolean
+      }
+      process_withdrawal_approval: {
+        Args: { admin_id: string; withdrawal_id: string }
         Returns: boolean
       }
       reject_request: {

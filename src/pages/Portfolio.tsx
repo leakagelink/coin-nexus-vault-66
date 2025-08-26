@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,7 +64,6 @@ const Portfolio = () => {
     enabled: !!user,
   });
 
-  // Calculate total portfolio value using LiveCoinWatch prices
   const totalValue = portfolio?.reduce((total, position) => {
     const livePrice = prices[position.symbol]?.price || position.current_price;
     return total + (position.amount * livePrice);
@@ -98,17 +96,11 @@ const Portfolio = () => {
     }
   };
 
-  const handleStartTrading = () => {
-    setShowAddCryptoModal(true);
-  };
-
-  const handleAddPosition = () => {
-    setShowAddCryptoModal(true);
-  };
+  const handleStartTrading = () => setShowAddCryptoModal(true);
+  const handleAddPosition = () => setShowAddCryptoModal(true);
 
   const closePosition = async (position: any) => {
     if (!user) return;
-    
     const symbol = position.symbol;
     const livePrice = prices[symbol]?.price || position.current_price;
     const qty = Number(position.amount);
@@ -116,7 +108,6 @@ const Portfolio = () => {
     const currentBalance = Number(walletData?.balance || 0);
 
     try {
-      // Credit wallet with proceeds
       const { error: walletErr } = await supabase
         .from('wallets')
         .update({
@@ -126,7 +117,6 @@ const Portfolio = () => {
         .eq('user_id', user.id);
       if (walletErr) throw walletErr;
 
-      // Insert sell trade record
       const { error: tradeErr } = await supabase.from('trades').insert({
         user_id: user.id,
         symbol,
@@ -139,7 +129,6 @@ const Portfolio = () => {
       });
       if (tradeErr) throw tradeErr;
 
-      // Delete position
       const { error: posErr } = await supabase
         .from('portfolio_positions')
         .delete()
@@ -167,30 +156,30 @@ const Portfolio = () => {
     }
   };
 
-  // USD to INR conversion rate
   const usdToInrRate = 84;
 
   return (
     <Layout>
-      <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 animate-slide-up pb-24 md:pb-8">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2">
             <Briefcase className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold gradient-text">Portfolio</h1>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
             <Button 
               size="sm" 
               variant="outline"
               onClick={handleRefresh}
               disabled={isRefreshing}
+              className="w-full sm:w-auto"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <Button 
               size="sm" 
-              className="bg-gradient-primary"
+              className="bg-gradient-primary w-full sm:w-auto"
               onClick={handleAddPosition}
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -203,7 +192,7 @@ const Portfolio = () => {
           <CardHeader>
             <CardTitle>Portfolio Summary</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Total Value</p>
               <div className="flex flex-col">
@@ -268,8 +257,8 @@ const Portfolio = () => {
                       const pnlPercent = totalInvestment > 0 ? (pnl / totalInvestment) * 100 : 0;
                       
                       return (
-                        <div key={position.id} className="flex items-center justify-between p-4 border rounded-lg glass">
-                          <div>
+                        <div key={position.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border rounded-lg glass">
+                          <div className="flex-1">
                             <h3 className="font-semibold">{position.symbol}</h3>
                             <p className="text-sm text-muted-foreground">{position.coin_name}</p>
                             <p className="text-sm">Amount: {Number(position.amount).toFixed(6)}</p>
@@ -278,7 +267,7 @@ const Portfolio = () => {
                               <div>₹{(Number(position.buy_price) * usdToInrRate).toFixed(2)}</div>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right md:min-w-[240px]">
                             <div className="mb-2">
                               <div className="flex flex-col">
                                 <p className="text-lg font-bold">${currentValue.toFixed(2)}</p>
@@ -302,6 +291,7 @@ const Portfolio = () => {
                               <Button 
                                 size="sm" 
                                 variant="destructive"
+                                className="w-full md:w-auto"
                                 onClick={() => closePosition(position)}
                               >
                                 Close
@@ -366,7 +356,7 @@ const Portfolio = () => {
                       const createdDate = new Date(trade.created_at).toLocaleDateString();
                       
                       return (
-                        <div key={trade.id} className="flex items-center justify-between p-4 border rounded-lg glass">
+                        <div key={trade.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border rounded-lg glass">
                           <div>
                             <h3 className="font-semibold">{trade.symbol}</h3>
                             <p className="text-sm text-muted-foreground">{trade.coin_name}</p>
