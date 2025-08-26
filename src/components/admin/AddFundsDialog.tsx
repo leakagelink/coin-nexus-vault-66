@@ -47,27 +47,65 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
     console.log("Admin adding funds", { target_user_id: userId, amount: value, admin_id: user.id });
     
     try {
-      // Call the admin_add_funds function
-      // Cast supabase to any temporarily because the generated Database types
-      // might not yet include the new RPC (admin_add_funds).
-      const { data, error } = await (supabase as any).rpc('admin_add_funds', {
-        target_user_id: userId,
-        amount: value,
-        admin_id: user.id,
-        notes: notes || "Admin credit",
-      });
-      
-      if (error) {
-        console.error("Admin add funds error:", error);
-        toast({
-          title: "Add funds failed",
-          description: error.message,
-          variant: "destructive",
+      // First, ensure the wallet exists for the user
+      const { data: existingWallet, error: walletCheckError } = await supabase
+        .from('wallets')
+        .select('id, balance')
+        .eq('user_id', userId)
+        .single();
+
+      if (walletCheckError && walletCheckError.code !== 'PGRST116') {
+        console.error("Wallet check error:", walletCheckError);
+        throw walletCheckError;
+      }
+
+      // If wallet doesn't exist, create one first
+      if (!existingWallet) {
+        const { error: createWalletError } = await supabase
+          .from('wallets')
+          .insert({
+            user_id: userId,
+            balance: 0,
+            currency: 'INR'
+          });
+
+        if (createWalletError) {
+          console.error("Create wallet error:", createWalletError);
+          throw createWalletError;
+        }
+      }
+
+      // Now update the wallet balance
+      const { error: updateError } = await supabase
+        .from('wallets')
+        .update({
+          balance: (existingWallet?.balance || 0) + value,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error("Update wallet error:", updateError);
+        throw updateError;
+      }
+
+      // Create transaction record
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          transaction_type: 'deposit',
+          amount: value,
+          total_value: value,
+          status: 'completed'
         });
-        return;
+
+      if (transactionError) {
+        console.error("Transaction record error:", transactionError);
+        throw transactionError;
       }
       
-      console.log("Add funds success:", data);
+      console.log("Add funds success");
       toast({
         title: "Funds added successfully",
         description: `₹${value.toLocaleString("en-IN")} added to ${userLabel || "user"}.`,
