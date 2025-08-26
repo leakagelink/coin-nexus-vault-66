@@ -28,6 +28,21 @@ const Portfolio = () => {
         .eq('user_id', user?.id);
       
       if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: walletData } = useQuery({
+    queryKey: ['wallet', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user?.id)
+        .single();
+      
+      if (error) throw error;
       return data;
     },
     enabled: !!user,
@@ -40,7 +55,7 @@ const Portfolio = () => {
   }, 0) || 0;
 
   const totalCost = portfolio?.reduce((total, position) => {
-    return total + (position.amount * position.buy_price);
+    return total + (position.total_investment || (position.amount * position.buy_price));
   }, 0) || 0;
 
   const totalPnL = totalValue - totalCost;
@@ -56,20 +71,15 @@ const Portfolio = () => {
 
   const closePosition = async (position: any) => {
     if (!user) return;
+    
     const symbol = position.symbol;
     const livePrice = prices[symbol]?.price || position.current_price;
     const qty = Number(position.amount);
     const proceeds = qty * livePrice;
+    const currentBalance = Number(walletData?.balance || 0);
 
     try {
-      // Credit wallet
-      const { data: wallet } = await supabase
-        .from('wallets')
-        .select('balance')
-        .eq('user_id', user.id)
-        .single();
-
-      const currentBalance = Number(wallet?.balance || 0);
+      // Credit wallet with proceeds
       const { error: walletErr } = await supabase
         .from('wallets')
         .update({
@@ -79,7 +89,7 @@ const Portfolio = () => {
         .eq('user_id', user.id);
       if (walletErr) throw walletErr;
 
-      // Insert trade record
+      // Insert sell trade record
       const { error: tradeErr } = await supabase.from('trades').insert({
         user_id: user.id,
         symbol,
@@ -99,9 +109,12 @@ const Portfolio = () => {
         .eq('id', position.id);
       if (posErr) throw posErr;
 
+      const pnl = proceeds - (position.total_investment || (qty * position.buy_price));
+      const pnlPercent = position.total_investment > 0 ? (pnl / position.total_investment) * 100 : 0;
+
       toast({
         title: 'Position closed',
-        description: `Sold ${qty.toFixed(6)} ${symbol} at ${livePrice.toFixed(4)} USDT`,
+        description: `Sold ${qty.toFixed(6)} ${symbol} at ${livePrice.toFixed(4)} USDT. P&L: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USDT (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)`,
       });
 
       refetch();
@@ -137,7 +150,7 @@ const Portfolio = () => {
           <CardHeader>
             <CardTitle>Portfolio Summary</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Total Value</p>
               <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
@@ -145,6 +158,10 @@ const Portfolio = () => {
             <div>
               <p className="text-sm text-muted-foreground">Total Cost</p>
               <p className="text-2xl font-bold">${totalCost.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Available Balance</p>
+              <p className="text-2xl font-bold">${Number(walletData?.balance || 0).toFixed(2)}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">P&L</p>
@@ -181,29 +198,31 @@ const Portfolio = () => {
                   <div className="space-y-4">
                     {portfolio.map((position) => {
                       const livePrice = prices[position.symbol]?.price || position.current_price;
-                      const pnl = (livePrice - position.buy_price) * position.amount;
-                      const pnlPercent = ((livePrice - position.buy_price) / position.buy_price) * 100;
+                      const totalInvestment = position.total_investment || (position.amount * position.buy_price);
+                      const currentValue = position.amount * livePrice;
+                      const pnl = currentValue - totalInvestment;
+                      const pnlPercent = totalInvestment > 0 ? (pnl / totalInvestment) * 100 : 0;
                       
                       return (
                         <div key={position.id} className="flex items-center justify-between p-4 border rounded-lg glass">
                           <div>
                             <h3 className="font-semibold">{position.symbol}</h3>
                             <p className="text-sm text-muted-foreground">{position.coin_name}</p>
-                            <p className="text-sm">Amount: {position.amount}</p>
+                            <p className="text-sm">Amount: {Number(position.amount).toFixed(6)}</p>
+                            <p className="text-xs text-muted-foreground">Avg: ${Number(position.buy_price).toFixed(4)}</p>
                           </div>
                           <div className="text-right">
                             <div className="mb-2">
-                              <p className="text-lg font-bold">${(livePrice * position.amount).toFixed(2)}</p>
+                              <p className="text-lg font-bold">${currentValue.toFixed(2)}</p>
                               <p className="text-sm text-muted-foreground">${livePrice.toFixed(4)} each</p>
                             </div>
                             <PriceDisplay
-                              price={livePrice * position.amount}
+                              price={currentValue}
                               change={pnl}
                               changePercent={pnlPercent}
                               symbol="USD"
                               size="sm"
                             />
-                            <p className="text-xs text-muted-foreground mt-1">Avg: ${position.buy_price.toFixed(4)}</p>
                             <div className="mt-3">
                               <Button 
                                 size="sm" 
@@ -276,7 +295,11 @@ const Portfolio = () => {
         <AddCryptoModal
           isOpen={showAddCryptoModal}
           onClose={() => setShowAddCryptoModal(false)}
-          onCryptoAdded={() => {}}
+          onCryptoAdded={() => {
+            refetch();
+            setShowAddCryptoModal(false);
+          }}
+          mode="trading"
         />
       </div>
     </Layout>

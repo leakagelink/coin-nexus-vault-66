@@ -1,14 +1,9 @@
 
-import { useState } from 'react';
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { PriceDisplay } from "@/components/ui/price-display";
 import { Button } from "@/components/ui/button";
-import { Star, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { TrendingUp, TrendingDown, Plus } from "lucide-react";
 import { TradingModal } from "@/components/trading/trading-modal";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 interface CryptoCardProps {
   symbol: string;
@@ -16,118 +11,67 @@ interface CryptoCardProps {
   price: number;
   change: number;
   changePercent: number;
-  icon?: string;
-  isWatchlisted?: boolean;
-  className?: string;
+  volume?: number;
+  marketCap?: number;
 }
 
-export function CryptoCard({
-  symbol,
-  name,
-  price,
-  change,
+export function CryptoCard({ 
+  symbol, 
+  name, 
+  price, 
+  change, 
   changePercent,
-  icon,
-  isWatchlisted = false,
-  className
+  volume,
+  marketCap 
 }: CryptoCardProps) {
   const [showTradingModal, setShowTradingModal] = useState(false);
-  const [isInWatchlist, setIsInWatchlist] = useState(isWatchlisted);
-  const { user } = useAuth();
-  const { toast } = useToast();
-
-  const handleWatchlistToggle = async () => {
-    if (!user) return;
-
-    try {
-      if (isInWatchlist) {
-        const { error } = await supabase
-          .from('watchlist')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('symbol', symbol);
-
-        if (error) throw error;
-        setIsInWatchlist(false);
-        toast({
-          title: "Removed from watchlist",
-          description: `${symbol} has been removed from your watchlist`,
-        });
-      } else {
-        const { error } = await supabase
-          .from('watchlist')
-          .insert({
-            user_id: user.id,
-            symbol: symbol,
-            coin_name: name,
-            coin_id: symbol.toLowerCase()
-          });
-
-        if (error) throw error;
-        setIsInWatchlist(true);
-        toast({
-          title: "Added to watchlist",
-          description: `${symbol} has been added to your watchlist`,
-        });
-      }
-    } catch (error) {
-      console.error('Error toggling watchlist:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update watchlist",
-        variant: "destructive"
-      });
-    }
-  };
+  const isPositive = change >= 0;
 
   return (
     <>
-      <Card className={cn("glass hover-glow transition-all duration-300 cursor-pointer", className)}>
+      <Card className="glass hover-glow transition-all duration-300 hover:scale-105">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">
-                  {symbol.replace('USDT', '').substring(0, 2)}
-                </span>
-              </div>
-              <div>
-                <h3 className="font-semibold">{symbol.replace('USDT', '')}</h3>
-                <p className="text-sm text-muted-foreground">{name}</p>
-              </div>
+            <div>
+              <h3 className="font-bold text-lg">{symbol}</h3>
+              <p className="text-sm text-muted-foreground">{name}</p>
             </div>
-            
             <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-8 w-8",
-                isInWatchlist ? "text-secondary" : "text-muted-foreground"
-              )}
-              onClick={handleWatchlistToggle}
+              size="sm"
+              onClick={() => setShowTradingModal(true)}
+              className="bg-gradient-primary hover:opacity-90"
             >
-              <Star className={cn("h-4 w-4", isInWatchlist && "fill-current")} />
+              <Plus className="h-4 w-4 mr-1" />
+              Trade
             </Button>
           </div>
           
-          <div className="flex items-center justify-between">
-            <PriceDisplay
-              price={price}
-              change={change}
-              changePercent={changePercent}
-              symbol="USDT"
-              size="sm"
-            />
-            
-            <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                className="bg-gradient-success text-success-foreground hover:opacity-90"
-                onClick={() => setShowTradingModal(true)}
-              >
-                Trade
-              </Button>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold">₹{price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              <div className={`flex items-center gap-1 text-sm font-medium ${
+                isPositive ? 'text-success' : 'text-danger'
+              }`}>
+                {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                {isPositive ? '+' : ''}₹{Math.abs(change).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </div>
             </div>
+            
+            <div className={`text-sm font-medium ${isPositive ? 'text-success' : 'text-danger'}`}>
+              {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
+            </div>
+
+            {volume && (
+              <div className="text-xs text-muted-foreground">
+                Volume: ₹{volume.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </div>
+            )}
+            
+            {marketCap && (
+              <div className="text-xs text-muted-foreground">
+                Market Cap: ₹{marketCap.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
