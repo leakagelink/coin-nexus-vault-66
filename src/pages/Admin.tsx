@@ -7,6 +7,7 @@ import { WithdrawalRequestsTable } from "@/components/admin/WithdrawalRequestsTa
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminUsersTable } from "@/components/admin/AdminUsersTable";
+import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
 
 const Admin = () => {
   const { isAdmin, isLoading } = useIsAdmin();
@@ -23,13 +24,14 @@ const Admin = () => {
           <div className="text-center py-8 text-muted-foreground">Checking permissions...</div>
         ) : isAdmin ? (
           <Tabs defaultValue="deposits" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 glass">
+            <TabsList className="grid w-full grid-cols-4 glass">
               <TabsTrigger value="deposits">Deposits</TabsTrigger>
               <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
               <TabsTrigger value="users" className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
                 Users
               </TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
             <TabsContent value="deposits" className="space-y-4">
@@ -42,6 +44,10 @@ const Admin = () => {
 
             <TabsContent value="users" className="space-y-4">
               <AdminUsersTable />
+            </TabsContent>
+
+            <TabsContent value="settings" className="space-y-4">
+              <AdminPaymentSettings />
             </TabsContent>
           </Tabs>
         ) : (

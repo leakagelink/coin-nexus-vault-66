@@ -7,11 +7,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet as WalletIcon, Plus, Minus, History } from "lucide-react";
 import { DepositModal } from "@/components/wallet/deposit-modal";
 import { WithdrawalModal } from "@/components/wallet/withdrawal-modal";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const Wallet = () => {
   const [depositModalOpen, setDepositModalOpen] = useState(false);
   const [withdrawalModalOpen, setWithdrawalModalOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState('');
+  const { user } = useAuth();
+
+  const { data: wallet, isLoading: balanceLoading } = useQuery({
+    queryKey: ["wallet-balance", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", user?.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+    staleTime: 0,
+  });
 
   const handleDepositMethod = (method: string) => {
     setSelectedMethod(method);
@@ -36,7 +55,9 @@ const Wallet = () => {
             <CardTitle>Available Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold gradient-text mb-4">₹12,345.67</div>
+            <div className="text-3xl font-bold gradient-text mb-4">
+              {balanceLoading ? "Loading..." : `₹${Number(wallet?.balance || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+            </div>
             <div className="flex gap-3">
               <Button className="bg-gradient-success flex-1" onClick={() => setDepositModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />

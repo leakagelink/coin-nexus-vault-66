@@ -4,11 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Copy, CheckCircle } from 'lucide-react';
+import { useAdminSettings } from '@/hooks/useAdminSettings';
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -25,60 +25,71 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [step, setStep] = useState<'amount' | 'payment' | 'confirm'>('amount');
 
+  const { settings, isLoading: settingsLoading } = useAdminSettings();
+
   const getPaymentDetails = (method: string, amount: string) => {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) return null;
 
-    switch (method) {
-      case 'UPI':
-        return {
-          method: 'UPI',
-          upiId: 'crypto@paytm',
-          amount: amt,
-          qrCode: `upi://pay?pa=crypto@paytm&pn=CryptoExchange&am=${amt}&cu=INR`,
-          instructions: [
-            'Open your UPI app (PhonePe, Google Pay, Paytm, etc.)',
-            'Scan the QR code or pay to UPI ID: crypto@paytm',
-            `Send exactly ₹${amt.toFixed(2)}`,
-            'Copy the transaction ID from your app',
-            'Submit the transaction ID below'
-          ]
-        };
-      case 'Bank Account':
-        return {
-          method: 'Bank Transfer',
-          bankDetails: {
-            accountName: 'Crypto Exchange India Pvt Ltd',
-            accountNumber: '1234567890123456',
-            ifscCode: 'HDFC0001234',
-            bankName: 'HDFC Bank'
-          },
-          amount: amt,
-          instructions: [
-            'Login to your net banking or visit branch',
-            'Transfer money to the account details shown',
-            `Send exactly ₹${amt.toFixed(2)}`,
-            'Use your registered mobile number as reference',
-            'Copy the transaction reference number',
-            'Submit the transaction ID below'
-          ]
-        };
-      case 'USDT':
-        return {
-          method: 'USDT (TRC20)',
-          walletAddress: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE',
-          amount: (amt / 83.5).toFixed(6), // Approximate USDT conversion
-          instructions: [
-            'Send USDT (TRC20) to the wallet address shown',
-            `Send exactly ${(amt / 83.5).toFixed(6)} USDT`,
-            'Network: TRON (TRC20)',
-            'Copy the transaction hash (TXID)',
-            'Submit the transaction hash below'
-          ]
-        };
-      default:
-        return null;
+    if (method === 'UPI') {
+      const s = settings?.upi_details || {};
+      if (!s.upi_id) return null;
+      return {
+        method: 'UPI',
+        upiId: s.upi_id,
+        amount: amt,
+        qrCode: s.qr_code || '',
+        instructions: (s.instructions && Array.isArray(s.instructions)) ? s.instructions : [
+          'Open your UPI app (PhonePe, Google Pay, Paytm, etc.)',
+          `Pay to UPI ID: ${s.upi_id}`,
+          `Send exactly ₹${amt.toFixed(2)}`,
+          'Copy the transaction ID from your app',
+          'Submit the transaction ID below'
+        ]
+      };
     }
+
+    if (method === 'Bank Account') {
+      const b = settings?.bank_details || {};
+      if (!b.account_number || !b.ifsc || !b.account_holder || !b.bank_name) return null;
+      return {
+        method: 'Bank Transfer',
+        bankDetails: {
+          accountName: b.account_holder,
+          accountNumber: b.account_number,
+          ifscCode: b.ifsc,
+          bankName: b.bank_name
+        },
+        amount: amt,
+        instructions: (b.instructions && Array.isArray(b.instructions)) ? b.instructions : [
+          'Login to your net banking or visit branch',
+          'Transfer money to the account details shown',
+          `Send exactly ₹${amt.toFixed(2)}`,
+          'Use your registered mobile number as reference',
+          'Copy the transaction reference number',
+          'Submit the transaction ID below'
+        ]
+      };
+    }
+
+    if (method === 'USDT') {
+      const u = settings?.usdt_details || {};
+      if (!u.wallet_address) return null;
+      return {
+        method: u.network ? `USDT (${u.network})` : 'USDT',
+        walletAddress: u.wallet_address,
+        amount: (amt / 83.5).toFixed(6), // Approx conversion
+        instructions: (u.instructions && Array.isArray(u.instructions)) ? u.instructions : [
+          `Send USDT ${u.network || ''} to the wallet address shown`,
+          `Send exactly ${(amt / 83.5).toFixed(6)} USDT`,
+          `Network: ${u.network || 'TRC20'}`,
+          'Copy the transaction hash (TXID)',
+          'Submit the transaction hash below'
+        ]
+      };
+    }
+
+    return null;
   };
 
   const handleProceed = () => {
@@ -91,10 +102,24 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
       return;
     }
 
+    if (settingsLoading) {
+      toast({
+        title: "Please wait",
+        description: "Loading payment details...",
+      });
+      return;
+    }
+
     const details = getPaymentDetails(method, amount);
     if (details) {
       setPaymentDetails(details);
       setStep('payment');
+    } else {
+      toast({
+        title: "Payment details unavailable",
+        description: "Please contact support or try again later.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -180,7 +205,7 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
             </div>
             
             <Button onClick={handleProceed} className="w-full bg-gradient-primary">
-              Proceed to Payment
+              {settingsLoading ? "Loading..." : "Proceed to Payment"}
             </Button>
           </div>
         )}
