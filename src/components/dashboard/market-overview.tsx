@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
-import { useCMCPrices } from "@/hooks/useCMCPrices";
+import { useLCWPrices } from "@/hooks/useLCWPrices";
 import { Loader2 } from "lucide-react";
 
 const cryptoMapping = {
@@ -14,7 +14,7 @@ const cryptoMapping = {
 };
 
 export function MarketOverview() {
-  const { prices, isLoading, error } = useCMCPrices();
+  const { prices, isLoading, error } = useLCWPrices();
 
   if (isLoading) {
     return (
@@ -25,7 +25,7 @@ export function MarketOverview() {
         <CardContent>
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2">Loading live prices from CoinMarketCap...</span>
+            <span className="ml-2">Loading live prices from LiveCoinWatch...</span>
           </div>
         </CardContent>
       </Card>
@@ -51,7 +51,7 @@ export function MarketOverview() {
     <Card className="glass">
       <CardHeader>
         <CardTitle className="gradient-text">Live Market Prices</CardTitle>
-        <p className="text-sm text-muted-foreground">Real-time data from CoinMarketCap</p>
+        <p className="text-sm text-muted-foreground">Real-time data from LiveCoinWatch</p>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

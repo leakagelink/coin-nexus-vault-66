@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,12 +8,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PriceDisplay } from "@/components/ui/price-display";
-import { useCMCPrices } from "@/hooks/useCMCPrices";
+import { useLCWPrices } from "@/hooks/useLCWPrices";
 import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
 
 const Portfolio = () => {
   const { user } = useAuth();
-  const { prices } = useCMCPrices();
+  const { prices } = useLCWPrices();
   const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
 
   const { data: portfolio, isLoading } = useQuery({
@@ -31,7 +30,7 @@ const Portfolio = () => {
     enabled: !!user,
   });
 
-  // Calculate total portfolio value using CoinMarketCap prices
+  // Calculate total portfolio value using LiveCoinWatch prices
   const totalValue = portfolio?.reduce((total, position) => {
     const livePrice = prices[position.symbol]?.price || position.current_price;
     return total + (position.amount * livePrice);
@@ -70,7 +69,6 @@ const Portfolio = () => {
           </Button>
         </div>
 
-        {/* Portfolio Summary */}
         <Card className="glass">
           <CardHeader>
             <CardTitle>Portfolio Summary</CardTitle>
