@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,10 +10,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PriceDisplay } from "@/components/ui/price-display";
 import { useCMCPrices } from "@/hooks/useCMCPrices";
+import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
 
 const Portfolio = () => {
   const { user } = useAuth();
   const { prices } = useCMCPrices();
+  const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['portfolio', user?.id],
@@ -41,6 +44,14 @@ const Portfolio = () => {
   const totalPnL = totalValue - totalCost;
   const totalPnLPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
 
+  const handleStartTrading = () => {
+    setShowAddCryptoModal(true);
+  };
+
+  const handleAddPosition = () => {
+    setShowAddCryptoModal(true);
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
@@ -49,7 +60,11 @@ const Portfolio = () => {
             <Briefcase className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold gradient-text">Portfolio</h1>
           </div>
-          <Button size="sm" className="bg-gradient-primary">
+          <Button 
+            size="sm" 
+            className="bg-gradient-primary"
+            onClick={handleAddPosition}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Position
           </Button>
@@ -135,7 +150,10 @@ const Portfolio = () => {
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground">No active positions</p>
-                    <Button className="mt-4 bg-gradient-primary">
+                    <Button 
+                      className="mt-4 bg-gradient-primary"
+                      onClick={handleStartTrading}
+                    >
                       Start Trading
                     </Button>
                   </div>
@@ -183,6 +201,12 @@ const Portfolio = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <AddCryptoModal
+          isOpen={showAddCryptoModal}
+          onClose={() => setShowAddCryptoModal(false)}
+          onCryptoAdded={() => {}}
+        />
       </div>
     </Layout>
   );

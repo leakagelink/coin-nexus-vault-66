@@ -1,11 +1,28 @@
 
+import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wallet as WalletIcon, Plus, Minus, History } from "lucide-react";
+import { DepositModal } from "@/components/wallet/deposit-modal";
+import { WithdrawalModal } from "@/components/wallet/withdrawal-modal";
 
 const Wallet = () => {
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
+  const [withdrawalModalOpen, setWithdrawalModalOpen] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState('');
+
+  const handleDepositMethod = (method: string) => {
+    setSelectedMethod(method);
+    setDepositModalOpen(true);
+  };
+
+  const handleWithdrawMethod = (method: string) => {
+    setSelectedMethod(method);
+    setWithdrawalModalOpen(true);
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
@@ -21,11 +38,11 @@ const Wallet = () => {
           <CardContent>
             <div className="text-3xl font-bold gradient-text mb-4">₹12,345.67</div>
             <div className="flex gap-3">
-              <Button className="bg-gradient-success flex-1">
+              <Button className="bg-gradient-success flex-1" onClick={() => setDepositModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Deposit
               </Button>
-              <Button variant="outline" className="flex-1">
+              <Button variant="outline" className="flex-1" onClick={() => setWithdrawalModalOpen(true)}>
                 <Minus className="h-4 w-4 mr-2" />
                 Withdraw
               </Button>
@@ -46,15 +63,27 @@ const Wallet = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button variant="outline" className="h-20 flex-col">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col"
+                    onClick={() => handleDepositMethod('UPI')}
+                  >
                     <span className="text-2xl mb-2">🏦</span>
                     <span>UPI</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col"
+                    onClick={() => handleDepositMethod('Bank Account')}
+                  >
                     <span className="text-2xl mb-2">💳</span>
                     <span>Bank Account</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col"
+                    onClick={() => handleDepositMethod('USDT')}
+                  >
                     <span className="text-2xl mb-2">₮</span>
                     <span>USDT</span>
                   </Button>
@@ -70,15 +99,27 @@ const Wallet = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button variant="outline" className="h-20 flex-col">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col"
+                    onClick={() => handleWithdrawMethod('UPI')}
+                  >
                     <span className="text-2xl mb-2">🏦</span>
                     <span>UPI</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col"
+                    onClick={() => handleWithdrawMethod('Bank Account')}
+                  >
                     <span className="text-2xl mb-2">💳</span>
                     <span>Bank Account</span>
                   </Button>
-                  <Button variant="outline" className="h-20 flex-col">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex-col"
+                    onClick={() => handleWithdrawMethod('USDT')}
+                  >
                     <span className="text-2xl mb-2">₮</span>
                     <span>USDT</span>
                   </Button>
@@ -101,6 +142,18 @@ const Wallet = () => {
             </div>
           </CardContent>
         </Card>
+
+        <DepositModal
+          isOpen={depositModalOpen}
+          onClose={() => setDepositModalOpen(false)}
+          method={selectedMethod}
+        />
+
+        <WithdrawalModal
+          isOpen={withdrawalModalOpen}
+          onClose={() => setWithdrawalModalOpen(false)}
+          method={selectedMethod}
+        />
       </div>
     </Layout>
   );

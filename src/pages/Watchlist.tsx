@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "@/components/dashboard/crypto-card";
@@ -7,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
 
 const Watchlist = () => {
   const { user } = useAuth();
+  const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
 
-  const { data: watchlist, isLoading } = useQuery({
+  const { data: watchlist, isLoading, refetch } = useQuery({
     queryKey: ['watchlist', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -36,6 +39,10 @@ const Watchlist = () => {
     return mockData[symbol] || { price: 0, change: 0, changePercent: 0 };
   };
 
+  const handleCryptoAdded = () => {
+    refetch();
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
@@ -44,7 +51,11 @@ const Watchlist = () => {
             <Eye className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold gradient-text">Watchlist</h1>
           </div>
-          <Button size="sm" className="bg-gradient-primary">
+          <Button 
+            size="sm" 
+            className="bg-gradient-primary"
+            onClick={() => setShowAddCryptoModal(true)}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Crypto
           </Button>
@@ -79,7 +90,10 @@ const Watchlist = () => {
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">No cryptocurrencies in your watchlist</p>
-                <Button className="mt-4 bg-gradient-primary">
+                <Button 
+                  className="mt-4 bg-gradient-primary"
+                  onClick={() => setShowAddCryptoModal(true)}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Your First Crypto
                 </Button>
@@ -87,6 +101,12 @@ const Watchlist = () => {
             )}
           </CardContent>
         </Card>
+
+        <AddCryptoModal
+          isOpen={showAddCryptoModal}
+          onClose={() => setShowAddCryptoModal(false)}
+          onCryptoAdded={handleCryptoAdded}
+        />
       </div>
     </Layout>
   );
