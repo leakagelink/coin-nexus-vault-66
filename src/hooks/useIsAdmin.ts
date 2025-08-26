@@ -16,9 +16,13 @@ export function useIsAdmin() {
         .eq("id", user.id)
         .single();
       if (error) throw error;
+      console.log("Fetched profile role:", data?.role);
       return data;
     },
     enabled: !!user,
+    // Ensure fresh role after promotion
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const isAdmin = profile?.role === "admin";
