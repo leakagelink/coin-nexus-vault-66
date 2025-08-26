@@ -4,9 +4,10 @@ import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet as WalletIcon, Plus, Minus, History } from "lucide-react";
+import { Wallet as WalletIcon, Plus, Minus } from "lucide-react";
 import { DepositModal } from "@/components/wallet/deposit-modal";
 import { WithdrawalModal } from "@/components/wallet/withdrawal-modal";
+import { TransactionHistory } from "@/components/wallet/transaction-history";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +43,9 @@ const Wallet = () => {
     setWithdrawalModalOpen(true);
   };
 
+  const inrBalance = Number(wallet?.balance || 0);
+  const usdtBalance = inrBalance / 84; // 1 USD ≈ 84 INR
+
   return (
     <Layout>
       <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
@@ -55,8 +59,13 @@ const Wallet = () => {
             <CardTitle>Available Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold gradient-text mb-4">
-              {balanceLoading ? "Loading..." : `₹${Number(wallet?.balance || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+            <div className="space-y-2 mb-4">
+              <div className="text-3xl font-bold gradient-text">
+                {balanceLoading ? "Loading..." : `₹${inrBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+              </div>
+              <div className="text-lg text-muted-foreground">
+                ${usdtBalance.toFixed(2)} USDT
+              </div>
             </div>
             <div className="flex gap-3">
               <Button className="bg-gradient-success flex-1" onClick={() => setDepositModalOpen(true)}>
@@ -150,19 +159,7 @@ const Wallet = () => {
           </TabsContent>
         </Tabs>
 
-        <Card className="glass">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Transaction History
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No transactions found</p>
-            </div>
-          </CardContent>
-        </Card>
+        <TransactionHistory />
 
         <DepositModal
           isOpen={depositModalOpen}

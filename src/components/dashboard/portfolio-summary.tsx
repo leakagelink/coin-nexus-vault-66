@@ -58,6 +58,7 @@ export function PortfolioSummary() {
     enabled: !!user,
   });
 
+  const walletBalance = Number(wallet?.balance || 0);
   const totalInvestment = positions?.reduce((sum, pos) => sum + Number(pos.total_investment || 0), 0) || 0;
   const totalCurrentValue = positions?.reduce((sum, pos) => sum + Number(pos.current_value || 0), 0) || 0;
   const totalPnL = totalCurrentValue - totalInvestment;
@@ -66,7 +67,8 @@ export function PortfolioSummary() {
   const stats = [
     {
       title: "Wallet Balance",
-      value: wallet?.balance || 0,
+      value: walletBalance,
+      usdtValue: walletBalance / 84,
       icon: Wallet,
       change: 0,
       changeType: "neutral" as const,
@@ -74,6 +76,7 @@ export function PortfolioSummary() {
     {
       title: "Total Investment",
       value: totalInvestment,
+      usdtValue: totalInvestment / 84,
       icon: Activity,
       change: 0,
       changeType: "neutral" as const,
@@ -81,6 +84,7 @@ export function PortfolioSummary() {
     {
       title: "Current Value",
       value: totalCurrentValue,
+      usdtValue: totalCurrentValue / 84,
       icon: totalPnL >= 0 ? TrendingUp : TrendingDown,
       change: totalPnLPercent,
       changeType: totalPnL >= 0 ? "positive" : "negative" as const,
@@ -88,6 +92,7 @@ export function PortfolioSummary() {
     {
       title: "Total P&L",
       value: totalPnL,
+      usdtValue: totalPnL / 84,
       icon: totalPnL >= 0 ? TrendingUp : TrendingDown,
       change: totalPnLPercent,
       changeType: totalPnL >= 0 ? "positive" : "negative" as const,
@@ -109,11 +114,12 @@ export function PortfolioSummary() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-1">
-                  <PriceDisplay 
-                    amount={stat.value} 
-                    showDualCurrency={true}
-                    className="text-2xl font-bold" 
-                  />
+                  <div className="text-2xl font-bold">
+                    ₹{stat.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    ${stat.usdtValue.toFixed(2)} USDT
+                  </div>
                   {stat.change !== 0 && (
                     <p className={`text-xs flex items-center gap-1 ${
                       stat.changeType === 'positive' ? 'text-green-600' : 
@@ -153,7 +159,12 @@ export function PortfolioSummary() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <PriceDisplay amount={trade.total_amount} showDualCurrency={true} />
+                    <div className="font-semibold">
+                      ₹{Number(trade.total_amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      ${(Number(trade.total_amount) / 84).toFixed(2)} USDT
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {new Date(trade.created_at).toLocaleDateString()}
                     </p>
