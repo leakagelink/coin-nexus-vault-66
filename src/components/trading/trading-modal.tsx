@@ -43,7 +43,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
       // Check if user already has this crypto in portfolio
       const { data: existingPosition } = await supabase
-        .from('portfolio')
+        .from('portfolio_positions')
         .select('*')
         .eq('user_id', user.id)
         .eq('symbol', symbol.replace('USDT', ''))
@@ -52,13 +52,13 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       if (existingPosition) {
         // Update existing position
         const newQuantity = existingPosition.quantity + qty;
-        const newAvgPrice = ((existingPosition.quantity * existingPosition.avg_price) + totalCost) / newQuantity;
+        const newAvgPrice = ((existingPosition.quantity * existingPosition.average_price) + totalCost) / newQuantity;
         
         const { error } = await supabase
-          .from('portfolio')
+          .from('portfolio_positions')
           .update({
             quantity: newQuantity,
-            avg_price: newAvgPrice,
+            average_price: newAvgPrice,
             current_price: buyPrice,
             updated_at: new Date().toISOString()
           })
@@ -68,13 +68,13 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       } else {
         // Create new position
         const { error } = await supabase
-          .from('portfolio')
+          .from('portfolio_positions')
           .insert({
             user_id: user.id,
             symbol: symbol.replace('USDT', ''),
-            name: name,
+            coin_name: name,
             quantity: qty,
-            avg_price: buyPrice,
+            average_price: buyPrice,
             current_price: buyPrice
           });
 
@@ -117,7 +117,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       
       // Check existing position
       const { data: existingPosition } = await supabase
-        .from('portfolio')
+        .from('portfolio_positions')
         .select('*')
         .eq('user_id', user.id)
         .eq('symbol', symbol.replace('USDT', ''))
@@ -146,7 +146,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       if (newQuantity === 0) {
         // Delete position if quantity becomes 0
         const { error } = await supabase
-          .from('portfolio')
+          .from('portfolio_positions')
           .delete()
           .eq('id', existingPosition.id);
 
@@ -154,7 +154,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       } else {
         // Update position
         const { error } = await supabase
-          .from('portfolio')
+          .from('portfolio_positions')
           .update({
             quantity: newQuantity,
             current_price: sellPrice,
