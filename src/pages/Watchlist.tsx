@@ -9,10 +9,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
+import { useLCWPrices } from "@/hooks/useLCWPrices";
 
 const Watchlist = () => {
   const { user } = useAuth();
   const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
+  const { prices, isLoading: pricesLoading } = useLCWPrices();
 
   const { data: watchlist, isLoading, refetch } = useQuery({
     queryKey: ['watchlist', user?.id],
@@ -27,17 +29,6 @@ const Watchlist = () => {
     },
     enabled: !!user,
   });
-
-  // Mock data for crypto prices (in real app, this would come from an API)
-  const getCryptoData = (symbol: string) => {
-    const mockData: Record<string, any> = {
-      'BTC': { price: 4325678, change: 125420, changePercent: 2.98 },
-      'ETH': { price: 198765, change: -3245, changePercent: -1.61 },
-      'USDT': { price: 83.45, change: 0.12, changePercent: 0.14 },
-      'BNB': { price: 45632, change: 892, changePercent: 1.99 },
-    };
-    return mockData[symbol] || { price: 0, change: 0, changePercent: 0 };
-  };
 
   const handleCryptoAdded = () => {
     refetch();
@@ -66,22 +57,38 @@ const Watchlist = () => {
             <CardTitle>Your Watchlist</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isLoading || pricesLoading ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">Loading...</p>
               </div>
             ) : watchlist && watchlist.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {watchlist.map((item) => {
-                  const cryptoData = getCryptoData(item.symbol);
+                  const livePrice = prices[item.symbol];
+                  if (!livePrice) {
+                    return (
+                      <div key={item.id} className="p-4 border rounded-lg glass">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold">{item.symbol}</h3>
+                            <p className="text-sm text-muted-foreground">{item.coin_name}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Price not available</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
                   return (
                     <CryptoCard
                       key={item.id}
                       symbol={item.symbol}
                       name={item.coin_name}
-                      price={cryptoData.price}
-                      change={cryptoData.change}
-                      changePercent={cryptoData.changePercent}
+                      price={livePrice.price}
+                      change={livePrice.change24h}
+                      changePercent={livePrice.change24h}
                       isWatchlisted={true}
                     />
                   );

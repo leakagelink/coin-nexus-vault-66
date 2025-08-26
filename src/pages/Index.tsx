@@ -9,7 +9,7 @@ const Index = () => {
       <div className="space-y-8 animate-slide-up">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold gradient-text mb-2">
-            Welcome to CryptoTrade
+            Welcome to Nadex
           </h1>
           <p className="text-muted-foreground">
             Your gateway to cryptocurrency trading
