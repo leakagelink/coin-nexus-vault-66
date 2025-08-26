@@ -24,13 +24,42 @@ export function AdminUsersTable() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-users-overview"],
     queryFn: async () => {
-      // The admin_users_overview is a view; to avoid TS type issues with Supabase types, cast client to any
-      const { data, error } = await (supabase as any)
-        .from("admin_users_overview")
-        .select("*")
-        .order("registered_at", { ascending: false });
-      if (error) throw error;
-      return data as AdminUser[];
+      console.log("Fetching admin users overview...");
+      
+      // Query the profiles table with wallet data joined
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(`
+          id,
+          email,
+          display_name,
+          role,
+          created_at,
+          wallets(balance, currency, updated_at)
+        `)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Query error:", error);
+        throw error;
+      }
+      
+      console.log("Raw profiles data:", data);
+      
+      // Transform the data to match AdminUser type
+      const transformedData: AdminUser[] = data.map(profile => ({
+        id: profile.id,
+        email: profile.email,
+        display_name: profile.display_name,
+        role: profile.role,
+        registered_at: profile.created_at,
+        wallet_balance: profile.wallets?.[0]?.balance || 0,
+        currency: profile.wallets?.[0]?.currency || 'INR',
+        wallet_last_updated: profile.wallets?.[0]?.updated_at || null,
+      }));
+      
+      console.log("Transformed data:", transformedData);
+      return transformedData;
     },
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -51,11 +80,11 @@ export function AdminUsersTable() {
   return (
     <Card className="glass">
       <CardHeader>
-        <CardTitle>Users</CardTitle>
+        <CardTitle>Users ({data?.length || 0})</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="text-center py-6 text-muted-foreground">Loading...</div>
+          <div className="text-center py-6 text-muted-foreground">Loading users...</div>
         ) : data && data.length > 0 ? (
           <div className="w-full overflow-x-auto">
             <Table>
@@ -90,7 +119,10 @@ export function AdminUsersTable() {
             </Table>
           </div>
         ) : (
-          <div className="text-center py-6 text-muted-foreground">No users found</div>
+          <div className="text-center py-6 text-muted-foreground">
+            <p>No users found</p>
+            <p className="text-sm mt-2">New users will appear here after registration</p>
+          </div>
         )}
       </CardContent>
     </Card>

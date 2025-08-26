@@ -24,7 +24,15 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
   const { user } = useAuth();
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please login to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const value = parseFloat(amount);
     if (isNaN(value) || value <= 0) {
       toast({
@@ -34,34 +42,53 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
       });
       return;
     }
+    
     setSubmitting(true);
     console.log("Admin adding funds", { target_user_id: userId, amount: value, admin_id: user.id });
     
-    // Use the generic rpc method since TypeScript doesn't know about our custom function yet
-    const { data, error } = await supabase.rpc('admin_add_funds' as any, {
-      target_user_id: userId,
-      amount: value,
-      admin_id: user.id,
-      notes: notes || "Admin credit",
-    });
-    
-    setSubmitting(false);
-    if (error) {
-      console.error("Admin add funds error:", error);
+    try {
+      // Call the admin_add_funds function
+      const { data, error } = await supabase.rpc('admin_add_funds', {
+        target_user_id: userId,
+        amount: value,
+        admin_id: user.id,
+        notes: notes || "Admin credit",
+      });
+      
+      if (error) {
+        console.error("Admin add funds error:", error);
+        toast({
+          title: "Add funds failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log("Add funds success:", data);
+      toast({
+        title: "Funds added successfully",
+        description: `₹${value.toLocaleString("en-IN")} added to ${userLabel || "user"}.`,
+      });
+      
+      setOpen(false);
+      setAmount("");
+      setNotes("Admin credit");
+      
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+    } catch (error: any) {
+      console.error("Exception in add funds:", error);
       toast({
         title: "Add funds failed",
-        description: error.message,
+        description: error.message || "An unexpected error occurred.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setSubmitting(false);
     }
-    toast({
-      title: "Funds added",
-      description: `₹${value.toLocaleString("en-IN")} added to ${userLabel || "user"}.`,
-    });
-    setOpen(false);
-    setAmount("");
-    if (onSuccess) onSuccess();
   };
 
   return (
@@ -101,7 +128,9 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+            Cancel
+          </Button>
           <Button onClick={handleSubmit} disabled={submitting} className="bg-gradient-success">
             {submitting ? "Processing..." : "Confirm"}
           </Button>
