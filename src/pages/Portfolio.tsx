@@ -8,11 +8,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PriceDisplay } from "@/components/ui/price-display";
-import { useLivePrices } from "@/hooks/useLivePrices";
+import { useCMCPrices } from "@/hooks/useCMCPrices";
 
 const Portfolio = () => {
   const { user } = useAuth();
-  const { prices } = useLivePrices();
+  const { prices } = useCMCPrices();
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['portfolio', user?.id],
@@ -28,9 +28,9 @@ const Portfolio = () => {
     enabled: !!user,
   });
 
-  // Calculate total portfolio value
+  // Calculate total portfolio value using CoinMarketCap prices
   const totalValue = portfolio?.reduce((total, position) => {
-    const livePrice = prices[`${position.symbol}USDT`]?.price || position.current_price;
+    const livePrice = prices[position.symbol]?.price || position.current_price;
     return total + (position.amount * livePrice);
   }, 0) || 0;
 
@@ -103,7 +103,7 @@ const Portfolio = () => {
                 ) : portfolio && portfolio.length > 0 ? (
                   <div className="space-y-4">
                     {portfolio.map((position) => {
-                      const livePrice = prices[`${position.symbol}USDT`]?.price || position.current_price;
+                      const livePrice = prices[position.symbol]?.price || position.current_price;
                       const pnl = (livePrice - position.buy_price) * position.amount;
                       const pnlPercent = ((livePrice - position.buy_price) / position.buy_price) * 100;
                       
