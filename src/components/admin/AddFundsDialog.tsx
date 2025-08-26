@@ -48,7 +48,9 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
     
     try {
       // Call the admin_add_funds function
-      const { data, error } = await supabase.rpc('admin_add_funds', {
+      // Cast supabase to any temporarily because the generated Database types
+      // might not yet include the new RPC (admin_add_funds).
+      const { data, error } = await (supabase as any).rpc('admin_add_funds', {
         target_user_id: userId,
         amount: value,
         admin_id: user.id,

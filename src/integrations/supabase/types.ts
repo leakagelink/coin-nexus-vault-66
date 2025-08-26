@@ -425,6 +425,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_add_funds: {
+        Args: {
+          admin_id: string
+          amount: number
+          notes?: string
+          target_user_id: string
+        }
+        Returns: boolean
+      }
       approve_deposit_request: {
         Args: { admin_id: string; notes?: string; request_id: string }
         Returns: boolean
