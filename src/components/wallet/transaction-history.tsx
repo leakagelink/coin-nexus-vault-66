@@ -151,7 +151,7 @@ export function TransactionHistory() {
                           {transaction.status}
                         </Badge>
                       </div>
-                      {transaction.payment_method && (
+                      {(transaction.type === 'deposit_request' || transaction.type === 'withdrawal_request') && 'payment_method' in transaction && transaction.payment_method && (
                         <p className="text-xs text-muted-foreground">via {transaction.payment_method}</p>
                       )}
                     </div>
