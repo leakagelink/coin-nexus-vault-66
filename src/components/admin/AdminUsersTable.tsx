@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddFundsDialog } from "./AddFundsDialog";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 type AdminUser = {
   id: string;
@@ -35,14 +36,17 @@ export function AdminUsersTable() {
     refetchOnWindowFocus: true,
   });
 
-  if (error) {
-    console.error("Admin users overview error:", error);
-    toast({
-      title: "Failed to load users",
-      description: (error as any)?.message || "Please try again.",
-      variant: "destructive",
-    });
-  }
+  // Move error handling to useEffect to prevent re-render loops
+  useEffect(() => {
+    if (error) {
+      console.error("Admin users overview error:", error);
+      toast({
+        title: "Failed to load users",
+        description: (error as any)?.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   return (
     <Card className="glass">
