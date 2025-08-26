@@ -14,102 +14,345 @@ export type Database = {
   }
   public: {
     Tables: {
-      portfolio: {
+      bank_accounts: {
         Row: {
-          avg_price: number
+          account_holder_name: string
+          account_number: string
+          account_type: string
+          bank_name: string
           created_at: string
-          current_price: number
           id: string
-          name: string
-          quantity: number
-          symbol: string
+          ifsc_code: string
+          is_primary: boolean
+          user_id: string
+        }
+        Insert: {
+          account_holder_name: string
+          account_number: string
+          account_type: string
+          bank_name: string
+          created_at?: string
+          id?: string
+          ifsc_code: string
+          is_primary?: boolean
+          user_id: string
+        }
+        Update: {
+          account_holder_name?: string
+          account_number?: string
+          account_type?: string
+          bank_name?: string
+          created_at?: string
+          id?: string
+          ifsc_code?: string
+          is_primary?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      deposit_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          approved_by: string | null
+          created_at: string
+          id: string
+          payment_method: string
+          status: string
+          transaction_reference: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          avg_price?: number
+          admin_notes?: string | null
+          amount: number
+          approved_by?: string | null
           created_at?: string
-          current_price?: number
           id?: string
-          name: string
-          quantity?: number
-          symbol: string
+          payment_method: string
+          status?: string
+          transaction_reference?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
-          avg_price?: number
+          admin_notes?: string | null
+          amount?: number
+          approved_by?: string | null
           created_at?: string
-          current_price?: number
           id?: string
-          name?: string
-          quantity?: number
-          symbol?: string
+          payment_method?: string
+          status?: string
+          transaction_reference?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      portfolio_positions: {
+        Row: {
+          amount: number
+          buy_price: number
+          coin_name: string
+          created_at: string | null
+          current_price: number | null
+          id: string
+          position_type: string | null
+          status: string | null
+          symbol: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          buy_price: number
+          coin_name: string
+          created_at?: string | null
+          current_price?: number | null
+          id?: string
+          position_type?: string | null
+          status?: string | null
+          symbol: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          buy_price?: number
+          coin_name?: string
+          created_at?: string | null
+          current_price?: number | null
+          id?: string
+          position_type?: string | null
+          status?: string | null
+          symbol?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_positions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
-          avatar_url: string | null
-          created_at: string
+          created_at: string | null
+          display_name: string | null
           email: string | null
-          full_name: string | null
           id: string
-          updated_at: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
         }
         Insert: {
-          avatar_url?: string | null
-          created_at?: string
+          created_at?: string | null
+          display_name?: string | null
           email?: string | null
-          full_name?: string | null
           id: string
-          updated_at?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
         }
         Update: {
-          avatar_url?: string | null
-          created_at?: string
+          created_at?: string | null
+          display_name?: string | null
           email?: string | null
-          full_name?: string | null
           id?: string
-          updated_at?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
         }
         Relationships: []
       }
+      transactions: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          id: string
+          price: number | null
+          status: string | null
+          symbol: string | null
+          total_value: number
+          transaction_type: string
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          id?: string
+          price?: number | null
+          status?: string | null
+          symbol?: string | null
+          total_value: number
+          transaction_type: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          id?: string
+          price?: number | null
+          status?: string | null
+          symbol?: string | null
+          total_value?: number
+          transaction_type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       watchlist: {
         Row: {
+          coin_id: string
+          coin_name: string
+          created_at: string | null
+          id: string
+          symbol: string
+          user_id: string | null
+        }
+        Insert: {
+          coin_id: string
+          coin_name: string
+          created_at?: string | null
+          id?: string
+          symbol: string
+          user_id?: string | null
+        }
+        Update: {
+          coin_id?: string
+          coin_name?: string
+          created_at?: string | null
+          id?: string
+          symbol?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlist_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawal_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          approved_by: string | null
+          bank_account_id: string | null
           created_at: string
           id: string
-          name: string
-          symbol: string
+          status: string
+          updated_at: string
           user_id: string
         }
         Insert: {
+          admin_notes?: string | null
+          amount: number
+          approved_by?: string | null
+          bank_account_id?: string | null
           created_at?: string
           id?: string
-          name: string
-          symbol: string
+          status?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
+          admin_notes?: string | null
+          amount?: number
+          approved_by?: string | null
+          bank_account_id?: string | null
           created_at?: string
           id?: string
-          name?: string
-          symbol?: string
+          status?: string
+          updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_requests_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      approve_deposit_request: {
+        Args: { admin_id: string; notes?: string; request_id: string }
+        Returns: boolean
+      }
+      approve_withdrawal_request: {
+        Args: { admin_id: string; notes?: string; request_id: string }
+        Returns: boolean
+      }
+      is_admin: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
+      reject_request: {
+        Args: {
+          admin_id: string
+          notes?: string
+          request_id: string
+          request_type: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -236,6 +479,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["admin", "user"],
+    },
   },
 } as const
