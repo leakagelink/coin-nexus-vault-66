@@ -1,9 +1,10 @@
+
 import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Plus } from "lucide-react";
+import { Briefcase, Plus, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,7 @@ const Portfolio = () => {
   const { user } = useAuth();
   const { prices } = useLCWPrices();
   const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
 
   const { data: portfolio, isLoading, refetch } = useQuery({
@@ -32,7 +34,23 @@ const Portfolio = () => {
     enabled: !!user,
   });
 
-  const { data: walletData } = useQuery({
+  const { data: closedTrades, refetch: refetchClosedTrades } = useQuery({
+    queryKey: ['closed-trades', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('trade_type', 'sell')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: walletData, refetch: refetchWallet } = useQuery({
     queryKey: ['wallet', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -59,6 +77,26 @@ const Portfolio = () => {
 
   const totalPnL = totalValue - totalCost;
   const totalPnLPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetch(), refetchWallet(), refetchClosedTrades()]);
+      toast({
+        title: 'Portfolio refreshed',
+        description: 'All data has been updated successfully',
+      });
+    } catch (error) {
+      console.error('Error refreshing portfolio:', error);
+      toast({
+        title: 'Refresh failed',
+        description: 'Unable to refresh portfolio data',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleStartTrading = () => {
     setShowAddCryptoModal(true);
@@ -117,6 +155,8 @@ const Portfolio = () => {
       });
 
       refetch();
+      refetchWallet();
+      refetchClosedTrades();
     } catch (e) {
       console.error('Error closing position:', e);
       toast({
@@ -138,14 +178,25 @@ const Portfolio = () => {
             <Briefcase className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold gradient-text">Portfolio</h1>
           </div>
-          <Button 
-            size="sm" 
-            className="bg-gradient-primary"
-            onClick={handleAddPosition}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Position
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button 
+              size="sm" 
+              className="bg-gradient-primary"
+              onClick={handleAddPosition}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Position
+            </Button>
+          </div>
         </div>
 
         <Card className="glass">
@@ -308,9 +359,44 @@ const Portfolio = () => {
                 <CardTitle>Closed Positions</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No closed positions</p>
-                </div>
+                {closedTrades && closedTrades.length > 0 ? (
+                  <div className="space-y-4">
+                    {closedTrades.map((trade) => {
+                      const tradeValue = trade.total_amount;
+                      const createdDate = new Date(trade.created_at).toLocaleDateString();
+                      
+                      return (
+                        <div key={trade.id} className="flex items-center justify-between p-4 border rounded-lg glass">
+                          <div>
+                            <h3 className="font-semibold">{trade.symbol}</h3>
+                            <p className="text-sm text-muted-foreground">{trade.coin_name}</p>
+                            <p className="text-sm">Quantity: {Number(trade.quantity).toFixed(6)}</p>
+                            <p className="text-xs text-muted-foreground">Closed on: {createdDate}</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex flex-col">
+                              <p className="text-lg font-bold">${tradeValue.toFixed(2)}</p>
+                              <p className="text-sm text-muted-foreground">₹{(tradeValue * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              <div>Price: ${Number(trade.price).toFixed(4)}</div>
+                              <div>₹{(Number(trade.price) * usdToInrRate).toFixed(2)}</div>
+                            </div>
+                            <div className="mt-2">
+                              <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+                                Sold
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No closed positions</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
