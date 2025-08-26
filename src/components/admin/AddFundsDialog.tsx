@@ -36,12 +36,15 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
     }
     setSubmitting(true);
     console.log("Admin adding funds", { target_user_id: userId, amount: value, admin_id: user.id });
-    const { error } = await supabase.rpc("admin_add_funds", {
+    
+    // Use the generic rpc method since TypeScript doesn't know about our custom function yet
+    const { data, error } = await supabase.rpc('admin_add_funds' as any, {
       target_user_id: userId,
       amount: value,
       admin_id: user.id,
       notes: notes || "Admin credit",
     });
+    
     setSubmitting(false);
     if (error) {
       console.error("Admin add funds error:", error);
