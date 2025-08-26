@@ -18,7 +18,7 @@ const Portfolio = () => {
     queryKey: ['portfolio', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('portfolio')
+        .from('portfolio_positions')
         .select('*')
         .eq('user_id', user?.id);
       
@@ -31,11 +31,11 @@ const Portfolio = () => {
   // Calculate total portfolio value
   const totalValue = portfolio?.reduce((total, position) => {
     const livePrice = prices[`${position.symbol}USDT`]?.price || position.current_price;
-    return total + (position.quantity * livePrice);
+    return total + (position.amount * livePrice);
   }, 0) || 0;
 
   const totalCost = portfolio?.reduce((total, position) => {
-    return total + (position.quantity * position.avg_price);
+    return total + (position.amount * position.buy_price);
   }, 0) || 0;
 
   const totalPnL = totalValue - totalCost;
@@ -104,29 +104,29 @@ const Portfolio = () => {
                   <div className="space-y-4">
                     {portfolio.map((position) => {
                       const livePrice = prices[`${position.symbol}USDT`]?.price || position.current_price;
-                      const pnl = (livePrice - position.avg_price) * position.quantity;
-                      const pnlPercent = ((livePrice - position.avg_price) / position.avg_price) * 100;
+                      const pnl = (livePrice - position.buy_price) * position.amount;
+                      const pnlPercent = ((livePrice - position.buy_price) / position.buy_price) * 100;
                       
                       return (
                         <div key={position.id} className="flex items-center justify-between p-4 border rounded-lg glass">
                           <div>
                             <h3 className="font-semibold">{position.symbol}</h3>
-                            <p className="text-sm text-muted-foreground">{position.name}</p>
-                            <p className="text-sm">Quantity: {position.quantity}</p>
+                            <p className="text-sm text-muted-foreground">{position.coin_name}</p>
+                            <p className="text-sm">Amount: {position.amount}</p>
                           </div>
                           <div className="text-right">
                             <div className="mb-2">
-                              <p className="text-lg font-bold">${(livePrice * position.quantity).toFixed(2)}</p>
+                              <p className="text-lg font-bold">${(livePrice * position.amount).toFixed(2)}</p>
                               <p className="text-sm text-muted-foreground">${livePrice.toFixed(4)} each</p>
                             </div>
                             <PriceDisplay
-                              price={livePrice * position.quantity}
+                              price={livePrice * position.amount}
                               change={pnl}
                               changePercent={pnlPercent}
                               symbol="USD"
                               size="sm"
                             />
-                            <p className="text-xs text-muted-foreground mt-1">Avg: ${position.avg_price.toFixed(4)}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Avg: ${position.buy_price.toFixed(4)}</p>
                           </div>
                         </div>
                       );

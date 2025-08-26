@@ -67,7 +67,7 @@ const Watchlist = () => {
                     <CryptoCard
                       key={item.id}
                       symbol={item.symbol}
-                      name={item.name}
+                      name={item.coin_name}
                       price={cryptoData.price}
                       change={cryptoData.change}
                       changePercent={cryptoData.changePercent}

@@ -59,7 +59,8 @@ export function CryptoCard({
           .insert({
             user_id: user.id,
             symbol: symbol,
-            name: name
+            coin_name: name,
+            coin_id: symbol.toLowerCase()
           });
 
         if (error) throw error;

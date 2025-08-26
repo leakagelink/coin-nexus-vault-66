@@ -51,14 +51,14 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
       if (existingPosition) {
         // Update existing position
-        const newQuantity = existingPosition.quantity + qty;
-        const newAvgPrice = ((existingPosition.quantity * existingPosition.average_price) + totalCost) / newQuantity;
+        const newAmount = existingPosition.amount + qty;
+        const newAvgPrice = ((existingPosition.amount * existingPosition.buy_price) + totalCost) / newAmount;
         
         const { error } = await supabase
           .from('portfolio_positions')
           .update({
-            quantity: newQuantity,
-            average_price: newAvgPrice,
+            amount: newAmount,
+            buy_price: newAvgPrice,
             current_price: buyPrice,
             updated_at: new Date().toISOString()
           })
@@ -73,8 +73,8 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
             user_id: user.id,
             symbol: symbol.replace('USDT', ''),
             coin_name: name,
-            quantity: qty,
-            average_price: buyPrice,
+            amount: qty,
+            buy_price: buyPrice,
             current_price: buyPrice
           });
 
@@ -132,7 +132,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
         return;
       }
 
-      if (existingPosition.quantity < qty) {
+      if (existingPosition.amount < qty) {
         toast({
           title: "Error",
           description: "Insufficient quantity to sell",
@@ -141,10 +141,10 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
         return;
       }
 
-      const newQuantity = existingPosition.quantity - qty;
+      const newAmount = existingPosition.amount - qty;
       
-      if (newQuantity === 0) {
-        // Delete position if quantity becomes 0
+      if (newAmount === 0) {
+        // Delete position if amount becomes 0
         const { error } = await supabase
           .from('portfolio_positions')
           .delete()
@@ -156,7 +156,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
         const { error } = await supabase
           .from('portfolio_positions')
           .update({
-            quantity: newQuantity,
+            amount: newAmount,
             current_price: sellPrice,
             updated_at: new Date().toISOString()
           })
