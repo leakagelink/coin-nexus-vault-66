@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,7 @@ export function AddCryptoModal({ isOpen, onClose, onCryptoAdded, mode = 'watchli
   const [walletBalance, setWalletBalance] = useState<number>(0);
 
   // Get wallet balance when trading mode
-  useState(() => {
+  useEffect(() => {
     if (isOpen && mode === 'trading' && user) {
       fetchWalletBalance();
     }
@@ -388,7 +388,7 @@ export function AddCryptoModal({ isOpen, onClose, onCryptoAdded, mode = 'watchli
           <div className="max-h-96 overflow-y-auto space-y-2">
             {filteredCryptos.map((crypto) => {
               const price = prices[crypto.symbol]?.price || 0;
-              const change = prices[crypto.symbol]?.change || 0;
+              const change = prices[crypto.symbol]?.change24h || 0;
               const isPositive = change >= 0;
 
               return (

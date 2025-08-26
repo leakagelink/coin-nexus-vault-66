@@ -13,6 +13,7 @@ interface CryptoCardProps {
   changePercent: number;
   volume?: number;
   marketCap?: number;
+  isWatchlisted?: boolean;
 }
 
 export function CryptoCard({ 
@@ -22,7 +23,8 @@ export function CryptoCard({
   change, 
   changePercent,
   volume,
-  marketCap 
+  marketCap,
+  isWatchlisted = false
 }: CryptoCardProps) {
   const [showTradingModal, setShowTradingModal] = useState(false);
   const isPositive = change >= 0;
