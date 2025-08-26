@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
-import { ProtectedRoute } from "@/components/auth/protected-route";
+import { AuthWrapper } from "@/components/layout/auth-wrapper";
 import Index from "./pages/Index";
 import Watchlist from "./pages/Watchlist";
 import Portfolio from "./pages/Portfolio";
@@ -19,6 +19,7 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
       retry: 3,
+      refetchOnWindowFocus: false,
     },
   },
 });
@@ -28,42 +29,20 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              } />
-              <Route path="/watchlist" element={
-                <ProtectedRoute>
-                  <Watchlist />
-                </ProtectedRoute>
-              } />
-              <Route path="/portfolio" element={
-                <ProtectedRoute>
-                  <Portfolio />
-                </ProtectedRoute>
-              } />
-              <Route path="/wallet" element={
-                <ProtectedRoute>
-                  <Wallet />
-                </ProtectedRoute>
-              } />
-              <Route path="/account" element={
-                <ProtectedRoute>
-                  <Account />
-                </ProtectedRoute>
-              } />
-              <Route path="*" element={
-                <ProtectedRoute>
-                  <NotFound />
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </BrowserRouter>
+          <AuthWrapper>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/watchlist" element={<Watchlist />} />
+                <Route path="/portfolio" element={<Portfolio />} />
+                <Route path="/wallet" element={<Wallet />} />
+                <Route path="/account" element={<Account />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </AuthWrapper>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

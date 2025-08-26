@@ -1,7 +1,10 @@
 
 import { Button } from "@/components/ui/button";
-import { Menu, Bell, User } from "lucide-react";
+import { Menu, Bell } from "lucide-react";
 import { Navigation } from "@/components/ui/navigation";
+import { UserMenu } from "@/components/layout/user-menu";
+import { useState } from "react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const navItems = [
   { label: "Dashboard", path: "/" },
@@ -12,6 +15,8 @@ const navItems = [
 ];
 
 export function Header() {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <header className="glass border-b border-border/50 sticky top-0 z-50">
       <div className="container flex items-center justify-between h-16 px-6">
@@ -35,13 +40,25 @@ export function Header() {
             <Bell className="h-5 w-5" />
           </Button>
           
-          <Button variant="ghost" size="icon" className="hover:bg-primary/10">
-            <User className="h-5 w-5" />
-          </Button>
+          <div className="hidden md:block">
+            <UserMenu />
+          </div>
           
-          <Button variant="ghost" size="icon" className="md:hidden hover:bg-primary/10">
-            <Menu className="h-5 w-5" />
-          </Button>
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden hover:bg-primary/10">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-64">
+              <div className="flex flex-col gap-4 pt-6">
+                <Navigation items={navItems} orientation="vertical" />
+                <div className="pt-4 border-t">
+                  <UserMenu />
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
