@@ -1,407 +1,265 @@
-import { useState } from "react";
+
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Plus, RefreshCw } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PriceDisplay } from "@/components/ui/price-display";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
-import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
-import { useToast } from "@/hooks/use-toast";
+import { TrendingUp, TrendingDown, DollarSign, Percent, TrendingUpIcon, Activity } from "lucide-react";
+import { useState } from "react";
+import { TradingModal } from "@/components/trading/trading-modal";
+
+type PortfolioPosition = {
+  id: string;
+  symbol: string;
+  coin_name: string;
+  amount: number;
+  buy_price: number;
+  current_price: number;
+  total_investment: number;
+  current_value: number;
+  pnl: number;
+  pnl_percentage: number;
+};
 
 const Portfolio = () => {
   const { user } = useAuth();
   const { prices } = useLCWPrices();
-  const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const { toast } = useToast();
+  const [selectedCrypto, setSelectedCrypto] = useState<{
+    symbol: string;
+    name: string;
+    currentPrice: number;
+  } | null>(null);
+  const [isTradingModalOpen, setIsTradingModalOpen] = useState(false);
 
-  const { data: portfolio, isLoading, refetch } = useQuery({
-    queryKey: ['portfolio', user?.id],
+  const { data: positions, isLoading, refetch } = useQuery({
+    queryKey: ["portfolio-positions", user?.id],
     queryFn: async () => {
+      if (!user) return [];
       const { data, error } = await supabase
-        .from('portfolio_positions')
-        .select('*')
-        .eq('user_id', user?.id);
-      
+        .from("portfolio_positions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      return data as PortfolioPosition[];
     },
     enabled: !!user,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
-  const { data: closedTrades, refetch: refetchClosedTrades } = useQuery({
-    queryKey: ['closed-trades', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('trades')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('trade_type', 'sell')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user,
-  });
-
-  const { data: walletData, refetch: refetchWallet } = useQuery({
-    queryKey: ['wallet', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('wallets')
-        .select('balance')
-        .eq('user_id', user?.id)
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const totalValue = portfolio?.reduce((total, position) => {
+  // Update positions with live prices
+  const updatedPositions = positions?.map(position => {
     const livePrice = prices[position.symbol]?.price || position.current_price;
-    return total + (position.amount * livePrice);
-  }, 0) || 0;
+    const currentValue = position.amount * livePrice;
+    const pnl = currentValue - position.total_investment;
+    const pnlPercentage = position.total_investment > 0 ? (pnl / position.total_investment) * 100 : 0;
+    
+    return {
+      ...position,
+      current_price: livePrice,
+      current_value: currentValue,
+      pnl,
+      pnl_percentage: pnlPercentage,
+    };
+  });
 
-  const totalCost = portfolio?.reduce((total, position) => {
-    return total + (position.total_investment || (position.amount * position.buy_price));
-  }, 0) || 0;
+  const totalInvestment = updatedPositions?.reduce((sum, p) => sum + p.total_investment, 0) || 0;
+  const totalCurrentValue = updatedPositions?.reduce((sum, p) => sum + p.current_value, 0) || 0;
+  const totalPnL = totalCurrentValue - totalInvestment;
+  const totalPnLPercentage = totalInvestment > 0 ? (totalPnL / totalInvestment) * 100 : 0;
 
-  const totalPnL = totalValue - totalCost;
-  const totalPnLPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([refetch(), refetchWallet(), refetchClosedTrades()]);
-      toast({
-        title: 'Portfolio refreshed',
-        description: 'All data has been updated successfully',
-      });
-    } catch (error) {
-      console.error('Error refreshing portfolio:', error);
-      toast({
-        title: 'Refresh failed',
-        description: 'Unable to refresh portfolio data',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRefreshing(false);
-    }
+  const handleTradeClick = (position: PortfolioPosition) => {
+    const livePrice = prices[position.symbol]?.price || position.current_price;
+    setSelectedCrypto({
+      symbol: position.symbol + 'USDT',
+      name: position.coin_name,
+      currentPrice: livePrice,
+    });
+    setIsTradingModalOpen(true);
   };
 
-  const handleStartTrading = () => setShowAddCryptoModal(true);
-  const handleAddPosition = () => setShowAddCryptoModal(true);
-
-  const closePosition = async (position: any) => {
-    if (!user) return;
-    const symbol = position.symbol;
-    const livePrice = prices[symbol]?.price || position.current_price;
-    const qty = Number(position.amount);
-    const proceeds = qty * livePrice;
-    const currentBalance = Number(walletData?.balance || 0);
-
-    try {
-      const { error: walletErr } = await supabase
-        .from('wallets')
-        .update({
-          balance: currentBalance + proceeds,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', user.id);
-      if (walletErr) throw walletErr;
-
-      const { error: tradeErr } = await supabase.from('trades').insert({
-        user_id: user.id,
-        symbol,
-        coin_name: position.coin_name,
-        trade_type: 'sell',
-        quantity: qty,
-        price: livePrice,
-        total_amount: proceeds,
-        status: 'completed',
-      });
-      if (tradeErr) throw tradeErr;
-
-      const { error: posErr } = await supabase
-        .from('portfolio_positions')
-        .delete()
-        .eq('id', position.id);
-      if (posErr) throw posErr;
-
-      const pnl = proceeds - (position.total_investment || (qty * position.buy_price));
-      const pnlPercent = position.total_investment > 0 ? (pnl / position.total_investment) * 100 : 0;
-
-      toast({
-        title: 'Position closed',
-        description: `Sold ${qty.toFixed(6)} ${symbol} at ${livePrice.toFixed(4)} USDT. P&L: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USDT (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)`,
-      });
-
-      refetch();
-      refetchWallet();
-      refetchClosedTrades();
-    } catch (e) {
-      console.error('Error closing position:', e);
-      toast({
-        title: 'Error',
-        description: 'Failed to close position',
-        variant: 'destructive',
-      });
-    }
+  const handleTradingModalClose = () => {
+    setIsTradingModalOpen(false);
+    setSelectedCrypto(null);
+    refetch(); // Refresh portfolio data after trade
   };
-
-  const usdToInrRate = 84;
 
   return (
     <Layout>
-      <div className="space-y-6 animate-slide-up pb-24 md:pb-8">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2">
-            <Briefcase className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold gradient-text">Portfolio</h1>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="w-full sm:w-auto"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button 
-              size="sm" 
-              className="bg-gradient-primary w-full sm:w-auto"
-              onClick={handleAddPosition}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Position
-            </Button>
+      <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 className="text-2xl font-bold gradient-text">Portfolio</h1>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Activity className="h-4 w-4" />
+            <span>Live prices</span>
           </div>
         </div>
 
+        {/* Portfolio Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="glass">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Investment</p>
+                  <p className="text-xl font-bold">₹{totalInvestment.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                </div>
+                <DollarSign className="h-8 w-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Current Value</p>
+                  <p className="text-xl font-bold">₹{totalCurrentValue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                </div>
+                <TrendingUpIcon className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total P&L</p>
+                  <p className={`text-xl font-bold ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {totalPnL >= 0 ? '+' : ''}₹{totalPnL.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                {totalPnL >= 0 ? (
+                  <TrendingUp className="h-8 w-8 text-green-500" />
+                ) : (
+                  <TrendingDown className="h-8 w-8 text-red-500" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">P&L %</p>
+                  <p className={`text-xl font-bold ${totalPnLPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {totalPnLPercentage >= 0 ? '+' : ''}{totalPnLPercentage.toFixed(2)}%
+                  </p>
+                </div>
+                <Percent className={`h-8 w-8 ${totalPnLPercentage >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Holdings Table */}
         <Card className="glass">
           <CardHeader>
-            <CardTitle>Portfolio Summary</CardTitle>
+            <CardTitle>Your Holdings</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Value</p>
-              <div className="flex flex-col">
-                <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
-                <p className="text-lg text-muted-foreground">₹{(totalValue * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-6 text-muted-foreground">Loading...</div>
+            ) : updatedPositions && updatedPositions.length > 0 ? (
+              <div className="w-full overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Asset</TableHead>
+                      <TableHead className="text-right">Holdings</TableHead>
+                      <TableHead className="text-right">Avg Price</TableHead>
+                      <TableHead className="text-right">Current Price</TableHead>
+                      <TableHead className="text-right">Investment</TableHead>
+                      <TableHead className="text-right">Current Value</TableHead>
+                      <TableHead className="text-right">P&L</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {updatedPositions.map((position) => {
+                      const isPositive = position.pnl >= 0;
+                      return (
+                        <TableRow key={position.id}>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-semibold">{position.symbol}</span>
+                              <span className="text-sm text-muted-foreground">{position.coin_name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {Number(position.amount).toLocaleString("en-IN", { maximumFractionDigits: 6 })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ₹{Number(position.buy_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ₹{Number(position.current_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ₹{Number(position.total_investment).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ₹{position.current_value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex flex-col items-end">
+                              <span className={isPositive ? 'text-green-600' : 'text-red-600'}>
+                                {isPositive ? '+' : ''}₹{position.pnl.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                              </span>
+                              <Badge 
+                                variant={isPositive ? "default" : "destructive"}
+                                className={`text-xs ${
+                                  isPositive 
+                                    ? 'bg-green-50 text-green-700 border-green-200' 
+                                    : 'bg-red-50 text-red-700 border-red-200'
+                                }`}
+                              >
+                                {isPositive ? '+' : ''}{position.pnl_percentage.toFixed(2)}%
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              onClick={() => handleTradeClick(position)}
+                              className="bg-blue-600 hover:bg-blue-700"
+                            >
+                              Trade
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Cost</p>
-              <div className="flex flex-col">
-                <p className="text-2xl font-bold">${totalCost.toFixed(2)}</p>
-                <p className="text-lg text-muted-foreground">₹{(totalCost * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground">
+                No holdings yet. Start trading to build your portfolio!
               </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Available Balance</p>
-              <div className="flex flex-col">
-                <p className="text-2xl font-bold">${Number(walletData?.balance || 0).toFixed(2)}</p>
-                <p className="text-lg text-muted-foreground">₹{(Number(walletData?.balance || 0) * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">P&L</p>
-              <PriceDisplay
-                price={totalValue}
-                change={totalPnL}
-                changePercent={totalPnLPercent}
-                symbol="USD"
-                size="lg"
-                showDualCurrency={true}
-                usdtPrice={totalValue}
-              />
-            </div>
+            )}
           </CardContent>
         </Card>
-
-        <Tabs defaultValue="positions" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 glass">
-            <TabsTrigger value="positions">Positions</TabsTrigger>
-            <TabsTrigger value="holdings">Holdings</TabsTrigger>
-            <TabsTrigger value="bulk-trade">Bulk Trade</TabsTrigger>
-            <TabsTrigger value="closed">Closed</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="positions" className="space-y-4">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle>Active Positions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Loading...</p>
-                  </div>
-                ) : portfolio && portfolio.length > 0 ? (
-                  <div className="space-y-4">
-                    {portfolio.map((position) => {
-                      const livePrice = prices[position.symbol]?.price || position.current_price;
-                      const totalInvestment = position.total_investment || (position.amount * position.buy_price);
-                      const currentValue = position.amount * livePrice;
-                      const pnl = currentValue - totalInvestment;
-                      const pnlPercent = totalInvestment > 0 ? (pnl / totalInvestment) * 100 : 0;
-                      
-                      return (
-                        <div key={position.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border rounded-lg glass">
-                          <div className="flex-1">
-                            <h3 className="font-semibold">{position.symbol}</h3>
-                            <p className="text-sm text-muted-foreground">{position.coin_name}</p>
-                            <p className="text-sm">Amount: {Number(position.amount).toFixed(6)}</p>
-                            <div className="text-xs text-muted-foreground">
-                              <div>Avg: ${Number(position.buy_price).toFixed(4)}</div>
-                              <div>₹{(Number(position.buy_price) * usdToInrRate).toFixed(2)}</div>
-                            </div>
-                          </div>
-                          <div className="text-right md:min-w-[240px]">
-                            <div className="mb-2">
-                              <div className="flex flex-col">
-                                <p className="text-lg font-bold">${currentValue.toFixed(2)}</p>
-                                <p className="text-sm text-muted-foreground">₹{(currentValue * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                              </div>
-                              <div className="text-sm text-muted-foreground mt-1">
-                                <div>${livePrice.toFixed(4)} each</div>
-                                <div>₹{(livePrice * usdToInrRate).toFixed(2)} each</div>
-                              </div>
-                            </div>
-                            <PriceDisplay
-                              price={currentValue}
-                              change={pnl}
-                              changePercent={pnlPercent}
-                              symbol="USD"
-                              size="sm"
-                              showDualCurrency={true}
-                              usdtPrice={currentValue}
-                            />
-                            <div className="mt-3">
-                              <Button 
-                                size="sm" 
-                                variant="destructive"
-                                className="w-full md:w-auto"
-                                onClick={() => closePosition(position)}
-                              >
-                                Close
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No active positions</p>
-                    <Button 
-                      className="mt-4 bg-gradient-primary"
-                      onClick={handleStartTrading}
-                    >
-                      Start Trading
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="holdings" className="space-y-4">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle>Your Holdings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No holdings found</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="bulk-trade" className="space-y-4">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle>Bulk Trade</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No bulk trades</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="closed" className="space-y-4">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle>Closed Positions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {closedTrades && closedTrades.length > 0 ? (
-                  <div className="space-y-4">
-                    {closedTrades.map((trade) => {
-                      const tradeValue = trade.total_amount;
-                      const createdDate = new Date(trade.created_at).toLocaleDateString();
-                      
-                      return (
-                        <div key={trade.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border rounded-lg glass">
-                          <div>
-                            <h3 className="font-semibold">{trade.symbol}</h3>
-                            <p className="text-sm text-muted-foreground">{trade.coin_name}</p>
-                            <p className="text-sm">Quantity: {Number(trade.quantity).toFixed(6)}</p>
-                            <p className="text-xs text-muted-foreground">Closed on: {createdDate}</p>
-                          </div>
-                          <div className="text-right">
-                            <div className="flex flex-col">
-                              <p className="text-lg font-bold">${tradeValue.toFixed(2)}</p>
-                              <p className="text-sm text-muted-foreground">₹{(tradeValue * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                            </div>
-                            <div className="text-sm text-muted-foreground mt-1">
-                              <div>Price: ${Number(trade.price).toFixed(4)}</div>
-                              <div>₹{(Number(trade.price) * usdToInrRate).toFixed(2)}</div>
-                            </div>
-                            <div className="mt-2">
-                              <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
-                                Sold
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No closed positions</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        <AddCryptoModal
-          isOpen={showAddCryptoModal}
-          onClose={() => setShowAddCryptoModal(false)}
-          onCryptoAdded={() => {
-            refetch();
-            setShowAddCryptoModal(false);
-          }}
-          mode="trading"
-        />
       </div>
+
+      {/* Trading Modal */}
+      {selectedCrypto && (
+        <TradingModal
+          isOpen={isTradingModalOpen}
+          onClose={handleTradingModalClose}
+          symbol={selectedCrypto.symbol}
+          name={selectedCrypto.name}
+          currentPrice={selectedCrypto.currentPrice}
+        />
+      )}
     </Layout>
   );
 };
