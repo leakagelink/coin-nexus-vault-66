@@ -44,13 +44,15 @@ export function CryptoChart({ symbol, name, onClose }: CryptoChartProps) {
 
   useEffect(() => {
     const fetchChartData = async () => {
+      console.log(`Fetching chart data for ${symbol} with timeframe ${timeframe}`);
       setIsLoading(true);
       
       // Simulate API call with mock data
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const days = timeframe === '1d' ? 1 : timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
       const mockData = generateMockData(days);
+      console.log(`Generated ${mockData.length} data points for ${symbol}`, mockData);
       setChartData(mockData);
       setIsLoading(false);
     };
@@ -67,9 +69,11 @@ export function CryptoChart({ symbol, name, onClose }: CryptoChartProps) {
   const chartConfig = {
     price: {
       label: "Price",
-      color: isPositive ? "hsl(var(--chart-2))" : "hsl(var(--chart-1))",
+      color: isPositive ? "hsl(142, 76%, 36%)" : "hsl(0, 84%, 60%)",
     },
   };
+
+  console.log(`Rendering chart for ${symbol}, isLoading: ${isLoading}, dataLength: ${chartData.length}`);
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -122,16 +126,17 @@ export function CryptoChart({ symbol, name, onClose }: CryptoChartProps) {
               <p className="text-sm text-muted-foreground">Loading chart data...</p>
             </div>
           </div>
-        ) : (
-          <ChartContainer config={chartConfig} className="h-80">
+        ) : chartData.length > 0 ? (
+          <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
+              <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis 
                   dataKey="date" 
                   tick={{ fontSize: 12 }}
                   tickLine={false}
                   axisLine={false}
+                  className="text-muted-foreground"
                 />
                 <YAxis 
                   domain={['dataMin - 100', 'dataMax + 100']}
@@ -139,10 +144,16 @@ export function CryptoChart({ symbol, name, onClose }: CryptoChartProps) {
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `$${value.toFixed(0)}`}
+                  className="text-muted-foreground"
                 />
                 <Tooltip 
-                  content={<ChartTooltipContent />}
                   formatter={(value: number) => [`$${value.toFixed(4)}`, 'Price']}
+                  labelFormatter={(label) => `Date: ${label}`}
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px'
+                  }}
                 />
                 <Line 
                   type="monotone" 
@@ -150,11 +161,15 @@ export function CryptoChart({ symbol, name, onClose }: CryptoChartProps) {
                   stroke={chartConfig.price.color}
                   strokeWidth={2}
                   dot={false}
-                  activeDot={{ r: 4 }}
+                  activeDot={{ r: 4, fill: chartConfig.price.color }}
                 />
               </LineChart>
             </ResponsiveContainer>
-          </ChartContainer>
+          </div>
+        ) : (
+          <div className="h-80 flex items-center justify-center">
+            <p className="text-muted-foreground">No chart data available</p>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -1,5 +1,5 @@
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { CryptoChart } from './crypto-chart';
 
 interface ChartModalProps {
@@ -14,7 +14,10 @@ export function ChartModal({ isOpen, onClose, symbol, name }: ChartModalProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Price Chart</DialogTitle>
+          <DialogTitle>Price Chart - {symbol}</DialogTitle>
+          <DialogDescription>
+            View detailed price history and trends for {name}
+          </DialogDescription>
         </DialogHeader>
         <CryptoChart
           symbol={symbol}

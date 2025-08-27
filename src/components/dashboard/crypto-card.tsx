@@ -25,6 +25,13 @@ export function CryptoCard({
 }: CryptoCardProps) {
   const isPositive = changePercent >= 0;
   
+  const handleChartClick = () => {
+    console.log(`Chart button clicked for ${symbol}`);
+    if (onChartClick) {
+      onChartClick();
+    }
+  };
+  
   return (
     <Card className="glass crypto-card">
       <CardContent className="p-4">
@@ -44,8 +51,9 @@ export function CryptoCard({
               <Button 
                 variant="ghost" 
                 size="sm"
-                onClick={onChartClick}
-                className="h-8 w-8 p-0"
+                onClick={handleChartClick}
+                className="h-8 w-8 p-0 hover:bg-primary/10"
+                title={`View ${symbol} chart`}
               >
                 <BarChart3 className="h-4 w-4" />
               </Button>
@@ -75,7 +83,7 @@ export function CryptoCard({
           
           <div className="flex items-center text-sm">
             <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              {isPositive ? '+' : ''}{change.toFixed(4)} USDT
+              {isPositive ? '+' : ''}{change.toFixed(4)} USD
             </span>
             <span className="text-muted-foreground ml-1">24h</span>
           </div>
