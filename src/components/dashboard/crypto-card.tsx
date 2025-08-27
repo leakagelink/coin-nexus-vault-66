@@ -1,9 +1,8 @@
 
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Plus } from "lucide-react";
-import { TradingModal } from "@/components/trading/trading-modal";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown, Star, BarChart3 } from "lucide-react";
 
 interface CryptoCardProps {
   symbol: string;
@@ -11,95 +10,77 @@ interface CryptoCardProps {
   price: number;
   change: number;
   changePercent: number;
-  volume?: number;
-  marketCap?: number;
   isWatchlisted?: boolean;
+  onChartClick?: () => void;
 }
 
-export function CryptoCard({ 
-  symbol, 
-  name, 
-  price, 
-  change, 
+export function CryptoCard({
+  symbol,
+  name,
+  price,
+  change,
   changePercent,
-  volume,
-  marketCap,
-  isWatchlisted = false
+  isWatchlisted = false,
+  onChartClick
 }: CryptoCardProps) {
-  const [showTradingModal, setShowTradingModal] = useState(false);
-  const isPositive = change >= 0;
-
-  // Convert USD to INR (approximate rate: 1 USD = 84 INR)
-  const usdToInrRate = 84;
-  const inrPrice = price * usdToInrRate;
-  const inrChange = change * usdToInrRate;
-
+  const isPositive = changePercent >= 0;
+  
   return (
-    <>
-      <Card className="glass hover-glow transition-all duration-300 hover:scale-105">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="font-bold text-lg">{symbol}</h3>
-              <p className="text-sm text-muted-foreground">{name}</p>
+    <Card className="glass crypto-card">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-lg">{symbol}</h3>
+              {isWatchlisted && (
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              )}
             </div>
-            <Button
-              size="sm"
-              onClick={() => setShowTradingModal(true)}
-              className="bg-gradient-primary hover:opacity-90"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Trade
-            </Button>
+            <p className="text-sm text-muted-foreground">{name}</p>
           </div>
           
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-xl font-bold">${price.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
-                <span className="text-sm text-muted-foreground">₹{inrPrice.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-              </div>
-              <div className={`flex flex-col items-end gap-1 text-sm font-medium ${
-                isPositive ? 'text-success' : 'text-danger'
-              }`}>
-                <div className="flex items-center gap-1">
-                  {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                  {isPositive ? '+' : ''}${Math.abs(change).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                </div>
-                <div className="text-xs">
-                  ₹{Math.abs(inrChange).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                </div>
-              </div>
-            </div>
-            
-            <div className={`text-sm font-medium ${isPositive ? 'text-success' : 'text-danger'}`}>
-              {isPositive ? '+' : ''}{changePercent.toFixed(2)}%
-            </div>
-
-            {volume && (
-              <div className="text-xs text-muted-foreground">
-                <div>Volume: ${volume.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
-                <div>₹{(volume * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              </div>
-            )}
-            
-            {marketCap && (
-              <div className="text-xs text-muted-foreground">
-                <div>Market Cap: ${marketCap.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
-                <div>₹{(marketCap * usdToInrRate).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-              </div>
+          <div className="flex gap-1">
+            {onChartClick && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={onChartClick}
+                className="h-8 w-8 p-0"
+              >
+                <BarChart3 className="h-4 w-4" />
+              </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <TradingModal
-        isOpen={showTradingModal}
-        onClose={() => setShowTradingModal(false)}
-        symbol={symbol}
-        name={name}
-        currentPrice={price}
-      />
-    </>
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <span className="text-2xl font-bold">
+              ${price.toFixed(4)}
+            </span>
+            <Badge 
+              variant={isPositive ? "default" : "destructive"}
+              className={`${isPositive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} border-0`}
+            >
+              <div className="flex items-center gap-1">
+                {isPositive ? (
+                  <TrendingUp className="h-3 w-3" />
+                ) : (
+                  <TrendingDown className="h-3 w-3" />
+                )}
+                {changePercent.toFixed(2)}%
+              </div>
+            </Badge>
+          </div>
+          
+          <div className="flex items-center text-sm">
+            <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+              {isPositive ? '+' : ''}{change.toFixed(4)} USDT
+            </span>
+            <span className="text-muted-foreground ml-1">24h</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

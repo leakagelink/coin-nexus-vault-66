@@ -9,11 +9,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
+import { ChartModal } from "@/components/charts/chart-modal";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
 
 const Watchlist = () => {
   const { user } = useAuth();
   const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
+  const [selectedChart, setSelectedChart] = useState<{ symbol: string; name: string } | null>(null);
   const { prices, isLoading: pricesLoading } = useLCWPrices();
 
   const { data: watchlist, isLoading, refetch } = useQuery({
@@ -32,6 +34,14 @@ const Watchlist = () => {
 
   const handleCryptoAdded = () => {
     refetch();
+  };
+
+  const handleChartClick = (symbol: string, name: string) => {
+    setSelectedChart({ symbol, name });
+  };
+
+  const handleCloseChart = () => {
+    setSelectedChart(null);
   };
 
   return (
@@ -90,6 +100,7 @@ const Watchlist = () => {
                       change={livePrice.change24h}
                       changePercent={livePrice.change24h}
                       isWatchlisted={true}
+                      onChartClick={() => handleChartClick(item.symbol, item.coin_name)}
                     />
                   );
                 })}
@@ -114,6 +125,15 @@ const Watchlist = () => {
           onClose={() => setShowAddCryptoModal(false)}
           onCryptoAdded={handleCryptoAdded}
         />
+
+        {selectedChart && (
+          <ChartModal
+            isOpen={!!selectedChart}
+            onClose={handleCloseChart}
+            symbol={selectedChart.symbol}
+            name={selectedChart.name}
+          />
+        )}
       </div>
     </Layout>
   );

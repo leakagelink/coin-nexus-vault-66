@@ -1,7 +1,9 @@
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
+import { ChartModal } from "../charts/chart-modal";
 import { Loader2 } from "lucide-react";
 
 const cryptoMapping = {
@@ -15,6 +17,15 @@ const cryptoMapping = {
 
 export function MarketOverview() {
   const { prices, isLoading, error } = useLCWPrices();
+  const [selectedChart, setSelectedChart] = useState<{ symbol: string; name: string } | null>(null);
+
+  const handleChartClick = (symbol: string, name: string) => {
+    setSelectedChart({ symbol, name });
+  };
+
+  const handleCloseChart = () => {
+    setSelectedChart(null);
+  };
 
   if (isLoading) {
     return (
@@ -48,31 +59,43 @@ export function MarketOverview() {
   }
 
   return (
-    <Card className="glass">
-      <CardHeader>
-        <CardTitle className="gradient-text">Live Market Prices</CardTitle>
-        <p className="text-sm text-muted-foreground">Real-time data from LiveCoinWatch</p>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(prices).map(([symbol, priceData]) => {
-            const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
-            if (!crypto) return null;
+    <>
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="gradient-text">Live Market Prices</CardTitle>
+          <p className="text-sm text-muted-foreground">Real-time data from LiveCoinWatch</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(prices).map(([symbol, priceData]) => {
+              const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
+              if (!crypto) return null;
 
-            return (
-              <CryptoCard
-                key={symbol}
-                symbol={symbol}
-                name={crypto.name}
-                price={priceData.price}
-                change={priceData.change24h * priceData.price / 100}
-                changePercent={priceData.change24h}
-                isWatchlisted={false}
-              />
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+              return (
+                <CryptoCard
+                  key={symbol}
+                  symbol={symbol}
+                  name={crypto.name}
+                  price={priceData.price}
+                  change={priceData.change24h * priceData.price / 100}
+                  changePercent={priceData.change24h}
+                  isWatchlisted={false}
+                  onChartClick={() => handleChartClick(symbol, crypto.name)}
+                />
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {selectedChart && (
+        <ChartModal
+          isOpen={!!selectedChart}
+          onClose={handleCloseChart}
+          symbol={selectedChart.symbol}
+          name={selectedChart.name}
+        />
+      )}
+    </>
   );
 }
