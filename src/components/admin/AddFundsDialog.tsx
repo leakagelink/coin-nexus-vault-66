@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AddFundsDialogProps {
   userId: string;
@@ -22,6 +23,7 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const handleSubmit = async () => {
     if (!user) {
@@ -70,6 +72,11 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
         title: "Funds added successfully",
         description: `₹${value.toLocaleString("en-IN")} added to ${userLabel || "user"}.`,
       });
+      
+      // Invalidate and refetch all wallet-related queries
+      await queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] });
+      await queryClient.invalidateQueries({ queryKey: ['wallet', userId] });
+      await queryClient.invalidateQueries({ queryKey: ['portfolio-positions', userId] });
       
       setOpen(false);
       setAmount("");

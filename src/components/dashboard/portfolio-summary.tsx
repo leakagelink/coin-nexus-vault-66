@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 export function PortfolioSummary() {
   const { user } = useAuth();
 
-  // Fetch wallet balance
+  // Fetch wallet balance with shorter stale time for more frequent updates
   const { data: wallet } = useQuery({
     queryKey: ['wallet', user?.id],
     queryFn: async () => {
@@ -23,6 +23,9 @@ export function PortfolioSummary() {
       return data;
     },
     enabled: !!user,
+    staleTime: 0, // Always fetch fresh data
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000, // Refetch every 10 seconds
   });
 
   // Fetch portfolio positions
@@ -39,6 +42,8 @@ export function PortfolioSummary() {
       return data;
     },
     enabled: !!user,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   // Fetch recent trades
@@ -56,6 +61,8 @@ export function PortfolioSummary() {
       return data;
     },
     enabled: !!user,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const walletBalance = Number(wallet?.balance || 0);
