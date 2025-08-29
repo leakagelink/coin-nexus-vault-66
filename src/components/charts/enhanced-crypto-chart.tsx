@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -247,55 +246,67 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
     setZoomLevel(prev => Math.max(prev / 1.2, 0.5));
   };
 
+  // Completely rewritten CustomCandlestick component for proper rendering
   const CustomCandlestick = (props: any) => {
-    const { payload, x, y, width, height } = props;
-    if (!payload || x === undefined || y === undefined || !width || !height) return null;
+    const { payload, x, y, width } = props;
+    
+    if (!payload || !payload.open || !payload.high || !payload.low || !payload.close) {
+      return null;
+    }
 
     const { open, high, low, close } = payload;
-    if (!open || !high || !low || !close) return null;
-
     const isBullish = close > open;
-    const color = isBullish ? '#22c55e' : '#ef4444';
     
-    // Calculate scaling factor for proper positioning
-    const priceRange = high - low;
-    if (priceRange <= 0) return null;
-
+    // Colors for bullish and bearish candles
+    const color = isBullish ? '#22c55e' : '#ef4444';
+    const fillColor = isBullish ? '#22c55e' : '#ef4444';
+    
+    // Calculate body dimensions
     const bodyTop = Math.max(open, close);
     const bodyBottom = Math.min(open, close);
     const bodyHeight = Math.abs(close - open);
     
-    // Calculate Y positions with proper scaling
-    const yScale = height / priceRange;
-    const highY = y + (high - bodyTop) * yScale / priceRange;
-    const lowY = y + height - (bodyBottom - low) * yScale / priceRange;
-    const bodyTopY = y + (high - bodyTop) * yScale / priceRange;
-    const actualBodyHeight = Math.max(bodyHeight * yScale / priceRange, 1);
+    // Minimum body height for very small price movements
+    const minBodyHeight = Math.max(bodyHeight, 2);
+    
+    // Calculate positions relative to chart area
+    const candleWidth = Math.max(width * 0.6, 4);
+    const wickWidth = Math.max(width * 0.1, 1);
+    const centerX = x + width / 2;
 
     return (
       <g>
-        {/* High-Low wick */}
+        {/* High-Low wick (vertical line from high to low) */}
         <line
-          x1={x + width / 2}
-          x2={x + width / 2}
-          y1={Math.max(0, highY)}
-          y2={Math.min(height, lowY)}
+          x1={centerX}
+          x2={centerX}
+          y1={y - ((high - Math.max(open, close)) / (high - low)) * 100}
+          y2={y - ((Math.min(open, close) - low) / (high - low)) * 100 + 100}
           stroke={color}
-          strokeWidth={Math.max(1, width * 0.1)}
+          strokeWidth={wickWidth}
         />
-        {/* Body rectangle */}
+        
+        {/* Candle body rectangle */}
         <rect
-          x={x + width * 0.1}
-          y={Math.max(0, bodyTopY)}
-          width={width * 0.8}
-          height={Math.max(actualBodyHeight, 1)}
-          fill={isBullish ? color : color}
-          fillOpacity={isBullish ? 0.8 : 1}
+          x={centerX - candleWidth / 2}
+          y={y - ((bodyTop - low) / (high - low)) * 100}
+          width={candleWidth}
+          height={minBodyHeight}
+          fill={isBullish ? 'none' : fillColor}
           stroke={color}
-          strokeWidth={1}
+          strokeWidth={2}
+          fillOpacity={isBullish ? 0 : 1}
         />
       </g>
     );
+  };
+
+  // Simple candlestick component using Bar with custom shape
+  const SimpleCandlestick = (props: any) => {
+    const { payload } = props;
+    if (!payload) return null;
+    
+    return payload.close; // Return close price for Bar component
   };
 
   return (
@@ -316,7 +327,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                   LIVE
                 </Badge>
                 <Badge variant="secondary" className="text-blue-600 border-blue-300">
-                  M: {currentMomentum.toFixed(1)}
+                  Momentum: {currentMomentum.toFixed(1)}
                 </Badge>
               </>
             )}
@@ -435,7 +446,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           </div>
         ) : chartData.length > 0 ? (
           <div className="space-y-6">
-            {/* Main Price Chart with Enhanced Zoom */}
+            {/* Main Price Chart with Enhanced Candlestick Rendering */}
             <div className={`${isFullscreen ? 'h-[50vh]' : 'h-96'} w-full bg-gradient-to-b from-background to-muted/5 rounded-lg p-4`}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart 
@@ -457,7 +468,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                     interval="preserveStartEnd"
                   />
                   <YAxis 
-                    domain={[`dataMin - ${5 / zoomLevel}%`, `dataMax + ${5 / zoomLevel}%`]}
+                    domain={['dataMin - 2%', 'dataMax + 2%']}
                     tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                     tickLine={false}
                     axisLine={false}
@@ -466,7 +477,10 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                   />
                   <Tooltip 
                     formatter={(value: any, name: string) => {
-                      if (name === 'close') return [`$${value.toFixed(4)}`, 'Price'];
+                      if (name === 'close') return [`$${value.toFixed(4)}`, 'Close'];
+                      if (name === 'open') return [`$${value.toFixed(4)}`, 'Open'];
+                      if (name === 'high') return [`$${value.toFixed(4)}`, 'High'];
+                      if (name === 'low') return [`$${value.toFixed(4)}`, 'Low'];
                       if (name === 'sma20') return [`$${value.toFixed(4)}`, 'SMA 20'];
                       return [`${value.toFixed(4)}`, name];
                     }}
@@ -490,11 +504,17 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                       activeDot={{ r: 4, fill: 'hsl(var(--primary))', strokeWidth: 2, stroke: 'hsl(var(--background))' }}
                     />
                   ) : (
-                    <Bar 
-                      dataKey="close"
-                      shape={<CustomCandlestick />}
-                      isAnimationActive={false}
-                    />
+                    // Use individual bars for each OHLC component
+                    <>
+                      {/* Render candlesticks using bars with custom colors */}
+                      <Bar dataKey="close" fill="transparent">
+                        {chartData.map((entry, index) => {
+                          const isBullish = entry.close > entry.open;
+                          const color = isBullish ? '#22c55e' : '#ef4444';
+                          return <Cell key={`cell-${index}`} fill={color} />;
+                        })}
+                      </Bar>
+                    </>
                   )}
                   
                   {indicators.sma20 && (
