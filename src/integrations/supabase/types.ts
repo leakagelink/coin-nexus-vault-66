@@ -331,7 +331,7 @@ export type Database = {
           currency: string | null
           id: string
           updated_at: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           balance?: number | null
@@ -339,7 +339,7 @@ export type Database = {
           currency?: string | null
           id?: string
           updated_at?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           balance?: number | null
@@ -347,13 +347,13 @@ export type Database = {
           currency?: string | null
           id?: string
           updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "wallets_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
