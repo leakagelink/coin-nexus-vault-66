@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
@@ -8,12 +7,12 @@ import { Loader2, TrendingUp, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const cryptoMapping = {
-  'BTC': { name: 'Bitcoin', symbol: 'BTC' },
-  'ETH': { name: 'Ethereum', symbol: 'ETH' },
-  'BNB': { name: 'BNB', symbol: 'BNB' },
-  'ADA': { name: 'Cardano', symbol: 'ADA' },
-  'SOL': { name: 'Solana', symbol: 'SOL' },
-  'USDT': { name: 'Tether', symbol: 'USDT' }
+  'BTC': { name: 'Bitcoin', symbol: 'BTCUSDT' },
+  'ETH': { name: 'Ethereum', symbol: 'ETHUSDT' },
+  'BNB': { name: 'BNB', symbol: 'BNBUSDT' },
+  'ADA': { name: 'Cardano', symbol: 'ADAUSDT' },
+  'SOL': { name: 'Solana', symbol: 'SOLUSDT' },
+  'USDT': { name: 'Tether', symbol: 'USDTUSDT' }
 };
 
 export function MarketOverview() {
@@ -21,8 +20,10 @@ export function MarketOverview() {
   const [selectedChart, setSelectedChart] = useState<{ symbol: string; name: string } | null>(null);
 
   const handleChartClick = (symbol: string, name: string) => {
-    console.log(`Opening chart for ${symbol} - ${name}`);
-    setSelectedChart({ symbol, name });
+    // Convert symbol to trading pair format for TaapiAPI
+    const tradingSymbol = cryptoMapping[symbol as keyof typeof cryptoMapping]?.symbol || `${symbol}USDT`;
+    console.log(`Opening enhanced chart for ${tradingSymbol} - ${name}`);
+    setSelectedChart({ symbol: tradingSymbol, name });
   };
 
   const handleCloseChart = () => {

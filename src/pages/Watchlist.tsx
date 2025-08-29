@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +36,10 @@ const Watchlist = () => {
   };
 
   const handleChartClick = (symbol: string, name: string) => {
-    setSelectedChart({ symbol, name });
+    // Convert to trading pair format for TaapiAPI
+    const tradingSymbol = `${symbol}USDT`;
+    console.log(`Opening enhanced chart for ${tradingSymbol} - ${name}`);
+    setSelectedChart({ symbol: tradingSymbol, name });
   };
 
   const handleCloseChart = () => {
