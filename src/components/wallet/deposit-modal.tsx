@@ -237,37 +237,45 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
                 </div>
               )}
 
-              {method === 'Bank Account' && (
+              {method === 'Bank Account' && paymentDetails.bankDetails && (
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Account Name:</span>
-                    <span className="font-mono text-sm">{paymentDetails.bankDetails.accountName}</span>
+                    <span className="font-mono text-sm">{paymentDetails.bankDetails.accountName || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Account Number:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono">{paymentDetails.bankDetails.accountNumber}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard(paymentDetails.bankDetails.accountNumber)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      <span className="font-mono">{paymentDetails.bankDetails.accountNumber || 'N/A'}</span>
+                      {paymentDetails.bankDetails.accountNumber && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(paymentDetails.bankDetails.accountNumber)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>IFSC Code:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono">{paymentDetails.bankDetails.ifscCode}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard(paymentDetails.bankDetails.ifscCode)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      <span className="font-mono">{paymentDetails.bankDetails.ifscCode || 'N/A'}</span>
+                      {paymentDetails.bankDetails.ifscCode && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(paymentDetails.bankDetails.ifscCode)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Bank Name:</span>
+                    <span className="font-mono text-sm">{paymentDetails.bankDetails.bankName || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Amount:</span>
