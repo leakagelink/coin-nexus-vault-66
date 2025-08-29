@@ -2,21 +2,21 @@
 import { Layout } from "@/components/layout/layout";
 import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { MarketOverview } from "@/components/dashboard/market-overview";
+import { LiveMomentum } from "@/components/dashboard/live-momentum";
 
 const Index = () => {
   return (
     <Layout>
-      <div className="space-y-8 animate-slide-up">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold gradient-text mb-2">
-            Welcome to Nadex
-          </h1>
-          <p className="text-muted-foreground">
-            Your gateway to cryptocurrency trading
-          </p>
+      <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <PortfolioSummary />
+          </div>
+          <div className="lg:col-span-1">
+            <LiveMomentum />
+          </div>
         </div>
         
-        <PortfolioSummary />
         <MarketOverview />
       </div>
     </Layout>

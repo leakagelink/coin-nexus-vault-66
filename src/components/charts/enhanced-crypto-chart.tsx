@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, X, BarChart3, Activity, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, X, BarChart3, Activity, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -27,91 +28,41 @@ interface CandleData {
   macd?: number;
   signal?: number;
   histogram?: number;
-  upperShadow?: number;
-  lowerShadow?: number;
-  body?: number;
 }
-
-// Custom Candlestick Component
-const CandlestickChart = ({ data, width, height }: { data: CandleData[], width: number, height: number }) => {
-  if (!data || data.length === 0) return null;
-
-  const minPrice = Math.min(...data.map(d => d.low));
-  const maxPrice = Math.max(...data.map(d => d.high));
-  const priceRange = maxPrice - minPrice;
-  
-  const getYPosition = (price: number) => {
-    return height - ((price - minPrice) / priceRange) * height;
-  };
-
-  const candleWidth = Math.max(2, (width / data.length) * 0.6);
-  const candleSpacing = width / data.length;
-
-  return (
-    <svg width={width} height={height} className="absolute inset-0">
-      {data.map((candle, index) => {
-        const x = index * candleSpacing + candleSpacing / 2;
-        const isGreen = candle.close >= candle.open;
-        const color = isGreen ? '#22c55e' : '#ef4444';
-        
-        const highY = getYPosition(candle.high);
-        const lowY = getYPosition(candle.low);
-        const openY = getYPosition(candle.open);
-        const closeY = getYPosition(candle.close);
-        
-        const bodyTop = Math.min(openY, closeY);
-        const bodyHeight = Math.abs(closeY - openY) || 1;
-
-        return (
-          <g key={index}>
-            {/* High-Low line (wick) */}
-            <line
-              x1={x}
-              y1={highY}
-              x2={x}
-              y2={lowY}
-              stroke={color}
-              strokeWidth={1}
-            />
-            {/* Open-Close rectangle (body) */}
-            <rect
-              x={x - candleWidth / 2}
-              y={bodyTop}
-              width={candleWidth}
-              height={bodyHeight}
-              fill={isGreen ? color : 'none'}
-              stroke={color}
-              strokeWidth={1.5}
-            />
-          </g>
-        );
-      })}
-    </svg>
-  );
-};
 
 export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoChartProps) {
   const [chartData, setChartData] = useState<CandleData[]>([]);
   const [timeframe, setTimeframe] = useState('1h');
-  const [chartType, setChartType] = useState<'line' | 'candle'>('candle');
+  const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [isLoading, setIsLoading] = useState(true);
   const [indicators, setIndicators] = useState({ 
     sma20: true, 
-    sma50: true, 
-    rsi: true, 
-    macd: true, 
+    sma50: false, 
+    rsi: false, 
+    macd: false,
     volume: true 
   });
   const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const generateHighQualityMockData = (): CandleData[] => {
-    console.log('Generating high-quality mock data with proper momentum indicators');
+  const generateRealisticMockData = (): CandleData[] => {
+    console.log('Generating realistic mock data for', symbol);
     const data: CandleData[] = [];
     const now = Date.now();
     const intervals = { '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
     const interval = intervals[timeframe as keyof typeof intervals] || 3600000;
     
-    let currentPrice = 95000 + Math.random() * 10000; // BTC-like price
+    // Base prices for different cryptos
+    const basePrices: { [key: string]: number } = {
+      'BTCUSDT': 95000,
+      'ETHUSDT': 3500,
+      'BNBUSDT': 650,
+      'ADAUSDT': 0.45,
+      'SOLUSDT': 180,
+      'USDTUSDT': 1.0
+    };
+    
+    let currentPrice = basePrices[symbol] || 100;
     const sma20Array: number[] = [];
     const sma50Array: number[] = [];
     
@@ -119,34 +70,45 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       const timestamp = now - (i * interval);
       const date = new Date(timestamp);
       
-      // More realistic price movement
-      const volatility = 0.015;
-      const trend = Math.sin(i / 10) * 0.001; // Add some trending
-      const change = (Math.random() - 0.5) * volatility * 2 + trend;
+      // More realistic price movement with trends
+      const volatility = symbol.includes('BTC') ? 0.02 : 0.03;
+      const trend = Math.sin(i / 15) * 0.002; // Longer trend cycles
+      const randomWalk = (Math.random() - 0.5) * volatility;
+      const change = trend + randomWalk;
       
       const open = currentPrice;
       const close = open * (1 + change);
-      const highMultiplier = 1 + Math.random() * 0.01;
-      const lowMultiplier = 1 - Math.random() * 0.01;
-      const high = Math.max(open, close) * highMultiplier;
-      const low = Math.min(open, close) * lowMultiplier;
+      
+      // Realistic high/low with wicks
+      const wickRange = Math.abs(open - close) * (1 + Math.random());
+      const high = Math.max(open, close) + wickRange * Math.random();
+      const low = Math.min(open, close) - wickRange * Math.random();
       
       sma20Array.push(close);
       sma50Array.push(close);
       
-      // Keep only last 20/50 values for SMA calculation
       if (sma20Array.length > 20) sma20Array.shift();
       if (sma50Array.length > 50) sma50Array.shift();
       
       const sma20 = sma20Array.reduce((a, b) => a + b, 0) / sma20Array.length;
       const sma50 = sma50Array.reduce((a, b) => a + b, 0) / sma50Array.length;
       
-      // RSI calculation (simplified)
-      const rsi = 30 + Math.random() * 40 + Math.sin(i / 8) * 15;
+      // RSI calculation (simplified but more realistic)
+      const priceChanges = sma20Array.slice(-14).map((price, idx, arr) => 
+        idx > 0 ? price - arr[idx - 1] : 0
+      ).slice(1);
+      const gains = priceChanges.filter(change => change > 0);
+      const losses = priceChanges.filter(change => change < 0).map(loss => Math.abs(loss));
+      const avgGain = gains.length ? gains.reduce((a, b) => a + b, 0) / gains.length : 0;
+      const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : 0.01;
+      const rs = avgGain / avgLoss;
+      const rsi = 100 - (100 / (1 + rs));
       
-      // MACD calculation (simplified)
-      const macd = (sma20 - sma50) * 0.1;
-      const signal = macd * 0.9;
+      // MACD calculation
+      const ema12 = sma20 * 0.7 + close * 0.3; // Simplified EMA
+      const ema26 = sma50 * 0.8 + close * 0.2;
+      const macd = ema12 - ema26;
+      const signal = macd * 0.9; // Simplified signal line
       const histogram = macd - signal;
       
       data.push({
@@ -179,8 +141,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       setError(null);
       
       try {
-        // Add delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 800));
         
         const { data, error: supabaseError } = await supabase.functions.invoke('taapi-proxy', {
           body: {
@@ -192,23 +153,17 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           }
         });
 
-        if (supabaseError) {
-          console.error('Supabase error:', supabaseError);
-          throw new Error('API service unavailable');
-        }
-
-        if (data?.error) {
-          console.error('TaapiAPI error:', data.error);
-          throw new Error('Rate limit exceeded, using mock data');
+        if (supabaseError || data?.error) {
+          throw new Error('API service temporarily unavailable');
         }
 
         const { candles, indicators: indicatorData } = data;
         
         if (!candles || !Array.isArray(candles) || candles.length === 0) {
-          throw new Error('No candle data available');
+          throw new Error('No market data available');
         }
 
-        console.log(`Processing ${candles.length} real candles from TaapiAPI`);
+        console.log(`Processing ${candles.length} candles from TaapiAPI`);
         
         const processedData: CandleData[] = candles.map((candle: any, index: number) => {
           const timestamp = new Date(candle.timestampHuman || candle.timestamp * 1000);
@@ -233,11 +188,11 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
         setChartData(processedData);
         
       } catch (err) {
-        console.error('Error fetching chart data:', err);
+        console.error('Chart data error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch chart data');
         
         // Generate high-quality mock data as fallback
-        const mockData = generateHighQualityMockData();
+        const mockData = generateRealisticMockData();
         setChartData(mockData);
       } finally {
         setIsLoading(false);
@@ -254,7 +209,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
   const isPositive = priceChange >= 0;
 
   return (
-    <Card className="w-full max-w-7xl mx-auto">
+    <Card className={`w-full mx-auto transition-all duration-300 ${isFullscreen ? 'fixed inset-4 z-50 max-w-none' : 'max-w-7xl'}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
@@ -267,22 +222,32 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
             </Badge>
             {error && (
               <Badge variant="outline" className="text-yellow-600 border-yellow-300">
-                Mock Data
+                Demo Data
               </Badge>
             )}
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">{name}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="hidden sm:flex"
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       
       <CardContent className="space-y-4 sm:space-y-6">
         {/* Price Display */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-muted/20 p-3 sm:p-4 rounded-lg gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gradient-to-r from-muted/20 to-muted/10 p-4 rounded-lg gap-3">
           <div>
-            <p className="text-2xl sm:text-3xl font-bold">${lastPrice.toFixed(2)}</p>
+            <p className="text-3xl sm:text-4xl font-bold">${lastPrice.toFixed(lastPrice > 1 ? 2 : 4)}</p>
             <div className={`flex items-center gap-2 mt-1 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
               {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
               <span className="font-medium text-sm sm:text-base">
@@ -338,14 +303,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
               SMA 20
             </Button>
             <Button
-              variant={indicators.sma50 ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setIndicators(prev => ({ ...prev, sma50: !prev.sma50 }))}
-              className="text-xs"
-            >
-              SMA 50
-            </Button>
-            <Button
               variant={indicators.rsi ? 'default' : 'outline'}
               size="sm"
               onClick={() => setIndicators(prev => ({ ...prev, rsi: !prev.rsi }))}
@@ -354,61 +311,65 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
               RSI
             </Button>
             <Button
-              variant={indicators.macd ? 'default' : 'outline'}
+              variant={indicators.volume ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setIndicators(prev => ({ ...prev, macd: !prev.macd }))}
+              onClick={() => setIndicators(prev => ({ ...prev, volume: !prev.volume }))}
               className="text-xs"
             >
-              MACD
+              Volume
             </Button>
           </div>
         </div>
 
-        {/* Chart */}
+        {/* Chart Container */}
         {isLoading ? (
-          <div className="h-96 flex items-center justify-center">
+          <div className={`${isFullscreen ? 'h-[60vh]' : 'h-96'} flex items-center justify-center bg-muted/5 rounded-lg`}>
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-              <p className="text-sm text-muted-foreground">Loading market data...</p>
+              <p className="text-sm text-muted-foreground">Loading professional chart data...</p>
             </div>
           </div>
         ) : chartData.length > 0 ? (
           <div className="space-y-6">
             {/* Main Price Chart */}
-            <div className="h-96 w-full relative">
+            <div className={`${isFullscreen ? 'h-[50vh]' : 'h-96'} w-full bg-gradient-to-b from-background to-muted/5 rounded-lg p-4`}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" opacity={0.3} />
+                <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+                  <CartesianGrid 
+                    strokeDasharray="2 2" 
+                    stroke="hsl(var(--muted-foreground))" 
+                    opacity={0.2}
+                    horizontal={true}
+                    vertical={false}
+                  />
                   <XAxis 
                     dataKey="time"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                     tickLine={false}
                     axisLine={false}
                     interval="preserveStartEnd"
                   />
                   <YAxis 
-                    domain={['dataMin - 50', 'dataMax + 50']}
-                    tick={{ fontSize: 10 }}
+                    domain={['dataMin - 1%', 'dataMax + 1%']}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `$${value.toFixed(0)}`}
+                    tickFormatter={(value) => `$${value.toFixed(value > 1 ? 0 : 2)}`}
+                    orientation="right"
                   />
                   <Tooltip 
                     formatter={(value: any, name: string) => {
-                      if (name === 'close') return [`$${value.toFixed(2)}`, 'Close'];
-                      if (name === 'open') return [`$${value.toFixed(2)}`, 'Open'];
-                      if (name === 'high') return [`$${value.toFixed(2)}`, 'High'];
-                      if (name === 'low') return [`$${value.toFixed(2)}`, 'Low'];
-                      if (name === 'sma20') return [`$${value.toFixed(2)}`, 'SMA 20'];
-                      if (name === 'sma50') return [`$${value.toFixed(2)}`, 'SMA 50'];
-                      return [`${value.toFixed(2)}`, name];
+                      if (name === 'close') return [`$${value.toFixed(4)}`, 'Price'];
+                      if (name === 'sma20') return [`$${value.toFixed(4)}`, 'SMA 20'];
+                      return [`${value.toFixed(4)}`, name];
                     }}
                     labelFormatter={(label) => `Time: ${label}`}
                     contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
+                      backgroundColor: 'hsl(var(--popover))',
                       border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                      fontSize: '12px'
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                     }}
                   />
                   
@@ -419,35 +380,16 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                       stroke="hsl(var(--primary))"
                       strokeWidth={2}
                       dot={false}
-                      activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
+                      activeDot={{ r: 4, fill: 'hsl(var(--primary))', strokeWidth: 2, stroke: 'hsl(var(--background))' }}
                     />
                   ) : (
-                    <>
-                      <Line 
-                        type="monotone" 
-                        dataKey="high" 
-                        stroke="transparent"
-                        dot={false}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="low" 
-                        stroke="transparent"
-                        dot={false}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="open" 
-                        stroke="transparent"
-                        dot={false}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="close" 
-                        stroke="transparent"
-                        dot={false}
-                      />
-                    </>
+                    <Line 
+                      type="monotone" 
+                      dataKey="close" 
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={1}
+                      dot={false}
+                    />
                   )}
                   
                   {indicators.sma20 && (
@@ -455,118 +397,104 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                       type="monotone" 
                       dataKey="sma20" 
                       stroke="#22c55e"
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      dot={false}
-                    />
-                  )}
-                  
-                  {indicators.sma50 && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="sma50" 
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      strokeDasharray="8 4"
+                      strokeWidth={1.5}
+                      strokeDasharray="4 4"
                       dot={false}
                     />
                   )}
                 </ComposedChart>
               </ResponsiveContainer>
-              
-              {/* Custom Candlestick Overlay */}
-              {chartType === 'candle' && (
-                <div className="absolute inset-0 pointer-events-none">
-                  <CandlestickChart data={chartData} width={800} height={350} />
-                </div>
-              )}
             </div>
             
-            {/* RSI Chart */}
-            {indicators.rsi && (
-              <div className="h-32 w-full">
+            {/* Volume Chart */}
+            {indicators.volume && (
+              <div className="h-20 w-full">
                 <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  RSI (14)
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    (chartData[chartData.length - 1]?.rsi || 50) > 70 ? 'bg-red-100 text-red-600' : 
-                    (chartData[chartData.length - 1]?.rsi || 50) < 30 ? 'bg-green-100 text-green-600' : 
-                    'bg-gray-100 text-gray-600'
-                  }`}>
-                    {(chartData[chartData.length - 1]?.rsi || 0).toFixed(1)}
-                  </span>
+                  Volume
+                  <Badge variant="outline" className="text-xs">
+                    {(chartData[chartData.length - 1]?.volume / 1000000 || 0).toFixed(1)}M
+                  </Badge>
                 </h4>
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" opacity={0.3} />
-                    <XAxis dataKey="time" tick={{ fontSize: 8 }} tickLine={false} axisLine={false} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 8 }} tickLine={false} axisLine={false} />
-                    <Tooltip 
-                      formatter={(value: any) => [`${value?.toFixed(1)}`, 'RSI']}
-                      contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '10px' }}
+                  <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="2 2" stroke="hsl(var(--muted-foreground))" opacity={0.2} />
+                    <XAxis dataKey="time" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                    <YAxis 
+                      tick={{ fontSize: 10 }} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                      orientation="right"
                     />
-                    <Line type="monotone" dataKey="rsi" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey={() => 70} stroke="#ef4444" strokeWidth={1} strokeDasharray="3 3" dot={false} />
-                    <Line type="monotone" dataKey={() => 30} stroke="#22c55e" strokeWidth={1} strokeDasharray="3 3" dot={false} />
-                    <Line type="monotone" dataKey={() => 50} stroke="#6b7280" strokeWidth={1} strokeDasharray="2 2" dot={false} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {/* MACD Chart */}
-            {indicators.macd && (
-              <div className="h-32 w-full">
-                <h4 className="text-sm font-medium mb-2">MACD</h4>
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" opacity={0.3} />
-                    <XAxis dataKey="time" tick={{ fontSize: 8 }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 8 }} tickLine={false} axisLine={false} />
                     <Tooltip 
-                      formatter={(value: any, name: string) => {
-                        if (name === 'macd') return [`${value?.toFixed(4)}`, 'MACD'];
-                        if (name === 'signal') return [`${value?.toFixed(4)}`, 'Signal'];
-                        if (name === 'histogram') return [`${value?.toFixed(4)}`, 'Histogram'];
-                        return [`${value?.toFixed(4)}`, name];
+                      formatter={(value: any) => [`${(value / 1000000).toFixed(2)}M`, 'Volume']}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        border: '1px solid hsl(var(--border))', 
+                        borderRadius: '6px', 
+                        fontSize: '11px' 
                       }}
-                      contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '10px' }}
                     />
-                    <Line type="monotone" dataKey="macd" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="signal" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                    <Bar dataKey="histogram" opacity={0.6}>
+                    <Bar dataKey="volume" opacity={0.7} radius={[1, 1, 0, 0]}>
                       {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.histogram && entry.histogram > 0 ? '#22c55e' : '#ef4444'} />
+                        <Cell key={`cell-${index}`} fill={entry.close > entry.open ? '#22c55e' : '#ef4444'} />
                       ))}
                     </Bar>
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
             )}
-            
-            {/* Volume Chart */}
-            <div className="h-24 w-full">
-              <h4 className="text-sm font-medium mb-2">Volume</h4>
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" opacity={0.3} />
-                  <XAxis dataKey="time" tick={{ fontSize: 8 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 8 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} />
-                  <Tooltip 
-                    formatter={(value: any) => [`${(value / 1000000).toFixed(2)}M`, 'Volume']}
-                    contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '10px' }}
-                  />
-                  <Bar dataKey="volume" opacity={0.6}>
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.close > entry.open ? '#22c55e' : '#ef4444'} />
-                    ))}
-                  </Bar>
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
+
+            {/* RSI Chart */}
+            {indicators.rsi && (
+              <div className="h-24 w-full">
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  RSI (14)
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${
+                      (chartData[chartData.length - 1]?.rsi || 50) > 70 ? 'border-red-300 text-red-600' : 
+                      (chartData[chartData.length - 1]?.rsi || 50) < 30 ? 'border-green-300 text-green-600' : 
+                      'border-gray-300 text-gray-600'
+                    }`}
+                  >
+                    {(chartData[chartData.length - 1]?.rsi || 0).toFixed(1)}
+                  </Badge>
+                </h4>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="2 2" stroke="hsl(var(--muted-foreground))" opacity={0.2} />
+                    <XAxis dataKey="time" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+                    <YAxis 
+                      domain={[0, 100]} 
+                      tick={{ fontSize: 9 }} 
+                      tickLine={false} 
+                      axisLine={false}
+                      orientation="right"
+                    />
+                    <Tooltip 
+                      formatter={(value: any) => [`${value?.toFixed(1)}`, 'RSI']}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--popover))', 
+                        border: '1px solid hsl(var(--border))', 
+                        borderRadius: '6px', 
+                        fontSize: '10px' 
+                      }}
+                    />
+                    <Line type="monotone" dataKey="rsi" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                    {/* RSI reference lines */}
+                    <Line type="monotone" dataKey={() => 70} stroke="#ef4444" strokeWidth={1} strokeDasharray="2 2" dot={false} />
+                    <Line type="monotone" dataKey={() => 30} stroke="#22c55e" strokeWidth={1} strokeDasharray="2 2" dot={false} />
+                    <Line type="monotone" dataKey={() => 50} stroke="#6b7280" strokeWidth={1} strokeDasharray="1 1" dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="h-96 flex items-center justify-center">
+          <div className="h-96 flex items-center justify-center bg-muted/5 rounded-lg">
             <div className="text-center">
+              <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
               <p className="text-muted-foreground text-sm mb-2">No chart data available</p>
               {error && <p className="text-red-500 text-xs">{error}</p>}
             </div>
@@ -574,34 +502,39 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
         )}
 
         {/* Market Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4 p-3 sm:p-4 bg-muted/10 rounded-lg">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-lg">
           <div className="text-center">
-            <p className="text-xs text-muted-foreground">24h High</p>
-            <p className="font-semibold text-xs sm:text-sm">${Math.max(...chartData.map(d => d.high)).toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mb-1">24h High</p>
+            <p className="font-semibold text-sm text-green-600">
+              ${Math.max(...chartData.map(d => d.high)).toFixed(2)}
+            </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground">24h Low</p>
-            <p className="font-semibold text-xs sm:text-sm">${Math.min(...chartData.map(d => d.low)).toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mb-1">24h Low</p>
+            <p className="font-semibold text-sm text-red-600">
+              ${Math.min(...chartData.map(d => d.low)).toFixed(2)}
+            </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground">Volume</p>
-            <p className="font-semibold text-xs sm:text-sm">{(chartData[chartData.length - 1]?.volume / 1000000 || 0).toFixed(1)}M</p>
+            <p className="text-xs text-muted-foreground mb-1">Volume</p>
+            <p className="font-semibold text-sm">
+              {(chartData[chartData.length - 1]?.volume / 1000000 || 0).toFixed(1)}M
+            </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground">RSI (14)</p>
-            <p className={`font-semibold text-xs sm:text-sm ${
+            <p className="text-xs text-muted-foreground mb-1">RSI (14)</p>
+            <p className={`font-semibold text-sm ${
               (chartData[chartData.length - 1]?.rsi || 50) > 70 ? 'text-red-500' : 
-              (chartData[chartData.length - 1]?.rsi || 50) < 30 ? 'text-green-500' : ''
+              (chartData[chartData.length - 1]?.rsi || 50) < 30 ? 'text-green-500' : 
+              'text-muted-foreground'
             }`}>
               {(chartData[chartData.length - 1]?.rsi || 0).toFixed(1)}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground">MACD</p>
-            <p className={`font-semibold text-xs sm:text-sm ${
-              (chartData[chartData.length - 1]?.macd || 0) > 0 ? 'text-green-500' : 'text-red-500'
-            }`}>
-              {(chartData[chartData.length - 1]?.macd || 0).toFixed(3)}
+            <p className="text-xs text-muted-foreground mb-1">Change</p>
+            <p className={`font-semibold text-sm ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+              {priceChangePercent.toFixed(2)}%
             </p>
           </div>
         </div>
