@@ -52,11 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ignore
       }
 
-      // Send email OTP for signup - this will create the user only after OTP verification
+      // Send MAGIC LINK (passwordless) for signup - account will be created after verification
+      const redirectUrl = `${window.location.origin}/`;
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
+          emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
             display_name: fullName,
@@ -66,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        console.error('Signup (OTP) error:', error);
+        console.error('Signup (Magic Link) error:', error);
         toast({
           title: "Signup Error",
           description: error.message,
@@ -74,47 +76,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       } else {
         toast({
-          title: "OTP Sent",
-          description: "Aapke email par 6-digit OTP bheja gaya hai. Kripya verify karein.",
+          title: "Magic Link Sent",
+          description: "Email par login link bheja gaya hai. Kripya apne email me link par click karke verify karein.",
         });
       }
 
       return { error };
     } catch (error: any) {
-      console.error('Signup (OTP) error:', error);
+      console.error('Signup (Magic Link) error:', error);
       return { error };
     }
   };
 
-  const verifyEmailOtp = async (email: string, otp: string) => {
-    try {
-      // Verify email OTP - this will create the user account
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email',
-      });
-
-      if (error) {
-        console.error('OTP verification error:', error);
-        toast({
-          title: "Verification Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Account Created",
-          description: "Aapka account successfully verify ho gaya hai!",
-        });
-        // The auth state change will handle the redirect automatically
-      }
-
-      return { error };
-    } catch (error: any) {
-      console.error('OTP verification error:', error);
-      return { error };
-    }
+  const verifyEmailOtp = async (_email: string, _otp: string) => {
+    // OTP flow is disabled. Keeping function for interface compatibility.
+    return { error: null };
   };
 
   const signIn = async (email: string, password: string) => {

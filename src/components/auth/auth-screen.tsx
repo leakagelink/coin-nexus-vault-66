@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
-type AuthStep = 'login' | 'signup' | 'verify';
+type AuthStep = 'login' | 'signup';
 
 export function AuthScreen() {
   const [step, setStep] = useState<AuthStep>('login');
@@ -17,11 +17,10 @@ export function AuthScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  const { signIn, signUp, verifyEmailOtp } = useAuth();
+  const { signIn, signUp } = useAuth();
 
   const resetFields = () => {
     setEmail('');
@@ -29,7 +28,6 @@ export function AuthScreen() {
     setPassword('');
     setConfirmPassword('');
     setFullName('');
-    setOtp('');
     setShowPassword(false);
   };
 
@@ -48,23 +46,10 @@ export function AuthScreen() {
           });
         }
       } else if (step === 'signup') {
-        // Passwordless signup via Email OTP
+        // Passwordless signup via Magic Link (account will be created after verification)
         const { error } = await signUp(email, '', fullName, mobile);
         if (!error) {
-          setStep('verify');
-        }
-      } else if (step === 'verify') {
-        if (!otp || otp.length < 6) {
-          toast({
-            title: "Invalid OTP",
-            description: "Please enter the 6-digit OTP sent to your email.",
-            variant: "destructive",
-          });
-          return;
-        }
-        const { error } = await verifyEmailOtp(email, otp);
-        if (!error) {
-          // Redirect handled in hook
+          // Info toast already shown in signUp
         }
       }
     } catch (error) {
@@ -79,60 +64,6 @@ export function AuthScreen() {
   };
 
   const renderForm = () => {
-    if (step === 'verify') {
-      return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="text-center mb-4">
-            <p className="text-sm text-muted-foreground">
-              We've sent a 6-digit verification code to:
-            </p>
-            <p className="font-medium text-primary">{email}</p>
-          </div>
-          <div>
-            <Label htmlFor="otp">Verification Code</Label>
-            <Input
-              id="otp"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-              required
-              placeholder="Enter 6-digit OTP"
-              className="text-center text-lg tracking-widest"
-              maxLength={6}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Button 
-              type="button" 
-              variant="ghost"
-              onClick={() => {
-                setStep('signup');
-                setOtp('');
-              }}
-            >
-              Change Email
-            </Button>
-            <Button 
-              type="submit" 
-              className="bg-gradient-primary"
-              disabled={loading || otp.length < 6}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                'Verify & Continue'
-              )}
-            </Button>
-          </div>
-        </form>
-      );
-    }
-
     const isLogin = step === 'login';
 
     return (
@@ -205,8 +136,6 @@ export function AuthScreen() {
           </div>
         )}
 
-        {/* Confirm password removed for signup because we are using Email OTP */}
-        
         <Button 
           type="submit" 
           className="w-full bg-gradient-primary"
@@ -215,7 +144,7 @@ export function AuthScreen() {
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {isLogin ? 'Logging in...' : 'Sending OTP...'}
+              {isLogin ? 'Logging in...' : 'Sending magic link...'}
             </>
           ) : (
             isLogin ? 'Login' : 'Sign Up'
@@ -230,38 +159,26 @@ export function AuthScreen() {
       <Card className="w-full max-w-md glass">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl gradient-text">
-            {step === 'login' ? 'Welcome Back' : step === 'signup' ? 'Create Account' : 'Verify Email'}
+            {step === 'login' ? 'Welcome Back' : 'Create Account'}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {renderForm()}
           
           <div className="mt-4 text-center">
-            {step !== 'verify' ? (
-              <Button
-                variant="link"
-                onClick={() => {
-                  const next = step === 'login' ? 'signup' : 'login';
-                  setStep(next);
-                  resetFields();
-                }}
-                className="text-sm"
-              >
-                {step === 'login' 
-                  ? "Don't have an account? Sign up" 
-                  : "Already have an account? Login"}
-              </Button>
-            ) : (
-              <Button
-                variant="link"
-                onClick={() => {
-                  setStep('signup');
-                }}
-                className="text-sm"
-              >
-                Go back
-              </Button>
-            )}
+            <Button
+              variant="link"
+              onClick={() => {
+                const next = step === 'login' ? 'signup' : 'login';
+                setStep(next);
+                resetFields();
+              }}
+              className="text-sm"
+            >
+              {step === 'login' 
+                ? "Don't have an account? Sign up" 
+                : "Already have an account? Login"}
+            </Button>
           </div>
         </CardContent>
       </Card>
