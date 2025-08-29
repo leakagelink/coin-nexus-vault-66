@@ -132,7 +132,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
         macd,
         signal,
         histogram,
-        candle: close > open ? 'bullish' : 'bearish'
+        candle: close > open ? 'bullish' as const : 'bearish' as const
       });
       
       currentPrice = close;
@@ -186,12 +186,12 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
             low: parseFloat(candle.low),
             close,
             volume: parseFloat(candle.volume || 0),
-            rsi: indicatorData?.rsi?.[index]?.value || null,
-            sma20: indicatorData?.sma?.[index]?.value || null,
-            macd: indicatorData?.macd?.[index]?.valueMACD || null,
-            signal: indicatorData?.macd?.[index]?.valueMACDSignal || null,
-            histogram: indicatorData?.macd?.[index]?.valueMACD - indicatorData?.macd?.[index]?.valueMACDSignal || null,
-            candle: close > open ? 'bullish' : 'bearish'
+            rsi: indicatorData?.rsi?.[index]?.value || undefined,
+            sma20: indicatorData?.sma?.[index]?.value || undefined,
+            macd: indicatorData?.macd?.[index]?.valueMACD || undefined,
+            signal: indicatorData?.macd?.[index]?.valueMACDSignal || undefined,
+            histogram: (indicatorData?.macd?.[index]?.valueMACD || 0) - (indicatorData?.macd?.[index]?.valueMACDSignal || 0),
+            candle: close > open ? 'bullish' as const : 'bearish' as const
           };
         }).reverse();
 
