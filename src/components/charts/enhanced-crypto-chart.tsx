@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, X, BarChart3, Activity, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, X, BarChart3, Activity, Loader2, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -28,31 +27,32 @@ interface CandleData {
   macd?: number;
   signal?: number;
   histogram?: number;
+  candle?: 'bullish' | 'bearish';
 }
 
 export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoChartProps) {
   const [chartData, setChartData] = useState<CandleData[]>([]);
   const [timeframe, setTimeframe] = useState('1h');
-  const [chartType, setChartType] = useState<'line' | 'candle'>('line');
+  const [chartType, setChartType] = useState<'line' | 'candle'>('candle');
   const [isLoading, setIsLoading] = useState(true);
   const [indicators, setIndicators] = useState({ 
     sma20: true, 
     sma50: false, 
-    rsi: false, 
+    rsi: true, 
     macd: false,
     volume: true 
   });
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
-  const generateRealisticMockData = (): CandleData[] => {
-    console.log('Generating realistic mock data for', symbol);
+  const generateAdvancedMockData = (): CandleData[] => {
+    console.log('Generating advanced candlestick data for', symbol);
     const data: CandleData[] = [];
     const now = Date.now();
     const intervals = { '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
     const interval = intervals[timeframe as keyof typeof intervals] || 3600000;
     
-    // Base prices for different cryptos
     const basePrices: { [key: string]: number } = {
       'BTCUSDT': 95000,
       'ETHUSDT': 3500,
@@ -70,19 +70,25 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       const timestamp = now - (i * interval);
       const date = new Date(timestamp);
       
-      // More realistic price movement with trends
+      // Generate realistic OHLC with proper candle patterns
       const volatility = symbol.includes('BTC') ? 0.02 : 0.03;
-      const trend = Math.sin(i / 15) * 0.002; // Longer trend cycles
-      const randomWalk = (Math.random() - 0.5) * volatility;
-      const change = trend + randomWalk;
+      const trend = Math.sin(i / 20) * 0.005 + Math.cos(i / 8) * 0.002;
+      const momentum = (Math.random() - 0.5) * volatility;
       
       const open = currentPrice;
+      const change = trend + momentum;
       const close = open * (1 + change);
       
-      // Realistic high/low with wicks
-      const wickRange = Math.abs(open - close) * (1 + Math.random());
-      const high = Math.max(open, close) + wickRange * Math.random();
-      const low = Math.min(open, close) - wickRange * Math.random();
+      // Create realistic high and low with proper wicks
+      const bodySize = Math.abs(open - close);
+      const wickMultiplier = 1 + Math.random() * 2;
+      
+      const high = Math.max(open, close) + bodySize * wickMultiplier * Math.random();
+      const low = Math.min(open, close) - bodySize * wickMultiplier * Math.random();
+      
+      // Ensure realistic constraints
+      const finalHigh = Math.max(high, open, close);
+      const finalLow = Math.min(low, open, close);
       
       sma20Array.push(close);
       sma50Array.push(close);
@@ -93,7 +99,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       const sma20 = sma20Array.reduce((a, b) => a + b, 0) / sma20Array.length;
       const sma50 = sma50Array.reduce((a, b) => a + b, 0) / sma50Array.length;
       
-      // RSI calculation (simplified but more realistic)
+      // Enhanced RSI calculation
       const priceChanges = sma20Array.slice(-14).map((price, idx, arr) => 
         idx > 0 ? price - arr[idx - 1] : 0
       ).slice(1);
@@ -104,28 +110,29 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       const rs = avgGain / avgLoss;
       const rsi = 100 - (100 / (1 + rs));
       
-      // MACD calculation
-      const ema12 = sma20 * 0.7 + close * 0.3; // Simplified EMA
-      const ema26 = sma50 * 0.8 + close * 0.2;
+      // MACD with proper signal lines
+      const ema12 = close * 0.154 + (data[data.length - 1]?.close || close) * 0.846;
+      const ema26 = close * 0.074 + (data[data.length - 1]?.close || close) * 0.926;
       const macd = ema12 - ema26;
-      const signal = macd * 0.9; // Simplified signal line
+      const signal = macd * 0.2 + (data[data.length - 1]?.signal || 0) * 0.8;
       const histogram = macd - signal;
       
       data.push({
         timestamp: Math.floor(timestamp / 1000),
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        open: Math.max(open, 0.01),
-        high: Math.max(high, 0.01),
-        low: Math.max(low, 0.01),
-        close: Math.max(close, 0.01),
-        volume: Math.random() * 2000000 + 500000,
+        open: Math.max(open, 0.001),
+        high: Math.max(finalHigh, 0.001),
+        low: Math.max(finalLow, 0.001),
+        close: Math.max(close, 0.001),
+        volume: Math.random() * 5000000 + 1000000,
         rsi: Math.max(0, Math.min(100, rsi)),
         sma20,
         sma50,
         macd,
         signal,
-        histogram
+        histogram,
+        candle: close > open ? 'bullish' : 'bearish'
       });
       
       currentPrice = close;
@@ -136,12 +143,12 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
 
   useEffect(() => {
     const fetchChartData = async () => {
-      console.log(`Fetching chart data for ${symbol} with timeframe ${timeframe}`);
+      console.log(`Fetching enhanced chart data for ${symbol} with timeframe ${timeframe}`);
       setIsLoading(true);
       setError(null);
       
       try {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         const { data, error: supabaseError } = await supabase.functions.invoke('taapi-proxy', {
           body: {
@@ -163,36 +170,38 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           throw new Error('No market data available');
         }
 
-        console.log(`Processing ${candles.length} candles from TaapiAPI`);
+        console.log(`Processing ${candles.length} professional candles from TaapiAPI`);
         
         const processedData: CandleData[] = candles.map((candle: any, index: number) => {
           const timestamp = new Date(candle.timestampHuman || candle.timestamp * 1000);
+          const open = parseFloat(candle.open);
+          const close = parseFloat(candle.close);
           
           return {
             timestamp: candle.timestamp,
             date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             time: timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            open: parseFloat(candle.open),
+            open,
             high: parseFloat(candle.high),
             low: parseFloat(candle.low),
-            close: parseFloat(candle.close),
+            close,
             volume: parseFloat(candle.volume || 0),
             rsi: indicatorData?.rsi?.[index]?.value || null,
             sma20: indicatorData?.sma?.[index]?.value || null,
             macd: indicatorData?.macd?.[index]?.valueMACD || null,
             signal: indicatorData?.macd?.[index]?.valueMACDSignal || null,
-            histogram: indicatorData?.macd?.[index]?.valueMACD - indicatorData?.macd?.[index]?.valueMACDSignal || null
+            histogram: indicatorData?.macd?.[index]?.valueMACD - indicatorData?.macd?.[index]?.valueMACDSignal || null,
+            candle: close > open ? 'bullish' : 'bearish'
           };
         }).reverse();
 
         setChartData(processedData);
         
       } catch (err) {
-        console.error('Chart data error:', err);
+        console.error('Professional chart data error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch chart data');
         
-        // Generate high-quality mock data as fallback
-        const mockData = generateRealisticMockData();
+        const mockData = generateAdvancedMockData();
         setChartData(mockData);
       } finally {
         setIsLoading(false);
@@ -208,6 +217,49 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
   const priceChangePercent = firstPrice > 0 ? (priceChange / firstPrice) * 100 : 0;
   const isPositive = priceChange >= 0;
 
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev * 1.2, 3));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev / 1.2, 0.5));
+  };
+
+  const CustomCandlestick = (props: any) => {
+    const { payload, x, y, width } = props;
+    if (!payload) return null;
+
+    const { open, high, low, close } = payload;
+    const isBullish = close > open;
+    const bodyHeight = Math.abs(close - open);
+    const bodyY = Math.min(close, open);
+    const color = isBullish ? '#22c55e' : '#ef4444';
+
+    return (
+      <g>
+        {/* Wick */}
+        <line
+          x1={x + width / 2}
+          x2={x + width / 2}
+          y1={high}
+          y2={low}
+          stroke={color}
+          strokeWidth={1}
+        />
+        {/* Body */}
+        <rect
+          x={x + width * 0.2}
+          y={bodyY}
+          width={width * 0.6}
+          height={Math.max(bodyHeight, 1)}
+          fill={isBullish ? color : color}
+          stroke={color}
+          strokeWidth={1}
+        />
+      </g>
+    );
+  };
+
   return (
     <Card className={`w-full mx-auto transition-all duration-300 ${isFullscreen ? 'fixed inset-4 z-50 max-w-none' : 'max-w-7xl'}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -217,18 +269,24 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
             <Badge variant={isPositive ? 'default' : 'destructive'} className="px-2 sm:px-3 py-1">
               <div className="flex items-center gap-1">
                 {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                {priceChangePercent.toFixed(2)}%
+                {priceChangePercent.toFixed(3)}%
               </div>
             </Badge>
             {error && (
               <Badge variant="outline" className="text-yellow-600 border-yellow-300">
-                Demo Data
+                Advanced Demo
               </Badge>
             )}
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">{name}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleZoomIn}>
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleZoomOut}>
+            <ZoomOut className="h-4 w-4" />
+          </Button>
           <Button 
             variant="ghost" 
             size="sm" 
@@ -247,11 +305,11 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
         {/* Price Display */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gradient-to-r from-muted/20 to-muted/10 p-4 rounded-lg gap-3">
           <div>
-            <p className="text-3xl sm:text-4xl font-bold">${lastPrice.toFixed(lastPrice > 1 ? 2 : 4)}</p>
+            <p className="text-3xl sm:text-4xl font-bold">${lastPrice.toFixed(lastPrice > 1 ? 2 : 6)}</p>
             <div className={`flex items-center gap-2 mt-1 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
               {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
               <span className="font-medium text-sm sm:text-base">
-                {isPositive ? '+' : ''}${priceChange.toFixed(2)} ({priceChangePercent.toFixed(2)}%)
+                {isPositive ? '+' : ''}${priceChange.toFixed(4)} ({priceChangePercent.toFixed(3)}%)
               </span>
             </div>
           </div>

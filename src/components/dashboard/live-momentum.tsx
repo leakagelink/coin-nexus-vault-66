@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useLivePrices } from "@/hooks/useLivePrices";
-import { TrendingUp, TrendingDown, Activity, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Zap, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function LiveMomentum() {
@@ -31,7 +31,7 @@ export function LiveMomentum() {
       <Card className="glass">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Zap className="h-5 w-5 text-yellow-500" />
+            <Zap className="h-5 w-5 text-yellow-500 animate-pulse" />
             Live Momentum
           </CardTitle>
         </CardHeader>
@@ -49,14 +49,18 @@ export function LiveMomentum() {
   }
 
   const trendingPairs = getTrendingPairs();
+  const allPrices = Object.values(prices);
 
   return (
     <Card className="glass">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Zap className="h-5 w-5 text-yellow-500" />
+            <Zap className="h-5 w-5 text-yellow-500 animate-pulse" />
             Live Momentum
+            <Badge variant="outline" className="text-xs animate-pulse">
+              LIVE
+            </Badge>
           </CardTitle>
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -73,20 +77,34 @@ export function LiveMomentum() {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3">
-              {trendingPairs.map((pair, index) => {
+              {allPrices.slice(0, 6).map((pair, index) => {
                 const isPositive = pair.changePercent >= 0;
-                const momentum = Math.abs(pair.changePercent);
+                const momentum = pair.momentum || 0;
+                
+                const getTrendIcon = () => {
+                  if (pair.trend === 'up') return <ArrowUp className="h-3 w-3 text-green-500" />;
+                  if (pair.trend === 'down') return <ArrowDown className="h-3 w-3 text-red-500" />;
+                  return <Minus className="h-3 w-3 text-gray-500" />;
+                };
                 
                 return (
                   <div 
                     key={pair.symbol}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors"
+                    className={`flex items-center justify-between p-3 rounded-lg transition-all duration-300 ${
+                      pair.trend === 'up' ? 'bg-green-50 border border-green-200' :
+                      pair.trend === 'down' ? 'bg-red-50 border border-red-200' :
+                      'bg-muted/20 hover:bg-muted/30'
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{pair.symbol}</span>
-                        <Badge variant="outline" className="text-xs">
-                          #{index + 1}
+                        {getTrendIcon()}
+                        <Badge 
+                          variant={momentum > 5 ? "default" : "outline"} 
+                          className="text-xs"
+                        >
+                          M: {momentum.toFixed(1)}
                         </Badge>
                       </div>
                     </div>
@@ -104,18 +122,18 @@ export function LiveMomentum() {
                           ) : (
                             <TrendingDown className="h-3 w-3" />
                           )}
-                          {pair.changePercent.toFixed(2)}%
+                          {isPositive ? '+' : ''}{pair.changePercent.toFixed(3)}%
                         </div>
                       </div>
                       
-                      <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="w-16 h-3 bg-muted rounded-full overflow-hidden">
                         <div 
-                          className={`h-full transition-all duration-500 ${
-                            isPositive ? 'bg-green-500' : 'bg-red-500'
+                          className={`h-full transition-all duration-1000 ${
+                            pair.trend === 'up' ? 'bg-green-500' : 
+                            pair.trend === 'down' ? 'bg-red-500' : 'bg-gray-400'
                           }`}
                           style={{ 
-                            width: `${Math.min(momentum * 10, 100)}%`,
-                            marginLeft: isPositive ? '0' : 'auto'
+                            width: `${Math.min(Math.max(momentum * 10, 10), 100)}%`,
                           }}
                         />
                       </div>
@@ -130,7 +148,7 @@ export function LiveMomentum() {
                 <span>Market Status</span>
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                  <span>Live Trading</span>
+                  <span>Live Trading • Updates every 5s</span>
                 </div>
               </div>
             </div>
