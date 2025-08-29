@@ -1,40 +1,47 @@
 
 import { useState, useEffect } from 'react';
-import { coinMarketCapService, CMCPrice } from '@/services/coinmarketcap';
+import { getCryptoPrices, DEFAULT_SYMBOLS, type CMCPrice } from '@/services/cmcProxy';
 
-export function useCMCPrices() {
+export function useCMCPrices(symbols: string[] = DEFAULT_SYMBOLS) {
   const [prices, setPrices] = useState<Record<string, CMCPrice>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isActive = true;
+
     const fetchPrices = async () => {
       try {
         setIsLoading(true);
-        const cryptoPrices = await coinMarketCapService.getCryptoPrices();
-        
+        const cryptoPrices = await getCryptoPrices(symbols);
+
+        if (!isActive) return;
+
         const pricesMap: Record<string, CMCPrice> = {};
         cryptoPrices.forEach((price) => {
           pricesMap[price.symbol] = price;
         });
-        
+
         setPrices(pricesMap);
         setError(null);
       } catch (err) {
-        setError('Failed to fetch prices from CoinMarketCap');
-        console.error('Error fetching CMC prices:', err);
+        setError('Failed to fetch prices');
+        console.error('Error fetching prices via cmc-proxy:', err);
       } finally {
-        setIsLoading(false);
+        if (isActive) setIsLoading(false);
       }
     };
 
     fetchPrices();
 
-    // Refresh prices every 5 minutes (CoinMarketCap rate limit consideration)
+    // Refresh prices every 5 minutes
     const interval = setInterval(fetchPrices, 5 * 60 * 1000);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+  }, [symbols.join(',')]);
 
   const getPrice = (symbol: string): CMCPrice | null => {
     return prices[symbol] || null;

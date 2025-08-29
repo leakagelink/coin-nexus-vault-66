@@ -466,6 +466,10 @@ export type Database = {
         Args: { admin_id: string; notes?: string; request_id: string }
         Returns: boolean
       }
+      get_public_admin_settings: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
