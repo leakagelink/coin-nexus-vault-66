@@ -73,10 +73,17 @@ export function AddFundsDialog({ userId, userLabel, onSuccess }: AddFundsDialogP
         description: `₹${value.toLocaleString("en-IN")} added to ${userLabel || "user"}.`,
       });
       
+      // Wait a bit to ensure database updates are complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Invalidate and refetch all wallet-related queries
       await queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] });
       await queryClient.invalidateQueries({ queryKey: ['wallet', userId] });
       await queryClient.invalidateQueries({ queryKey: ['portfolio-positions', userId] });
+      await queryClient.invalidateQueries({ queryKey: ['trades', userId] });
+      
+      // Force refetch of admin users data
+      await queryClient.refetchQueries({ queryKey: ['admin-users-overview'] });
       
       setOpen(false);
       setAmount("");

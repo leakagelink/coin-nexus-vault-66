@@ -47,22 +47,30 @@ export function AdminUsersTable() {
       console.log("Raw profiles data:", data);
       
       // Transform the data to match AdminUser type
-      const transformedData: AdminUser[] = data.map(profile => ({
-        id: profile.id,
-        email: profile.email,
-        display_name: profile.display_name,
-        role: profile.role,
-        registered_at: profile.created_at,
-        wallet_balance: profile.wallets?.[0]?.balance || 0,
-        currency: profile.wallets?.[0]?.currency || 'INR',
-        wallet_last_updated: profile.wallets?.[0]?.updated_at || null,
-      }));
+      const transformedData: AdminUser[] = data.map(profile => {
+        // Handle the case where wallets is an array or a single object
+        const wallet = Array.isArray(profile.wallets) 
+          ? profile.wallets[0] 
+          : profile.wallets;
+        
+        return {
+          id: profile.id,
+          email: profile.email,
+          display_name: profile.display_name,
+          role: profile.role,
+          registered_at: profile.created_at,
+          wallet_balance: Number(wallet?.balance || 0),
+          currency: wallet?.currency || 'INR',
+          wallet_last_updated: wallet?.updated_at || null,
+        };
+      });
       
       console.log("Transformed data:", transformedData);
       return transformedData;
     },
-    staleTime: 0,
+    staleTime: 0, // Always fetch fresh data
     refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Refetch every 30 seconds to keep data fresh
   });
 
   // Move error handling to useEffect to prevent re-render loops
@@ -76,6 +84,11 @@ export function AdminUsersTable() {
       });
     }
   }, [error, toast]);
+
+  const handleFundsAdded = async () => {
+    console.log("Funds added successfully, refetching user data...");
+    await refetch();
+  };
 
   return (
     <Card className="glass">
@@ -111,7 +124,11 @@ export function AdminUsersTable() {
                       ₹{Number(u.wallet_balance || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      <AddFundsDialog userId={u.id} userLabel={u.display_name || u.email || u.id} onSuccess={refetch} />
+                      <AddFundsDialog 
+                        userId={u.id} 
+                        userLabel={u.display_name || u.email || u.id} 
+                        onSuccess={handleFundsAdded} 
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
