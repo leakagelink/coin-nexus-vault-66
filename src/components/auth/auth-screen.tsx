@@ -46,11 +46,6 @@ export function AuthScreen() {
             description: error.message,
             variant: "destructive",
           });
-        } else {
-          toast({
-            title: "Success",
-            description: "Successfully logged in!",
-          });
         }
       } else if (step === 'signup') {
         if (password !== confirmPassword) {
@@ -63,31 +58,21 @@ export function AuthScreen() {
         }
 
         const { error } = await signUp(email, password, fullName, mobile);
-        if (error) {
-          toast({
-            title: "Signup Failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "OTP Sent",
-            description: "We sent an OTP to your email. Please enter it to verify your account.",
-          });
+        if (!error) {
           setStep('verify');
         }
       } else if (step === 'verify') {
-        if (!otp || otp.length < 4) {
+        if (!otp || otp.length < 6) {
           toast({
             title: "Invalid OTP",
-            description: "Please enter the OTP sent to your email.",
+            description: "Please enter the 6-digit OTP sent to your email.",
             variant: "destructive",
           });
           return;
         }
         const { error } = await verifyEmailOtp(email, otp);
         if (!error) {
-          // onAuthStateChange will log the user in and we redirect there
+          // The verification success will redirect automatically
         }
       }
     } catch (error) {
@@ -105,17 +90,25 @@ export function AuthScreen() {
     if (step === 'verify') {
       return (
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="text-center mb-4">
+            <p className="text-sm text-muted-foreground">
+              We've sent a 6-digit verification code to:
+            </p>
+            <p className="font-medium text-primary">{email}</p>
+          </div>
           <div>
-            <Label htmlFor="otp">Enter OTP sent to {email}</Label>
+            <Label htmlFor="otp">Verification Code</Label>
             <Input
               id="otp"
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
               value={otp}
-              onChange={(e) => setOtp(e.target.value)}
+              onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
               required
-              placeholder="6-digit OTP"
+              placeholder="Enter 6-digit OTP"
+              className="text-center text-lg tracking-widest"
+              maxLength={6}
             />
           </div>
           <div className="flex items-center justify-between">
@@ -132,7 +125,7 @@ export function AuthScreen() {
             <Button 
               type="submit" 
               className="bg-gradient-primary"
-              disabled={loading}
+              disabled={loading || otp.length < 6}
             >
               {loading ? (
                 <>

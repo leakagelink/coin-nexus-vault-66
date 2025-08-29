@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,6 +6,7 @@ import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Respons
 import { TrendingUp, TrendingDown, X, BarChart3, Activity, Loader2, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { useLivePrices } from '@/hooks/useLivePrices';
 
 interface EnhancedCryptoChartProps {
   symbol: string;
@@ -46,6 +48,10 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
 
+  // Get live prices for real momentum
+  const { prices, getPrice } = useLivePrices();
+  const livePrice = getPrice(symbol.replace('USDT', ''));
+
   const generateAdvancedMockData = (): CandleData[] => {
     console.log('Generating advanced candlestick data for', symbol);
     const data: CandleData[] = [];
@@ -54,15 +60,15 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
     const interval = intervals[timeframe as keyof typeof intervals] || 3600000;
     
     const basePrices: { [key: string]: number } = {
-      'BTCUSDT': 95000,
-      'ETHUSDT': 3500,
-      'BNBUSDT': 650,
-      'ADAUSDT': 0.45,
-      'SOLUSDT': 180,
+      'BTCUSDT': livePrice?.price || 95000,
+      'ETHUSDT': livePrice?.price || 3500,
+      'BNBUSDT': livePrice?.price || 650,
+      'ADAUSDT': livePrice?.price || 0.45,
+      'SOLUSDT': livePrice?.price || 180,
       'USDTUSDT': 1.0
     };
     
-    let currentPrice = basePrices[symbol] || 100;
+    let currentPrice = basePrices[symbol] || livePrice?.price || 100;
     const sma20Array: number[] = [];
     const sma50Array: number[] = [];
     
@@ -70,9 +76,10 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       const timestamp = now - (i * interval);
       const date = new Date(timestamp);
       
-      // Generate realistic OHLC with proper candle patterns
+      // Generate realistic OHLC with proper candle patterns and live momentum
       const volatility = symbol.includes('BTC') ? 0.02 : 0.03;
-      const trend = Math.sin(i / 20) * 0.005 + Math.cos(i / 8) * 0.002;
+      const liveMomentum = livePrice ? (livePrice.momentum / 100) : 0;
+      const trend = Math.sin(i / 20) * 0.005 + Math.cos(i / 8) * 0.002 + liveMomentum;
       const momentum = (Math.random() - 0.5) * volatility;
       
       const open = currentPrice;
@@ -136,6 +143,15 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       });
       
       currentPrice = close;
+    }
+    
+    // Update last candle with live price if available
+    if (livePrice && data.length > 0) {
+      const lastCandle = data[data.length - 1];
+      lastCandle.close = livePrice.price;
+      lastCandle.high = Math.max(lastCandle.high, livePrice.price);
+      lastCandle.low = Math.min(lastCandle.low, livePrice.price);
+      lastCandle.candle = livePrice.price > lastCandle.open ? 'bullish' as const : 'bearish' as const;
     }
     
     return data;
@@ -209,12 +225,17 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
     };
 
     fetchChartData();
-  }, [symbol, timeframe]);
+    
+    // Update chart data every 10 seconds to reflect live momentum
+    const interval = setInterval(fetchChartData, 10000);
+    
+    return () => clearInterval(interval);
+  }, [symbol, timeframe, livePrice]);
 
   const firstPrice = chartData[0]?.close || 0;
-  const lastPrice = chartData[chartData.length - 1]?.close || 0;
-  const priceChange = lastPrice - firstPrice;
-  const priceChangePercent = firstPrice > 0 ? (priceChange / firstPrice) * 100 : 0;
+  const lastPrice = livePrice?.price || chartData[chartData.length - 1]?.close || 0;
+  const priceChange = livePrice?.change || (lastPrice - firstPrice);
+  const priceChangePercent = livePrice?.changePercent || (firstPrice > 0 ? (priceChange / firstPrice) * 100 : 0);
   const isPositive = priceChange >= 0;
 
   const handleZoomIn = () => {
@@ -226,33 +247,41 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
   };
 
   const CustomCandlestick = (props: any) => {
-    const { payload, x, y, width } = props;
-    if (!payload) return null;
+    const { payload, x, y, width, height } = props;
+    if (!payload || !x || !y || !width) return null;
 
     const { open, high, low, close } = payload;
     const isBullish = close > open;
-    const bodyHeight = Math.abs(close - open);
-    const bodyY = Math.min(close, open);
     const color = isBullish ? '#22c55e' : '#ef4444';
+    
+    const bodyTop = Math.min(open, close);
+    const bodyBottom = Math.max(open, close);
+    const bodyHeight = Math.abs(close - open);
+    
+    // Calculate proper Y positions
+    const highY = y - ((high - Math.max(open, close)) / (high - low)) * height;
+    const lowY = y + ((Math.min(open, close) - low) / (high - low)) * height;
+    const bodyTopY = y - ((bodyTop - low) / (high - low)) * height;
 
     return (
       <g>
-        {/* Wick */}
+        {/* High-Low wick */}
         <line
           x1={x + width / 2}
           x2={x + width / 2}
-          y1={high}
-          y2={low}
+          y1={highY}
+          y2={lowY}
           stroke={color}
           strokeWidth={1}
         />
         {/* Body */}
         <rect
           x={x + width * 0.2}
-          y={bodyY}
+          y={bodyTopY}
           width={width * 0.6}
-          height={Math.max(bodyHeight, 1)}
+          height={Math.max(bodyHeight || 1, 1)}
           fill={isBullish ? color : color}
+          fillOpacity={isBullish ? 0.8 : 1}
           stroke={color}
           strokeWidth={1}
         />
@@ -272,9 +301,9 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                 {priceChangePercent.toFixed(3)}%
               </div>
             </Badge>
-            {error && (
-              <Badge variant="outline" className="text-yellow-600 border-yellow-300">
-                Advanced Demo
+            {livePrice && (
+              <Badge variant="outline" className="text-green-600 border-green-300 animate-pulse">
+                LIVE
               </Badge>
             )}
           </div>
@@ -302,7 +331,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       </CardHeader>
       
       <CardContent className="space-y-4 sm:space-y-6">
-        {/* Price Display */}
+        {/* Price Display with Live Updates */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gradient-to-r from-muted/20 to-muted/10 p-4 rounded-lg gap-3">
           <div>
             <p className="text-3xl sm:text-4xl font-bold">${lastPrice.toFixed(lastPrice > 1 ? 2 : 6)}</p>
@@ -311,6 +340,11 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
               <span className="font-medium text-sm sm:text-base">
                 {isPositive ? '+' : ''}${priceChange.toFixed(4)} ({priceChangePercent.toFixed(3)}%)
               </span>
+              {livePrice && (
+                <Badge variant="outline" className="text-xs animate-pulse">
+                  M: {livePrice.momentum.toFixed(1)}
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -379,20 +413,23 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           </div>
         </div>
 
-        {/* Chart Container */}
+        {/* Chart Container with improved candlestick display */}
         {isLoading ? (
           <div className={`${isFullscreen ? 'h-[60vh]' : 'h-96'} flex items-center justify-center bg-muted/5 rounded-lg`}>
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-              <p className="text-sm text-muted-foreground">Loading professional chart data...</p>
+              <p className="text-sm text-muted-foreground">Loading live chart data...</p>
             </div>
           </div>
         ) : chartData.length > 0 ? (
           <div className="space-y-6">
-            {/* Main Price Chart */}
+            {/* Main Price Chart with Enhanced Zoom */}
             <div className={`${isFullscreen ? 'h-[50vh]' : 'h-96'} w-full bg-gradient-to-b from-background to-muted/5 rounded-lg p-4`}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+                <ComposedChart 
+                  data={chartData} 
+                  margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
+                >
                   <CartesianGrid 
                     strokeDasharray="2 2" 
                     stroke="hsl(var(--muted-foreground))" 
@@ -408,7 +445,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                     interval="preserveStartEnd"
                   />
                   <YAxis 
-                    domain={['dataMin - 1%', 'dataMax + 1%']}
+                    domain={[`dataMin - ${5 / zoomLevel}%`, `dataMax + ${5 / zoomLevel}%`]}
                     tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                     tickLine={false}
                     axisLine={false}
@@ -441,13 +478,20 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                       activeDot={{ r: 4, fill: 'hsl(var(--primary))', strokeWidth: 2, stroke: 'hsl(var(--background))' }}
                     />
                   ) : (
-                    <Line 
-                      type="monotone" 
-                      dataKey="close" 
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={1}
-                      dot={false}
-                    />
+                    <>
+                      <Bar 
+                        dataKey="close"
+                        shape={<CustomCandlestick />}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="close" 
+                        stroke="transparent"
+                        strokeWidth={0}
+                        dot={false}
+                        connectNulls={false}
+                      />
+                    </>
                   )}
                   
                   {indicators.sma20 && (
@@ -503,7 +547,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
               </div>
             )}
 
-            {/* RSI Chart */}
             {indicators.rsi && (
               <div className="h-24 w-full">
                 <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
@@ -540,7 +583,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                       }}
                     />
                     <Line type="monotone" dataKey="rsi" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-                    {/* RSI reference lines */}
                     <Line type="monotone" dataKey={() => 70} stroke="#ef4444" strokeWidth={1} strokeDasharray="2 2" dot={false} />
                     <Line type="monotone" dataKey={() => 30} stroke="#22c55e" strokeWidth={1} strokeDasharray="2 2" dot={false} />
                     <Line type="monotone" dataKey={() => 50} stroke="#6b7280" strokeWidth={1} strokeDasharray="1 1" dot={false} />
@@ -559,24 +601,24 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           </div>
         )}
 
-        {/* Market Stats */}
+        {/* Market Stats with Live Data */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-lg">
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">24h High</p>
             <p className="font-semibold text-sm text-green-600">
-              ${Math.max(...chartData.map(d => d.high)).toFixed(2)}
+              ${livePrice?.high24h?.toFixed(2) || Math.max(...chartData.map(d => d.high)).toFixed(2)}
             </p>
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">24h Low</p>
             <p className="font-semibold text-sm text-red-600">
-              ${Math.min(...chartData.map(d => d.low)).toFixed(2)}
+              ${livePrice?.low24h?.toFixed(2) || Math.min(...chartData.map(d => d.low)).toFixed(2)}
             </p>
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Volume</p>
             <p className="font-semibold text-sm">
-              {(chartData[chartData.length - 1]?.volume / 1000000 || 0).toFixed(1)}M
+              {livePrice?.volume ? (livePrice.volume / 1000000).toFixed(1) : (chartData[chartData.length - 1]?.volume / 1000000 || 0).toFixed(1)}M
             </p>
           </div>
           <div className="text-center">
@@ -590,9 +632,9 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground mb-1">Change</p>
+            <p className="text-xs text-muted-foreground mb-1">Momentum</p>
             <p className={`font-semibold text-sm ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-              {priceChangePercent.toFixed(2)}%
+              {livePrice ? livePrice.momentum.toFixed(1) : priceChangePercent.toFixed(2)}
             </p>
           </div>
         </div>

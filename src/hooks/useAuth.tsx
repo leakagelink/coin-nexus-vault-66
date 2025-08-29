@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string, mobileNumber: string) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = `https://nadex.space/`;
       
       const { error } = await supabase.auth.signUp({
         email,
@@ -82,11 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const verifyEmailOtp = async (email: string, otp: string) => {
     try {
-      // Note: 'signup' type is used for email OTP verification after sign up
       const { error } = await supabase.auth.verifyOtp({
         email,
         token: otp,
-        // Casting to any to be resilient to SDK typing changes
         type: 'signup' as any,
       });
 
