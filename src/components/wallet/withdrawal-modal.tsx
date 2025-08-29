@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus } from 'lucide-react';
+import { useAdminSettings } from '@/hooks/useAdminSettings';
 
 interface WithdrawalModalProps {
   isOpen: boolean;
@@ -22,63 +23,78 @@ interface BankAccount {
   account_holder_name: string;
   bank_name: string;
   ifsc_code: string;
+  is_primary: boolean;
 }
 
 export function WithdrawalModal({ isOpen, onClose, method }: WithdrawalModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { settings } = useAdminSettings();
   const [amount, setAmount] = useState('');
-  const [selectedBankAccount, setSelectedBankAccount] = useState('');
+  const [selectedBankAccount, setSelectedBankAccount] = useState<string>('');
   const [upiId, setUpiId] = useState('');
-  const [walletAddress, setWalletAddress] = useState('');
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [userBalance, setUserBalance] = useState(0);
+  const [usdtAddress, setUsdtAddress] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && user) {
-      fetchBankAccounts();
-      fetchUserBalance();
-    }
-  }, [isOpen, user]);
-
-  const fetchBankAccounts = async () => {
-    if (!user) return;
-
-    try {
+  const { data: bankAccounts } = useQuery({
+    queryKey: ['bank-accounts', user?.id],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('bank_accounts')
         .select('*')
-        .eq('user_id', user.id);
-
+        .eq('user_id', user?.id)
+        .order('is_primary', { ascending: false });
+      
       if (error) throw error;
-      setBankAccounts(data || []);
-    } catch (error) {
-      console.error('Error fetching bank accounts:', error);
-    }
-  };
+      return data as BankAccount[];
+    },
+    enabled: !!user && isOpen && method === 'Bank Account',
+  });
 
-  const fetchUserBalance = async () => {
-    if (!user) return;
-
-    try {
+  const { data: wallet } = useQuery({
+    queryKey: ['wallet-balance', user?.id],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('wallets')
         .select('balance')
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .single();
-
       if (error) throw error;
-      setUserBalance(data?.balance || 0);
-    } catch (error) {
-      console.error('Error fetching balance:', error);
-    }
-  };
+      return data;
+    },
+    enabled: !!user && isOpen,
+  });
 
-  const handleSubmitWithdrawal = async () => {
+  // Reset form when modal opens/closes or method changes
+  useEffect(() => {
+    if (isOpen) {
+      setAmount('');
+      setSelectedBankAccount('');
+      setUpiId('');
+      setUsdtAddress('');
+    }
+  }, [isOpen, method]);
+
+  // Auto-select primary bank account when available
+  useEffect(() => {
+    if (bankAccounts && bankAccounts.length > 0 && !selectedBankAccount) {
+      const primaryAccount = bankAccounts.find(acc => acc.is_primary);
+      if (primaryAccount) {
+        setSelectedBankAccount(primaryAccount.id);
+      } else {
+        setSelectedBankAccount(bankAccounts[0].id);
+      }
+    }
+  }, [bankAccounts, selectedBankAccount]);
+
+  const selectedAccount = bankAccounts?.find(acc => acc.id === selectedBankAccount);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!user || !amount || parseFloat(amount) <= 0) {
       toast({
-        title: "Invalid Amount",
+        title: "Invalid Input",
         description: "Please enter a valid amount",
         variant: "destructive"
       });
@@ -86,7 +102,9 @@ export function WithdrawalModal({ isOpen, onClose, method }: WithdrawalModalProp
     }
 
     const withdrawalAmount = parseFloat(amount);
-    if (withdrawalAmount > userBalance) {
+    const currentBalance = Number(wallet?.balance || 0);
+
+    if (withdrawalAmount > currentBalance) {
       toast({
         title: "Insufficient Balance",
         description: "You don't have enough balance for this withdrawal",
@@ -95,10 +113,11 @@ export function WithdrawalModal({ isOpen, onClose, method }: WithdrawalModalProp
       return;
     }
 
+    // Method-specific validation
     if (method === 'Bank Account' && !selectedBankAccount) {
       toast({
         title: "Bank Account Required",
-        description: "Please select a bank account",
+        description: "Please select a bank account for withdrawal",
         variant: "destructive"
       });
       return;
@@ -113,47 +132,165 @@ export function WithdrawalModal({ isOpen, onClose, method }: WithdrawalModalProp
       return;
     }
 
-    if (method === 'USDT' && !walletAddress.trim()) {
+    if (method === 'USDT' && !usdtAddress.trim()) {
       toast({
-        title: "Wallet Address Required",
+        title: "USDT Address Required",
         description: "Please enter your USDT wallet address",
         variant: "destructive"
       });
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
+
     try {
-      const { error } = await supabase
-        .from('withdrawal_requests')
-        .insert({
-          user_id: user.id,
-          amount: withdrawalAmount,
-          bank_account_id: method === 'Bank Account' ? selectedBankAccount : null,
-          status: 'pending'
-        });
+      const { error } = await supabase.from('withdrawal_requests').insert({
+        user_id: user.id,
+        amount: withdrawalAmount,
+        payment_method: method,
+        bank_account_id: method === 'Bank Account' ? selectedBankAccount : null,
+        status: 'pending'
+      });
 
       if (error) throw error;
 
       toast({
-        title: "Withdrawal Request Submitted",
-        description: "Your withdrawal request has been submitted for review. You'll be notified once it's processed.",
+        title: "Withdrawal Requested",
+        description: "Your withdrawal request has been submitted and is pending approval",
       });
 
       onClose();
-      setAmount('');
-      setSelectedBankAccount('');
-      setUpiId('');
-      setWalletAddress('');
     } catch (error) {
-      console.error('Error submitting withdrawal:', error);
+      console.error('Error submitting withdrawal request:', error);
       toast({
         title: "Error",
         description: "Failed to submit withdrawal request",
         variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderMethodSpecificFields = () => {
+    switch (method) {
+      case 'Bank Account':
+        return (
+          <div className="space-y-4">
+            {bankAccounts && bankAccounts.length > 0 ? (
+              <>
+                <div>
+                  <Label htmlFor="bank-account">Select Bank Account</Label>
+                  <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bank account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{account.bank_name}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {account.account_holder_name} - ****{account.account_number?.slice(-4)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedAccount && (
+                  <div className="p-3 bg-muted rounded-lg">
+                    <h4 className="font-medium mb-2">Withdrawal Details</h4>
+                    <div className="space-y-1 text-sm">
+                      <p><strong>Bank:</strong> {selectedAccount.bank_name}</p>
+                      <p><strong>Account Holder:</strong> {selectedAccount.account_holder_name}</p>
+                      <p><strong>Account Number:</strong> ****{selectedAccount.account_number?.slice(-4)}</p>
+                      <p><strong>IFSC Code:</strong> {selectedAccount.ifsc_code}</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground mb-2">No bank accounts found</p>
+                <p className="text-sm text-muted-foreground">Please add a bank account first to make withdrawals</p>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'UPI':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="upi-id">UPI ID</Label>
+              <Input
+                id="upi-id"
+                type="text"
+                placeholder="your-upi@bank"
+                value={upiId}
+                onChange={(e) => setUpiId(e.target.value)}
+                required
+              />
+            </div>
+            {settings?.upi_details && (
+              <div className="p-3 bg-muted rounded-lg">
+                <h4 className="font-medium mb-2">Withdrawal Information</h4>
+                <p className="text-sm text-muted-foreground">
+                  Funds will be transferred to your UPI ID within 24 hours after approval.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'USDT':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="usdt-address">USDT Wallet Address (TRC20)</Label>
+              <Input
+                id="usdt-address"
+                type="text"
+                placeholder="TXXXxxxXXXxxxXXX"
+                value={usdtAddress}
+                onChange={(e) => setUsdtAddress(e.target.value)}
+                required
+              />
+            </div>
+            {settings?.usdt_details && (
+              <div className="p-3 bg-muted rounded-lg">
+                <h4 className="font-medium mb-2">USDT Withdrawal Information</h4>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p><strong>Network:</strong> {settings.usdt_details.network}</p>
+                  <p><strong>Processing Time:</strong> 2-24 hours after approval</p>
+                  <p className="text-xs mt-2">
+                    Please ensure your wallet supports TRC20 network. Funds sent to wrong network will be lost.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const canSubmit = () => {
+    if (!amount || parseFloat(amount) <= 0) return false;
+    
+    switch (method) {
+      case 'Bank Account':
+        return selectedBankAccount && bankAccounts && bankAccounts.length > 0;
+      case 'UPI':
+        return upiId.trim().length > 0;
+      case 'USDT':
+        return usdtAddress.trim().length > 0;
+      default:
+        return false;
     }
   };
 
@@ -163,95 +300,42 @@ export function WithdrawalModal({ isOpen, onClose, method }: WithdrawalModalProp
         <DialogHeader>
           <DialogTitle>Withdraw via {method}</DialogTitle>
         </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="p-3 bg-muted rounded-lg">
-            <p className="text-sm">
-              Available Balance: <span className="font-semibold">₹{userBalance.toFixed(2)}</span>
-            </p>
-          </div>
-
-          <div className="space-y-2">
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
             <Label htmlFor="amount">Amount (₹)</Label>
             <Input
               id="amount"
               type="number"
+              step="0.01"
+              min="1"
+              placeholder="Enter amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount"
-              min="500"
-              max={userBalance}
+              required
             />
-            <p className="text-sm text-muted-foreground">
-              Minimum withdrawal: ₹500
-            </p>
+            {wallet && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Available balance: ₹{Number(wallet.balance).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </p>
+            )}
           </div>
 
-          {method === 'Bank Account' && (
-            <div className="space-y-2">
-              <Label>Select Bank Account</Label>
-              {bankAccounts.length > 0 ? (
-                <Select value={selectedBankAccount} onValueChange={setSelectedBankAccount}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select bank account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.bank_name} - ****{account.account_number.slice(-4)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    No bank accounts found
-                  </p>
-                  <Button size="sm" variant="outline">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Bank Account
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
+          {renderMethodSpecificFields()}
 
-          {method === 'UPI' && (
-            <div className="space-y-2">
-              <Label htmlFor="upiId">UPI ID</Label>
-              <Input
-                id="upiId"
-                value={upiId}
-                onChange={(e) => setUpiId(e.target.value)}
-                placeholder="yourname@paytm"
-              />
-            </div>
-          )}
-
-          {method === 'USDT' && (
-            <div className="space-y-2">
-              <Label htmlFor="walletAddress">USDT Wallet Address (TRC20)</Label>
-              <Input
-                id="walletAddress"
-                value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                placeholder="TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE"
-              />
-              <p className="text-sm text-muted-foreground">
-                Amount: ~{amount ? (parseFloat(amount) / 83.5).toFixed(6) : '0'} USDT
-              </p>
-            </div>
-          )}
-
-          <Button
-            onClick={handleSubmitWithdrawal}
-            disabled={isLoading}
-            className="w-full bg-gradient-primary"
-          >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit Withdrawal Request'}
-          </Button>
-        </div>
+          <div className="flex gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              className="flex-1 bg-gradient-primary" 
+              disabled={isSubmitting || !canSubmit()}
+            >
+              {isSubmitting ? "Processing..." : "Submit Request"}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
