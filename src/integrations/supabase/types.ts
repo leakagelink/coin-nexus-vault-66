@@ -262,33 +262,39 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           email: string | null
+          email_verified: boolean | null
           full_name: string | null
           id: string
           mobile_number: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
+          verification_status: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
+          email_verified?: boolean | null
           full_name?: string | null
           id: string
           mobile_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+          verification_status?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
           display_name?: string | null
           email?: string | null
+          email_verified?: boolean | null
           full_name?: string | null
           id?: string
           mobile_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+          verification_status?: string | null
         }
         Relationships: []
       }

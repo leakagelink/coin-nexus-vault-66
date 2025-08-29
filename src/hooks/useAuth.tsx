@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { cleanupAuthState } from '@/utils/authCleanup';
 
 interface AuthContextType {
   user: User | null;
@@ -42,15 +43,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string, mobileNumber: string) => {
+  const signUp = async (email: string, _password: string, fullName: string, mobileNumber: string) => {
     try {
+      // Clean any previous auth state to avoid limbo
+      cleanupAuthState();
+      try {
+        await supabase.auth.signOut({ scope: 'global' as any });
+      } catch {
+        // ignore
+      }
+
       const redirectUrl = `https://nadex.space/`;
-      
-      const { error } = await supabase.auth.signUp({
+
+      // Send Email OTP and create user on successful verification
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        password,
         options: {
           emailRedirectTo: redirectUrl,
+          shouldCreateUser: true,
           data: {
             full_name: fullName,
             display_name: fullName,
@@ -60,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        console.error('Signup error:', error);
+        console.error('Signup (OTP) error:', error);
         toast({
           title: "Signup Error",
           description: error.message,
@@ -68,24 +78,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       } else {
         toast({
-          title: "Account Created",
-          description: "An OTP has been sent to your email. Please verify to activate your account.",
+          title: "OTP Sent",
+          description: "6-digit code aapke email par bheja gaya hai. Kripya OTP daal kar verify karein.",
         });
       }
 
       return { error };
-    } catch (error) {
-      console.error('Signup error:', error);
+    } catch (error: any) {
+      console.error('Signup (OTP) error:', error);
       return { error };
     }
   };
 
   const verifyEmailOtp = async (email: string, otp: string) => {
     try {
+      // Verify 6-digit email OTP
       const { error } = await supabase.auth.verifyOtp({
         email,
         token: otp,
-        type: 'signup' as any,
+        type: 'email',
       });
 
       if (error) {
@@ -98,14 +109,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         toast({
           title: "Email Verified",
-          description: "Your account has been verified and you are now logged in.",
+          description: "Aapka account verify ho gaya hai. Redirect ho rahe hain...",
         });
-        // Force a clean state refresh
+        // Force a clean state refresh to ensure correct session
         window.location.href = "/";
       }
 
       return { error };
-    } catch (error) {
+    } catch (error: any) {
       console.error('OTP verification error:', error);
       return { error };
     }
@@ -133,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       return { error };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Signin error:', error);
       return { error };
     }

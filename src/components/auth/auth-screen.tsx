@@ -48,16 +48,8 @@ export function AuthScreen() {
           });
         }
       } else if (step === 'signup') {
-        if (password !== confirmPassword) {
-          toast({
-            title: "Password mismatch",
-            description: "Password and confirm password do not match.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const { error } = await signUp(email, password, fullName, mobile);
+        // Passwordless signup via Email OTP
+        const { error } = await signUp(email, '', fullName, mobile);
         if (!error) {
           setStep('verify');
         }
@@ -72,7 +64,7 @@ export function AuthScreen() {
         }
         const { error } = await verifyEmailOtp(email, otp);
         if (!error) {
-          // The verification success will redirect automatically
+          // Redirect handled in hook
         }
       }
     } catch (error) {
@@ -184,46 +176,36 @@ export function AuthScreen() {
           />
         </div>
         
-        <div>
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Enter your password"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-0 top-0 h-full px-3"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {!isLogin && (
+        {isLogin && (
           <div>
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              type={showPassword ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              placeholder="Re-enter your password"
-            />
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required={isLogin}
+                placeholder="Enter your password"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
         )}
+
+        {/* Confirm password removed for signup because we are using Email OTP */}
         
         <Button 
           type="submit" 
@@ -233,7 +215,7 @@ export function AuthScreen() {
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {isLogin ? 'Logging in...' : 'Creating Account...'}
+              {isLogin ? 'Logging in...' : 'Sending OTP...'}
             </>
           ) : (
             isLogin ? 'Login' : 'Sign Up'
