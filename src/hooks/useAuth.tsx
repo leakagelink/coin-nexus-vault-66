@@ -52,12 +52,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ignore
       }
 
-      // Use signUp with email confirmation required
-      const { error } = await supabase.auth.signUp({
+      // Send email OTP for signup - this will create the user only after OTP verification
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        password: 'temp_password_123!', // Temporary password for OTP flow
         options: {
-          emailRedirectTo: `https://nadex.space/`,
+          shouldCreateUser: true,
           data: {
             full_name: fullName,
             display_name: fullName,
@@ -67,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        console.error('Signup error:', error);
+        console.error('Signup (OTP) error:', error);
         toast({
           title: "Signup Error",
           description: error.message,
@@ -76,24 +75,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         toast({
           title: "OTP Sent",
-          description: "6-digit code aapke email par bheja gaya hai. Kripya OTP daal kar verify karein.",
+          description: "Aapke email par 6-digit OTP bheja gaya hai. Kripya verify karein.",
         });
       }
 
       return { error };
     } catch (error: any) {
-      console.error('Signup error:', error);
+      console.error('Signup (OTP) error:', error);
       return { error };
     }
   };
 
   const verifyEmailOtp = async (email: string, otp: string) => {
     try {
-      // Verify 6-digit email OTP
+      // Verify email OTP - this will create the user account
       const { error } = await supabase.auth.verifyOtp({
         email,
         token: otp,
-        type: 'signup',
+        type: 'email',
       });
 
       if (error) {
@@ -105,11 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       } else {
         toast({
-          title: "Email Verified",
-          description: "Aapka account verify ho gaya hai. Redirect ho rahe hain...",
+          title: "Account Created",
+          description: "Aapka account successfully verify ho gaya hai!",
         });
-        // Force a clean state refresh to ensure correct session
-        window.location.href = "/";
+        // The auth state change will handle the redirect automatically
       }
 
       return { error };
