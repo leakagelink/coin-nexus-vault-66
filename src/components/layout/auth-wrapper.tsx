@@ -1,7 +1,10 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { AuthScreen } from '@/components/auth/auth-screen';
+import { AuthComingSoon } from '@/components/auth-coming-soon';
+import { useIsWebBrowser } from '@/hooks/useIsWebBrowser';
 import { Loader2 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -9,6 +12,8 @@ interface AuthWrapperProps {
 
 export function AuthWrapper({ children }: AuthWrapperProps) {
   const { user, loading } = useAuth();
+  const isWebBrowser = useIsWebBrowser();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -23,6 +28,11 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
 
   if (!user) {
     return <AuthScreen />;
+  }
+
+  // Show special coming soon message for authenticated users on web browsers (except admin)
+  if (user && isWebBrowser && !location.pathname.startsWith('/admin')) {
+    return <AuthComingSoon />;
   }
 
   return <>{children}</>;
