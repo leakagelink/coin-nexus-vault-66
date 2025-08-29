@@ -8,11 +8,16 @@ export function useIsWebBrowser() {
     // Check if it's a web browser (not mobile app)
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobileApp = /nadex|app/.test(userAgent) || 
-                       window.location.href.includes('capacitor://') ||
-                       window.location.href.includes('http://localhost') ||
-                       window.innerWidth < 768; // Consider mobile viewport as app
+                       window.location.href.includes('capacitor://');
     
-    setIsWebBrowser(!isMobileApp);
+    // For testing purposes, always consider it a web browser unless it's explicitly a mobile app
+    const isWeb = !isMobileApp;
+    
+    console.log('useIsWebBrowser - userAgent:', userAgent);
+    console.log('useIsWebBrowser - isMobileApp:', isMobileApp);
+    console.log('useIsWebBrowser - isWeb:', isWeb);
+    
+    setIsWebBrowser(isWeb);
   }, []);
 
   return isWebBrowser;

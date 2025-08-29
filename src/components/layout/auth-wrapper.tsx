@@ -15,6 +15,8 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   const isWebBrowser = useIsWebBrowser();
   const location = useLocation();
 
+  console.log('AuthWrapper - user:', !!user, 'isWebBrowser:', isWebBrowser, 'pathname:', location.pathname);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -32,6 +34,7 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
 
   // Show special coming soon message for authenticated users on web browsers (except admin)
   if (user && isWebBrowser && !location.pathname.startsWith('/admin')) {
+    console.log('Showing AuthComingSoon component');
     return <AuthComingSoon />;
   }
 
