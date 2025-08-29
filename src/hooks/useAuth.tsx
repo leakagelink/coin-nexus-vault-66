@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,14 +52,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ignore
       }
 
-      const redirectUrl = `https://nadex.space/`;
-
-      // Send Email OTP and create user on successful verification
-      const { error } = await supabase.auth.signInWithOtp({
+      // Use signUp with email confirmation required
+      const { error } = await supabase.auth.signUp({
         email,
+        password: 'temp_password_123!', // Temporary password for OTP flow
         options: {
-          emailRedirectTo: redirectUrl,
-          shouldCreateUser: true,
+          emailRedirectTo: `https://nadex.space/`,
           data: {
             full_name: fullName,
             display_name: fullName,
@@ -70,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        console.error('Signup (OTP) error:', error);
+        console.error('Signup error:', error);
         toast({
           title: "Signup Error",
           description: error.message,
@@ -85,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { error };
     } catch (error: any) {
-      console.error('Signup (OTP) error:', error);
+      console.error('Signup error:', error);
       return { error };
     }
   };
@@ -96,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.verifyOtp({
         email,
         token: otp,
-        type: 'email',
+        type: 'signup',
       });
 
       if (error) {
