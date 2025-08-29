@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { User, Edit, Save, X } from 'lucide-react';
 import { KYCSection } from './kyc-section';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AvatarUploader } from './avatar-uploader';
 
 export function ProfileSection() {
   const { user } = useAuth();
@@ -64,6 +66,12 @@ export function ProfileSection() {
     }
   };
 
+  const initials = (profile?.display_name || user?.email || 'U')
+    .toString()
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
   return (
     <div className="space-y-6">
       <Card className="glass">
@@ -80,10 +88,26 @@ export function ProfileSection() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              {profile?.avatar_url ? (
+                <AvatarImage src={profile.avatar_url} alt="Profile photo" />
+              ) : (
+                <AvatarFallback className="bg-gradient-primary text-primary-foreground">
+                  {initials}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <AvatarUploader
+              onUploaded={() => {
+                // Refresh profile to show new avatar
+                refetch();
+              }}
+            />
+          </div>
+
           <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center">
-              <User className="h-8 w-8 text-primary-foreground" />
-            </div>
+            {/* Replaces the older static icon with the actual avatar above */}
             <div className="flex-1">
               {isEditing ? (
                 <div className="space-y-2">

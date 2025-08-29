@@ -106,12 +106,16 @@ export function useLivePrices() {
       .slice(0, 3);
   };
 
+  const computedLastUpdate = Object.keys(prices).length
+    ? Math.max(...Object.values(prices).map((p) => p.lastUpdate || 0))
+    : 0;
+
   return {
     prices,
     isLoading,
     error,
     getPrice,
     getTrendingPairs,
-    lastUpdate: Math.max(...Object.values(prices).map(p => p.lastUpdate || 0))
+    lastUpdate: computedLastUpdate,
   };
 }
