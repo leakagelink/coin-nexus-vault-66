@@ -18,6 +18,7 @@ export function AuthScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
   const { signIn, signUp } = useAuth();
@@ -29,6 +30,7 @@ export function AuthScreen() {
     setConfirmPassword('');
     setFullName('');
     setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,10 +48,31 @@ export function AuthScreen() {
           });
         }
       } else if (step === 'signup') {
-        // Passwordless signup via Magic Link (account will be created after verification)
-        const { error } = await signUp(email, '', fullName, mobile);
+        // Validate password match
+        if (password !== confirmPassword) {
+          toast({
+            title: "Password Mismatch",
+            description: "Passwords do not match. Please try again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Validate password length
+        if (password.length < 6) {
+          toast({
+            title: "Password Too Short",
+            description: "Password must be at least 6 characters long.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await signUp(email, password, fullName, mobile);
         if (!error) {
-          // Info toast already shown in signUp
+          // Success toast already shown in signUp
         }
       }
     } catch (error) {
@@ -107,26 +130,53 @@ export function AuthScreen() {
           />
         </div>
         
-        {isLogin && (
+        <div>
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Enter your password"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {!isLogin && (
           <div>
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
             <div className="relative">
               <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required={isLogin}
-                placeholder="Enter your password"
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required={!isLogin}
+                placeholder="Confirm your password"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               >
-                {showPassword ? (
+                {showConfirmPassword ? (
                   <EyeOff className="h-4 w-4" />
                 ) : (
                   <Eye className="h-4 w-4" />
@@ -144,7 +194,7 @@ export function AuthScreen() {
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {isLogin ? 'Logging in...' : 'Sending magic link...'}
+              {isLogin ? 'Logging in...' : 'Creating account...'}
             </>
           ) : (
             isLogin ? 'Login' : 'Sign Up'

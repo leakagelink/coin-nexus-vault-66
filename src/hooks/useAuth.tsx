@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, _password: string, fullName: string, mobileNumber: string) => {
+  const signUp = async (email: string, password: string, fullName: string, mobileNumber: string) => {
     try {
       // Clean any previous auth state to avoid limbo
       cleanupAuthState();
@@ -52,12 +52,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ignore
       }
 
-      // Send MAGIC LINK (passwordless) for signup - account will be created after verification
+      // Sign up with password and send confirmation email
       const redirectUrl = `${window.location.origin}/`;
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.signUp({
         email,
+        password,
         options: {
-          shouldCreateUser: true,
           emailRedirectTo: redirectUrl,
           data: {
             full_name: fullName,
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        console.error('Signup (Magic Link) error:', error);
+        console.error('Signup error:', error);
         toast({
           title: "Signup Error",
           description: error.message,
@@ -76,14 +76,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       } else {
         toast({
-          title: "Magic Link Sent",
-          description: "Email par login link bheja gaya hai. Kripya apne email me link par click karke verify karein.",
+          title: "Account Created",
+          description: "Please check your email and click the confirmation link to verify your account.",
         });
       }
 
       return { error };
     } catch (error: any) {
-      console.error('Signup (Magic Link) error:', error);
+      console.error('Signup error:', error);
       return { error };
     }
   };
