@@ -8,7 +8,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string, mobileNumber: string) => Promise<{ error: any }>;
+  verifyEmailOtp: (email: string, otp: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, mobileNumber: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: {
             full_name: fullName,
             display_name: fullName,
+            mobile_number: mobileNumber,
           },
         },
       });
@@ -67,13 +69,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         toast({
           title: "Account Created",
-          description: "Please check your email to verify your account.",
+          description: "An OTP has been sent to your email. Please verify to activate your account.",
         });
       }
 
       return { error };
     } catch (error) {
       console.error('Signup error:', error);
+      return { error };
+    }
+  };
+
+  const verifyEmailOtp = async (email: string, otp: string) => {
+    try {
+      // Note: 'signup' type is used for email OTP verification after sign up
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        // Casting to any to be resilient to SDK typing changes
+        type: 'signup' as any,
+      });
+
+      if (error) {
+        console.error('OTP verification error:', error);
+        toast({
+          title: "Verification Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Email Verified",
+          description: "Your account has been verified and you are now logged in.",
+        });
+        // Force a clean state refresh
+        window.location.href = "/";
+      }
+
+      return { error };
+    } catch (error) {
+      console.error('OTP verification error:', error);
       return { error };
     }
   };
@@ -132,6 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signUp,
+    verifyEmailOtp,
     signIn,
     signOut,
   };

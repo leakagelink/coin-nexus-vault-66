@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
 import { User, Edit, Save, X } from 'lucide-react';
+import { KYCSection } from './kyc-section';
 
 export function ProfileSection() {
   const { user } = useAuth();
@@ -64,50 +65,54 @@ export function ProfileSection() {
   };
 
   return (
-    <Card className="glass">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          Profile Information
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsEditing(!isEditing)}
-          >
-            {isEditing ? <X className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center">
-            <User className="h-8 w-8 text-primary-foreground" />
-          </div>
-          <div className="flex-1">
-            {isEditing ? (
-              <div className="space-y-2">
-                <div>
-                  <Label htmlFor="displayName">Display Name</Label>
-                  <Input
-                    id="displayName"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Enter your name"
-                  />
+    <div className="space-y-6">
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Profile Information
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(!isEditing)}
+            >
+              {isEditing ? <X className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center">
+              <User className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <div className="flex-1">
+              {isEditing ? (
+                <div className="space-y-2">
+                  <div>
+                    <Label htmlFor="displayName">Display Name</Label>
+                    <Input
+                      id="displayName"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Enter your name"
+                    />
+                  </div>
+                  <Button size="sm" onClick={handleSaveProfile}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </Button>
                 </div>
-                <Button size="sm" onClick={handleSaveProfile}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
-                </Button>
-              </div>
-            ) : (
-              <div>
-                <h3 className="font-semibold">{profile?.display_name || 'Not set'}</h3>
-                <p className="text-muted-foreground">{user?.email}</p>
-              </div>
-            )}
+              ) : (
+                <div>
+                  <h3 className="font-semibold">{profile?.display_name || 'Not set'}</h3>
+                  <p className="text-muted-foreground">{user?.email}</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <KYCSection />
+    </div>
   );
 }

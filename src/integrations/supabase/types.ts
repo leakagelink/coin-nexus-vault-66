@@ -140,6 +140,51 @@ export type Database = {
         }
         Relationships: []
       }
+      kyc_documents: {
+        Row: {
+          aadhar_back_url: string | null
+          aadhar_front_url: string | null
+          admin_notes: string | null
+          created_at: string | null
+          id: string
+          pan_card_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          aadhar_back_url?: string | null
+          aadhar_front_url?: string | null
+          admin_notes?: string | null
+          created_at?: string | null
+          id?: string
+          pan_card_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          aadhar_back_url?: string | null
+          aadhar_front_url?: string | null
+          admin_notes?: string | null
+          created_at?: string | null
+          id?: string
+          pan_card_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       portfolio_positions: {
         Row: {
           amount: number
@@ -216,7 +261,9 @@ export type Database = {
           created_at: string | null
           display_name: string | null
           email: string | null
+          full_name: string | null
           id: string
+          mobile_number: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
         }
@@ -224,7 +271,9 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           email?: string | null
+          full_name?: string | null
           id: string
+          mobile_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
@@ -232,7 +281,9 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           email?: string | null
+          full_name?: string | null
           id?: string
+          mobile_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
