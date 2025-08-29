@@ -234,6 +234,21 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
                     <span>Amount:</span>
                     <span className="font-semibold">₹{paymentDetails.amount}</span>
                   </div>
+                  {paymentDetails.qrCode && (
+                    <div className="mt-4">
+                      <span className="text-sm text-muted-foreground">QR Code:</span>
+                      <div className="mt-2">
+                        <img 
+                          src={paymentDetails.qrCode} 
+                          alt="Payment QR Code" 
+                          className="max-w-48 max-h-48 mx-auto border rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
