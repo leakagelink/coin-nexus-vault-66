@@ -29,18 +29,26 @@ export interface ProcessedCandle {
 
 class BinanceService {
   private baseUrl = 'https://api.binance.com/api/v3';
+  private apiKey = 'eRSKz4nLGhEGj7bSGnxNVA5NLKxQQ8bN21whtTI32cilAugcL9OVVTO1sJ09mnk8';
 
   async getKlines(symbol: string, interval: string, limit: number = 500): Promise<ProcessedCandle[]> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
-      );
+      const url = `${this.baseUrl}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+      console.log(`Fetching Binance data from: ${url}`);
+      
+      const response = await fetch(url, {
+        headers: {
+          'X-MBX-APIKEY': this.apiKey
+        }
+      });
       
       if (!response.ok) {
-        throw new Error(`Binance API error: ${response.status}`);
+        throw new Error(`Binance API error: ${response.status} - ${response.statusText}`);
       }
       
-      const data: BinanceKline[] = await response.json();
+      const data: any[][] = await response.json();
+      console.log(`Received ${data.length} candles from Binance`);
+      
       return this.processCandles(data);
     } catch (error) {
       console.error('Error fetching Binance klines:', error);
@@ -48,13 +56,13 @@ class BinanceService {
     }
   }
 
-  private processCandles(klines: BinanceKline[]): ProcessedCandle[] {
+  private processCandles(klines: any[][]): ProcessedCandle[] {
     return klines.map((kline) => {
-      const open = parseFloat(kline.open);
-      const high = parseFloat(kline.high);
-      const low = parseFloat(kline.low);
-      const close = parseFloat(kline.close);
-      const volume = parseFloat(kline.volume);
+      const open = parseFloat(kline[1]);
+      const high = parseFloat(kline[2]);
+      const low = parseFloat(kline[3]);
+      const close = parseFloat(kline[4]);
+      const volume = parseFloat(kline[5]);
       
       const bodySize = Math.abs(close - open);
       const totalRange = high - low;
@@ -62,19 +70,20 @@ class BinanceService {
       const lowerShadow = Math.min(open, close) - low;
       const isBullish = close >= open;
       
-      // Calculate momentum based on body size, volume, and volatility
+      // Enhanced momentum calculation
       const bodyToRangeRatio = totalRange > 0 ? bodySize / totalRange : 0;
-      const volumeWeight = Math.log(volume + 1) / 20; // Normalize volume
-      const momentum = (bodyToRangeRatio * volumeWeight) * 100;
+      const volumeWeight = Math.log(volume + 1) / 20;
+      const priceImpact = bodySize / Math.max(open, close);
+      const momentum = (bodyToRangeRatio * volumeWeight * priceImpact) * 100;
       
       return {
-        timestamp: kline.openTime,
+        timestamp: parseInt(kline[0]),
         open,
         high,
         low,
         close,
         volume,
-        momentum: Math.min(momentum, 100), // Cap at 100
+        momentum: Math.min(momentum, 100),
         bodySize,
         upperShadow,
         lowerShadow,
@@ -85,11 +94,30 @@ class BinanceService {
 
   async getCurrentPrice(symbol: string) {
     try {
-      const response = await fetch(`${this.baseUrl}/ticker/24hr?symbol=${symbol}`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const response = await fetch(`${this.baseUrl}/ticker/24hr?symbol=${symbol}`, {
+        headers: {
+          'X-MBX-APIKEY': this.apiKey
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       return await response.json();
     } catch (error) {
       console.error('Error fetching current price:', error);
+      throw error;
+    }
+  }
+
+  async getExchangeInfo() {
+    try {
+      const response = await fetch(`${this.baseUrl}/exchangeInfo`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching exchange info:', error);
       throw error;
     }
   }
