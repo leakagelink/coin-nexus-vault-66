@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ProfessionalTradingChart } from '@/components/charts/professional-trading-chart';
+import { BinanceChart } from '@/components/charts/BinanceChart';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
@@ -56,7 +56,7 @@ export default function Chart() {
       </div>
       
       <div className="container mx-auto px-4 py-6">
-        <ProfessionalTradingChart
+        <BinanceChart
           symbol={symbol}
           name={cryptoName}
           onClose={handleBack}
