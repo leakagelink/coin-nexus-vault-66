@@ -12,8 +12,10 @@ import {
   TrendingUp, 
   TrendingDown,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Menu
 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface BinanceChartProps {
   symbol: string;
@@ -33,12 +35,14 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
   const [lastPanX, setLastPanX] = useState(0);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
+  const [showIntervalMenu, setShowIntervalMenu] = useState(false);
+  const isMobile = useIsMobile();
   
   const chartRef = useRef<HTMLDivElement>(null);
   const panTimeoutRef = useRef<number | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
 
-  // Available intervals with proper labels
+  // Available intervals optimized for mobile
   const intervals = [
     { value: '1m', label: '1m' },
     { value: '3m', label: '3m' },
@@ -56,6 +60,9 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     { value: '1w', label: '1w' },
     { value: '1M', label: '1M' }
   ];
+
+  // Mobile-friendly intervals for quick access
+  const quickIntervals = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
   // Fetch candle data
   const fetchData = useCallback(async () => {
@@ -197,13 +204,13 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
 
   if (loading && candles.length === 0) {
     return (
-      <Card className={`${isFullPage ? 'h-[calc(100vh-120px)]' : 'h-[500px]'} glass overflow-hidden`}>
+      <Card className={`${isFullPage ? 'h-[calc(100vh-60px)]' : 'h-[400px]'} glass overflow-hidden`}>
         <CardContent className="h-full flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <Activity className="h-12 w-12 animate-pulse mx-auto text-blue-500" />
+          <div className="text-center space-y-3">
+            <Activity className="h-8 w-8 animate-pulse mx-auto text-blue-500" />
             <div>
-              <p className="text-lg font-semibold">Loading Chart Data</p>
-              <p className="text-sm text-muted-foreground">Fetching live data from Binance...</p>
+              <p className="text-sm font-semibold">Loading Chart</p>
+              <p className="text-xs text-muted-foreground">Fetching data...</p>
             </div>
           </div>
         </CardContent>
@@ -213,15 +220,15 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
 
   if (error) {
     return (
-      <Card className={`${isFullPage ? 'h-[calc(100vh-120px)]' : 'h-[500px]'} glass overflow-hidden`}>
+      <Card className={`${isFullPage ? 'h-[calc(100vh-60px)]' : 'h-[400px]'} glass overflow-hidden`}>
         <CardContent className="h-full flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <AlertCircle className="h-12 w-12 mx-auto text-red-500" />
+          <div className="text-center space-y-3">
+            <AlertCircle className="h-8 w-8 mx-auto text-red-500" />
             <div>
-              <p className="text-lg font-semibold text-red-600">Chart Error</p>
-              <p className="text-sm text-muted-foreground mb-4">{error}</p>
-              <Button onClick={fetchData} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
+              <p className="text-sm font-semibold text-red-600">Chart Error</p>
+              <p className="text-xs text-muted-foreground mb-3">{error}</p>
+              <Button onClick={fetchData} variant="outline" size="sm" className="text-xs">
+                <RefreshCw className="h-3 w-3 mr-1" />
                 Retry
               </Button>
             </div>
@@ -232,83 +239,107 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
   }
 
   return (
-    <Card className={`${isFullPage ? 'h-[calc(100vh-120px)]' : 'h-[500px]'} glass overflow-hidden shadow-2xl border-0`}>
-      <CardHeader className="pb-2 px-3 bg-gradient-to-r from-gray-900 to-black text-white">
+    <Card className={`${isFullPage ? 'h-[calc(100vh-60px)]' : 'h-[400px]'} glass overflow-hidden shadow-xl border-0`}>
+      <CardHeader className="pb-1 px-2 bg-gradient-to-r from-gray-900 to-black text-white">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-lg font-bold">{name}</CardTitle>
-            <Badge variant="outline" className="text-xs bg-blue-900 text-blue-100 border-blue-700">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <CardTitle className="text-sm font-bold truncate">{name}</CardTitle>
+            <Badge variant="outline" className="text-xs bg-blue-900 text-blue-100 border-blue-700 px-1">
               {symbol}
             </Badge>
             {latestCandle && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {isLatestBullish ? (
-                  <TrendingUp className="h-4 w-4 text-green-400 animate-pulse" />
+                  <TrendingUp className="h-3 w-3 text-green-400" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-red-400 animate-pulse" />
+                  <TrendingDown className="h-3 w-3 text-red-400" />
                 )}
-                <span className={`text-sm font-mono ${isLatestBullish ? 'text-green-400' : 'text-red-400'}`}>
+                <span className={`text-xs font-mono ${isLatestBullish ? 'text-green-400' : 'text-red-400'}`}>
                   ₹{(latestCandle.close * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                 </span>
-                <Badge 
-                  variant="outline" 
-                  className={`text-xs animate-pulse ${
-                    latestMomentum > 50 ? 'bg-red-900 text-red-100 border-red-700' :
-                    latestMomentum > 25 ? 'bg-yellow-900 text-yellow-100 border-yellow-700' :
-                    'bg-green-900 text-green-100 border-green-700'
-                  }`}
-                >
-                  M: {latestMomentum.toFixed(1)}
-                </Badge>
               </div>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
-            {/* Interval Selector - All intervals from 1m to 1M */}
-            <div className="flex gap-1 flex-wrap max-w-md">
-              {intervals.map((int) => (
+          <div className="flex items-center gap-1">
+            {/* Mobile Interval Menu */}
+            {isMobile ? (
+              <div className="relative">
                 <Button
-                  key={int.value}
                   size="sm"
-                  variant={interval === int.value ? "default" : "ghost"}
-                  className="h-7 px-2 text-xs"
-                  onClick={() => {
-                    setInterval(int.value);
-                    pauseAutoRefresh();
-                  }}
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => setShowIntervalMenu(!showIntervalMenu)}
                 >
-                  {int.label}
+                  <Menu className="h-3 w-3 mr-1" />
+                  {interval}
                 </Button>
-              ))}
-            </div>
+                {showIntervalMenu && (
+                  <div className="absolute top-7 right-0 bg-black/95 border border-gray-700 rounded-md p-2 grid grid-cols-3 gap-1 z-50 min-w-32">
+                    {intervals.map((int) => (
+                      <Button
+                        key={int.value}
+                        size="sm"
+                        variant={interval === int.value ? "default" : "ghost"}
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          setInterval(int.value);
+                          setShowIntervalMenu(false);
+                          pauseAutoRefresh();
+                        }}
+                      >
+                        {int.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Desktop Interval Buttons */
+              <div className="flex gap-1 flex-wrap max-w-md">
+                {quickIntervals.map((int) => (
+                  <Button
+                    key={int}
+                    size="sm"
+                    variant={interval === int ? "default" : "ghost"}
+                    className="h-6 px-2 text-xs"
+                    onClick={() => {
+                      setInterval(int);
+                      pauseAutoRefresh();
+                    }}
+                  >
+                    {int}
+                  </Button>
+                ))}
+              </div>
+            )}
             
             {/* Zoom Controls */}
             <div className="flex gap-1">
-              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={zoomOut}>
+              <Button size="sm" variant="ghost" className="h-6 px-1" onClick={zoomOut}>
                 <ZoomOut className="h-3 w-3" />
               </Button>
-              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={zoomIn}>
+              <Button size="sm" variant="ghost" className="h-6 px-1" onClick={zoomIn}>
                 <ZoomIn className="h-3 w-3" />
               </Button>
             </div>
             
             {/* Live Status */}
             <div className="flex items-center gap-1">
-              <div className={`h-2 w-2 rounded-full ${isAutoRefresh ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
-              <span className="text-xs">{isAutoRefresh ? 'LIVE' : 'PAUSED'}</span>
+              <div className={`h-1.5 w-1.5 rounded-full ${isAutoRefresh ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
+              <span className="text-xs">{isAutoRefresh ? 'LIVE' : 'PAUSE'}</span>
             </div>
             
             {onClose && (
-              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={onClose}>
-                <X className="h-4 w-4" />
+              <Button size="sm" variant="ghost" className="h-6 px-1" onClick={onClose}>
+                <X className="h-3 w-3" />
               </Button>
             )}
           </div>
         </div>
       </CardHeader>
       
-      <CardContent className="p-0 h-[calc(100%-80px)] relative overflow-hidden bg-gradient-to-b from-gray-900 to-black">
+      <CardContent className="p-0 h-[calc(100%-50px)] relative overflow-hidden bg-gradient-to-b from-gray-900 to-black">
         <div
           ref={chartRef}
           className="w-full h-full cursor-grab active:cursor-grabbing select-none"
@@ -342,7 +373,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
             
             {displayCandles.map((candle, index) => {
               const x = (index / visibleCandles) * 100;
-              const candleWidth = Math.max(2, (100 / visibleCandles) * 0.7);
+              const candleWidth = Math.max(1, (100 / visibleCandles) * 0.7);
               
               const openY = ((maxPrice + padding - candle.open) / (priceRange + 2 * padding)) * 100;
               const closeY = ((maxPrice + padding - candle.close) / (priceRange + 2 * padding)) * 100;  
@@ -366,7 +397,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
                     x2={`${x + candleWidth/2}%`}
                     y2={`${lowY}%`}
                     stroke={candle.isBullish ? '#22c55e' : '#ef4444'}
-                    strokeWidth={Math.max(1, candleWidth * 0.1)}
+                    strokeWidth={Math.max(0.5, candleWidth * 0.1)}
                     opacity={0.8}
                     filter={isCurrentCandle ? "url(#glow)" : undefined}
                   />
@@ -379,7 +410,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
                     height={`${Math.max(bodyHeight, 0.5)}%`}
                     fill={candle.isBullish ? 'url(#bullishGradient)' : 'url(#bearishGradient)'}
                     stroke={candle.isBullish ? '#16a34a' : '#dc2626'}
-                    strokeWidth={0.5}
+                    strokeWidth={0.3}
                     opacity={isCurrentCandle ? 1 : 0.9}
                     filter={glowIntensity > 0.5 ? "url(#glow)" : undefined}
                     className={isCurrentCandle ? 'animate-pulse' : ''}
@@ -389,9 +420,9 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
                   {candle.momentum > 5 && (
                     <rect
                       x={`${x}%`}
-                      y="95%"
+                      y="96%"
                       width={`${candleWidth}%`}
-                      height={`${Math.min(candle.momentum / 10, 5)}%`}
+                      height={`${Math.min(candle.momentum / 15, 4)}%`}
                       fill={
                         candle.momentum > 50 ? '#ef4444' :
                         candle.momentum > 25 ? '#f59e0b' : '#22c55e'
@@ -407,7 +438,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
                       <circle
                         cx={`${x + candleWidth/2}%`}
                         cy={`${closeY}%`}
-                        r="3"
+                        r={isMobile ? "2" : "3"}
                         fill={candle.isBullish ? '#22c55e' : '#ef4444'}
                         className="animate-ping"
                         opacity="0.6"
@@ -415,7 +446,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
                       <circle
                         cx={`${x + candleWidth/2}%`}
                         cy={`${closeY}%`}
-                        r="2"
+                        r={isMobile ? "1" : "2"}
                         fill={candle.isBullish ? '#22c55e' : '#ef4444'}
                       />
                     </>
@@ -425,15 +456,15 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
             })}
           </svg>
           
-          {/* Chart Info Overlay */}
-          <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm rounded-lg p-2 text-white text-xs">
-            <div>Interval: {interval}</div>
-            <div>Zoom: {zoomLevel.toFixed(1)}x</div>
-            <div>Candles: {displayCandles.length}</div>
-            <div className="flex items-center gap-1">
-              <Move className="h-3 w-3" />
-              <span>Drag to pan • Wheel to zoom</span>
-            </div>
+          {/* Mobile-Optimized Chart Info Overlay */}
+          <div className="absolute top-1 left-1 bg-black/70 backdrop-blur-sm rounded-md p-1 text-white text-xs">
+            <div className="text-xs">Z: {zoomLevel.toFixed(1)}x • {displayCandles.length}</div>
+            {!isMobile && (
+              <div className="flex items-center gap-1 text-xs">
+                <Move className="h-2 w-2" />
+                <span>Drag • Wheel zoom</span>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

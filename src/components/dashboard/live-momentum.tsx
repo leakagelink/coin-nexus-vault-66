@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Play, Pause } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Play, Pause, Search } from "lucide-react";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
 import { TradingModal } from "@/components/trading/trading-modal";
 
@@ -13,7 +14,17 @@ const cryptoMapping = {
   'BNB': { name: 'BNB', symbol: 'BNBUSDT' },
   'ADA': { name: 'Cardano', symbol: 'ADAUSDT' },
   'SOL': { name: 'Solana', symbol: 'SOLUSDT' },
-  'USDT': { name: 'Tether', symbol: 'USDTUSDT' }
+  'USDT': { name: 'Tether', symbol: 'USDTUSDT' },
+  'XRP': { name: 'Ripple', symbol: 'XRPUSDT' },
+  'DOT': { name: 'Polkadot', symbol: 'DOTUSDT' },
+  'LINK': { name: 'Chainlink', symbol: 'LINKUSDT' },
+  'LTC': { name: 'Litecoin', symbol: 'LTCUSDT' },
+  'DOGE': { name: 'Dogecoin', symbol: 'DOGEUSDT' },
+  'TRX': { name: 'Tron', symbol: 'TRXUSDT' },
+  'TON': { name: 'Toncoin', symbol: 'TONUSDT' },
+  'MATIC': { name: 'Polygon', symbol: 'MATICUSDT' },
+  'BCH': { name: 'Bitcoin Cash', symbol: 'BCHUSDT' },
+  'AVAX': { name: 'Avalanche', symbol: 'AVAXUSDT' }
 };
 
 export function LiveMomentum() {
@@ -22,10 +33,11 @@ export function LiveMomentum() {
   const [isAutoRefresh, setIsAutoRefresh] = useState(false);
   const [momentum, setMomentum] = useState<Record<string, number>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const priceHistoryRef = useRef<Record<string, number[]>>({});
 
-  // Calculate momentum based on price history
+  // Calculate momentum based on price history (every 8 seconds)
   const calculateMomentum = (symbol: string, currentPrice: number) => {
     if (!priceHistoryRef.current[symbol]) {
       priceHistoryRef.current[symbol] = [];
@@ -65,7 +77,7 @@ export function LiveMomentum() {
     return () => clearInterval(momentumInterval);
   }, [prices]);
 
-  // Auto refresh functionality
+  // Manual refresh only when auto refresh is off
   useEffect(() => {
     if (isAutoRefresh) {
       intervalRef.current = setInterval(async () => {
@@ -97,15 +109,16 @@ export function LiveMomentum() {
   };
 
   const handleTrade = (symbol: string, price: number, type: 'buy' | 'sell') => {
+    const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
     setSelectedCrypto({
-      symbol: `${symbol}USDT`,
-      name: cryptoMapping[symbol as keyof typeof cryptoMapping]?.name || symbol,
+      symbol: crypto ? crypto.symbol : `${symbol}USDT`,
+      name: crypto ? crypto.name : symbol,
       price: price
     });
   };
 
-  // Get trending pairs based on momentum
-  const getTrendingPairs = () => {
+  // Get trading pairs based on search and momentum
+  const getTradingPairs = () => {
     return Object.entries(prices)
       .map(([symbol, priceData]) => {
         const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
@@ -123,8 +136,11 @@ export function LiveMomentum() {
         };
       })
       .filter(Boolean)
-      .sort((a, b) => b!.momentum - a!.momentum)
-      .slice(0, 6);
+      .filter(crypto => 
+        crypto!.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        crypto!.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => b!.momentum - a!.momentum);
   };
 
   if (isLoading) {
@@ -149,7 +165,7 @@ export function LiveMomentum() {
     );
   }
 
-  const trendingPairs = getTrendingPairs();
+  const tradingPairs = getTradingPairs();
 
   return (
     <>
@@ -185,10 +201,21 @@ export function LiveMomentum() {
               </div>
             </div>
           </div>
+          
+          {/* Search Bar */}
+          <div className="relative mt-2">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
+            <Input
+              placeholder="Search cryptocurrencies..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 h-8 text-xs bg-gray-900/50 border-gray-700 focus:border-blue-500"
+            />
+          </div>
         </CardHeader>
-        <CardContent className="space-y-2 md:space-y-3 px-3 md:px-6 pb-3 md:pb-6">
+        <CardContent className="space-y-2 md:space-y-3 px-3 md:px-6 pb-3 md:pb-6 max-h-96 overflow-y-auto">
           <div className="grid gap-2 md:gap-3">
-            {trendingPairs.map((crypto) => (
+            {tradingPairs.map((crypto) => (
               <div
                 key={crypto.symbol}
                 className="p-2 md:p-3 rounded-lg border glass-subtle hover:bg-muted/50 transition-colors"
@@ -196,7 +223,10 @@ export function LiveMomentum() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
                     <div className="flex flex-col min-w-0">
-                      <span className="font-semibold text-xs md:text-sm truncate">{crypto.symbol}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-xs md:text-sm truncate">{crypto.symbol}</span>
+                        <span className="text-xs text-gray-400 hidden sm:inline">{crypto.name}</span>
+                      </div>
                       <div className="flex items-center gap-1 md:gap-2 flex-wrap">
                         <span className="text-sm md:text-lg font-bold gradient-text">
                           ₹{(crypto.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
@@ -246,8 +276,8 @@ export function LiveMomentum() {
                         onClick={() => handleTrade(crypto.symbol, crypto.price, 'buy')}
                       >
                         <ShoppingCart className="h-2.5 w-2.5 mr-1" />
-                        <span className="hidden sm:inline">Open Long</span>
-                        <span className="sm:hidden">Long</span>
+                        <span className="hidden sm:inline">Long</span>
+                        <span className="sm:hidden">L</span>
                       </Button>
                       <Button 
                         size="sm" 
@@ -256,14 +286,20 @@ export function LiveMomentum() {
                         onClick={() => handleTrade(crypto.symbol, crypto.price, 'sell')}
                       >
                         <Wallet className="h-2.5 w-2.5 mr-1" />
-                        <span className="hidden sm:inline">Open Short</span>
-                        <span className="sm:hidden">Short</span>
+                        <span className="hidden sm:inline">Short</span>
+                        <span className="sm:hidden">S</span>
                       </Button>
                     </div>
                   </div>
                 </div>
               </div>
             ))}
+            
+            {tradingPairs.length === 0 && searchTerm && (
+              <div className="text-center py-4 text-gray-400">
+                <p className="text-sm">No cryptocurrencies found for "{searchTerm}"</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
