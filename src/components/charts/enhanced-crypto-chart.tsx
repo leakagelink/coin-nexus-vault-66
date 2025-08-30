@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,7 +43,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
   const { prices, getPrice } = useLivePrices();
   const livePrice = getPrice(symbol.replace('USDT', ''));
 
-  // Fetch real chart data
   const fetchChartData = async () => {
     setIsLoading(true);
     setError(null);
@@ -66,14 +64,12 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
     fetchChartData();
   }, [symbol, timeframe]);
 
-  // Live price updates
   useEffect(() => {
     if (livePrice && chartData.length > 0) {
       setChartData(prevData => {
         const newData = [...prevData];
         const lastCandle = newData[newData.length - 1];
         if (lastCandle) {
-          // Update the last candle with live price
           lastCandle.close = livePrice.price;
           lastCandle.high = Math.max(lastCandle.high, livePrice.price);
           lastCandle.low = Math.min(lastCandle.low, livePrice.price);
@@ -83,7 +79,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
     }
   }, [livePrice, chartData.length]);
 
-  // Chart manipulation handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - chartOffset.x, y: e.clientY - chartOffset.y });
@@ -117,7 +112,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
     setChartOffset({ x: 0, y: 0 });
   };
 
-  // Calculate price statistics
   const firstPrice = chartData[0]?.close || 0;
   const lastPrice = livePrice?.price || chartData[chartData.length - 1]?.close || 0;
   const priceChange = livePrice?.change || (lastPrice - firstPrice);
@@ -127,6 +121,10 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
   const high24h = livePrice?.high24h || Math.max(...chartData.map(d => d.high));
   const low24h = livePrice?.low24h || Math.min(...chartData.map(d => d.low));
   const volume24h = livePrice?.volume || chartData[chartData.length - 1]?.volume || 0;
+
+  const CustomCandlestick = (props: any) => {
+    return <CandlestickRenderer {...props} />;
+  };
 
   return (
     <Card className={`transition-all duration-300 ${isFullscreen ? 'fixed inset-4 z-50 max-w-none' : 'w-full max-w-7xl mx-auto'}`}>
@@ -175,7 +173,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
       </CardHeader>
       
       <CardContent className="space-y-4 px-4 sm:px-6">
-        {/* Live Price Display */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-4 rounded-lg gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-4 mb-2">
@@ -218,7 +215,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           </div>
         </div>
 
-        {/* Timeframe Controls */}
         <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
           {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => (
             <Button
@@ -233,7 +229,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           ))}
         </div>
 
-        {/* Indicators Settings */}
         {showSettings && (
           <div className="bg-muted/10 p-4 rounded-lg border">
             <h4 className="text-sm font-medium mb-3">Technical Indicators</h4>
@@ -256,7 +251,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           </div>
         )}
 
-        {/* Main Chart */}
         <div className="relative">
           {isLoading ? (
             <div className={`${isFullscreen ? 'h-[60vh]' : 'h-96 sm:h-[500px]'} flex items-center justify-center bg-muted/5 rounded-lg border`}>
@@ -307,13 +301,11 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                   />
                   <Tooltip content={<ChartTooltip />} />
                   
-                  {/* Candlestick bars */}
                   <Bar 
                     dataKey="close" 
-                    shape={<CandlestickRenderer />}
+                    shape={CustomCandlestick}
                   />
 
-                  {/* Technical Indicators */}
                   <ChartIndicators data={chartData} indicators={indicators} />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -329,12 +321,10 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           )}
         </div>
 
-        {/* RSI Indicator */}
         {indicators.rsi && (
           <RSIChart data={chartData} isVisible={true} />
         )}
 
-        {/* Volume Chart */}
         {indicators.volume && chartData.length > 0 && (
           <div className="h-24 w-full">
             <div className="flex items-center justify-between mb-2">
@@ -369,7 +359,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           </div>
         )}
 
-        {/* Market Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-gradient-to-r from-muted/10 to-muted/5 rounded-lg border">
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">24h High</p>
