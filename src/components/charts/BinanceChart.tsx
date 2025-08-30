@@ -9,15 +9,13 @@ import {
   X, 
   Maximize2, 
   Minimize2,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Activity,
-  Loader2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Activity,
+  Loader2
 } from 'lucide-react';
 import { binanceService, ProcessedCandle } from '@/services/binanceService';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface BinanceChartProps {
   symbol: string;
@@ -36,6 +34,8 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const timeframes = [
     { key: '1m', label: '1M' },
@@ -90,18 +90,32 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
 
   const drawChart = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !chartData.length) return;
+    const container = containerRef.current;
+    if (!canvas || !container || !chartData.length) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const { width, height } = canvas;
+    // Get actual container dimensions
+    const containerRect = container.getBoundingClientRect();
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    
+    // Set canvas size based on container
+    canvas.width = containerRect.width * devicePixelRatio;
+    canvas.height = containerRect.height * devicePixelRatio;
+    canvas.style.width = containerRect.width + 'px';
+    canvas.style.height = containerRect.height + 'px';
+    
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    
+    const { width, height } = containerRect;
     ctx.clearRect(0, 0, width, height);
 
-    // Chart dimensions with proper padding
-    const padding = 80;
+    // Mobile-optimized padding
+    const padding = isMobile ? 40 : 80;
+    const bottomPadding = isMobile ? 60 : 80; // Extra space for momentum bars
     const chartWidth = width - padding * 2;
-    const chartHeight = height - padding * 2;
+    const chartHeight = height - padding - bottomPadding;
 
     // Calculate price range
     const prices = chartData.flatMap(d => [d.high, d.low]);
@@ -111,31 +125,61 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
 
     if (priceRange === 0) return;
 
-    // Draw professional grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
+    // Professional grid with mobile optimization
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 0.5;
     
-    // Horizontal grid lines
-    for (let i = 0; i <= 10; i++) {
-      const y = padding + (chartHeight / 10) * i;
+    // Horizontal grid lines (fewer on mobile)
+    const hLines = isMobile ? 6 : 10;
+    for (let i = 0; i <= hLines; i++) {
+      const y = padding + (chartHeight / hLines) * i;
       ctx.beginPath();
       ctx.moveTo(padding, y);
       ctx.lineTo(width - padding, y);
       ctx.stroke();
     }
     
-    // Vertical grid lines
-    for (let i = 0; i <= 12; i++) {
-      const x = padding + (chartWidth / 12) * i;
+    // Vertical grid lines (fewer on mobile)
+    const vLines = isMobile ? 6 : 12;
+    for (let i = 0; i <= vLines; i++) {
+      const x = padding + (chartWidth / vLines) * i;
       ctx.beginPath();
       ctx.moveTo(x, padding);
-      ctx.lineTo(x, height - padding);
+      ctx.lineTo(x, height - bottomPadding);
       ctx.stroke();
     }
 
     // Calculate candle dimensions
-    const candleWidth = Math.max((chartWidth / chartData.length) * 0.7, 2);
+    const candleWidth = Math.max((chartWidth / chartData.length) * 0.8, isMobile ? 1.5 : 2);
     const candleSpacing = chartWidth / chartData.length;
+    
+    // Draw momentum bars first (background layer)
+    const maxMomentum = Math.max(...chartData.map(c => c.momentum));
+    chartData.forEach((candle, index) => {
+      const x = padding + (index * candleSpacing) + candleSpacing / 2;
+      
+      if (candle.momentum > 5) { // Show momentum bars for significant momentum
+        const momentumHeight = (candle.momentum / maxMomentum) * 40;
+        const momentumY = height - bottomPadding + 10;
+        
+        // Momentum color based on candle direction and strength
+        const momentumAlpha = Math.min(candle.momentum / 50, 0.8);
+        const momentumColor = candle.isBullish 
+          ? `rgba(2, 192, 118, ${momentumAlpha})` 
+          : `rgba(248, 73, 96, ${momentumAlpha})`;
+        
+        ctx.fillStyle = momentumColor;
+        ctx.fillRect(x - candleWidth/2, momentumY, candleWidth, momentumHeight);
+        
+        // Add glow effect for high momentum
+        if (candle.momentum > 30) {
+          ctx.shadowColor = candle.isBullish ? '#02C076' : '#F84960';
+          ctx.shadowBlur = 3;
+          ctx.fillRect(x - candleWidth/2, momentumY, candleWidth, momentumHeight);
+          ctx.shadowBlur = 0;
+        }
+      }
+    });
     
     // Draw candlesticks with enhanced momentum visualization
     chartData.forEach((candle, index) => {
@@ -152,21 +196,21 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
       const openY = padding + ((maxPrice - candle.open) / priceRange) * chartHeight;
       const closeY = padding + ((maxPrice - candle.close) / priceRange) * chartHeight;
       
-      // Enhanced momentum visualization
-      if (candle.momentum > 15) {
-        // Glow effect for high momentum
-        const glowRadius = Math.min(candle.momentum / 5, 10);
+      // Enhanced momentum glow effect
+      if (candle.momentum > 20) {
+        const glowRadius = Math.min(candle.momentum / 8, isMobile ? 6 : 8);
         const gradient = ctx.createRadialGradient(x, (openY + closeY) / 2, 0, x, (openY + closeY) / 2, glowRadius);
-        gradient.addColorStop(0, baseColor + '40');
+        gradient.addColorStop(0, baseColor + '60');
         gradient.addColorStop(1, baseColor + '00');
         
         ctx.fillStyle = gradient;
-        ctx.fillRect(x - glowRadius, Math.min(openY, closeY) - glowRadius, 
-                    glowRadius * 2, Math.abs(closeY - openY) + glowRadius * 2);
+        ctx.beginPath();
+        ctx.arc(x, (openY + closeY) / 2, glowRadius, 0, 2 * Math.PI);
+        ctx.fill();
       }
       
-      // Draw wick with momentum-based thickness
-      const wickThickness = 1 + (candle.momentum / 50) * 2;
+      // Draw wick with momentum-enhanced thickness
+      const wickThickness = Math.max(0.8, 1 + (candle.momentum / 100) * (isMobile ? 1 : 2));
       ctx.strokeStyle = baseColor;
       ctx.lineWidth = wickThickness;
       ctx.beginPath();
@@ -177,57 +221,54 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
       // Draw candle body with momentum enhancement
       const bodyHeight = Math.abs(closeY - openY);
       const bodyY = Math.min(openY, closeY);
-      const enhancedWidth = candleWidth + (candle.momentum / 100) * 3;
+      const enhancedWidth = candleWidth + (candle.momentum / 200) * (isMobile ? 2 : 4);
       
       ctx.fillStyle = baseColor;
       
       if (candle.isBullish) {
-        // Bullish candle (outlined)
+        // Bullish candle (outlined with momentum fill)
         ctx.strokeStyle = baseColor;
-        ctx.lineWidth = Math.max(1, candle.momentum / 30);
+        ctx.lineWidth = Math.max(1, candle.momentum / 40);
         ctx.strokeRect(x - enhancedWidth/2, bodyY, enhancedWidth, Math.max(bodyHeight, 1));
         
-        if (candle.momentum > 25) {
-          ctx.globalAlpha = 0.3;
+        // Fill based on momentum strength
+        if (candle.momentum > 15) {
+          ctx.globalAlpha = Math.min(candle.momentum / 100, 0.4);
           ctx.fillRect(x - enhancedWidth/2, bodyY, enhancedWidth, Math.max(bodyHeight, 1));
           ctx.globalAlpha = 1;
         }
       } else {
-        // Bearish candle (filled)
+        // Bearish candle (filled with momentum intensity)
+        ctx.globalAlpha = Math.max(0.7, Math.min(1, 0.7 + candle.momentum / 100));
         ctx.fillRect(x - enhancedWidth/2, bodyY, enhancedWidth, Math.max(bodyHeight, 1));
-      }
-      
-      // Momentum bar at bottom
-      if (candle.momentum > 20) {
-        const momentumHeight = (candle.momentum / 100) * 25;
-        ctx.fillStyle = baseColor;
-        ctx.globalAlpha = 0.6;
-        ctx.fillRect(x - candleWidth/2, height - padding - momentumHeight, 
-                    candleWidth, momentumHeight);
         ctx.globalAlpha = 1;
       }
     });
 
-    // Draw price scale
+    // Mobile-optimized price scale
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = '12px "Inter", system-ui, sans-serif';
+    ctx.font = isMobile ? '10px "Inter", system-ui, sans-serif' : '12px "Inter", system-ui, sans-serif';
     ctx.textAlign = 'right';
     
-    for (let i = 0; i <= 10; i++) {
-      const price = minPrice + (priceRange / 10) * i;
-      const y = padding + chartHeight - (chartHeight / 10) * i;
+    const priceLines = isMobile ? 6 : 10;
+    for (let i = 0; i <= priceLines; i++) {
+      const price = minPrice + (priceRange / priceLines) * i;
+      const y = padding + chartHeight - (chartHeight / priceLines) * i;
       const priceText = price > 1 ? price.toFixed(2) : price.toFixed(6);
       
-      // Price label background
+      // Compact price label for mobile
       const textWidth = ctx.measureText(`$${priceText}`).width;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(width - padding - textWidth - 10, y - 8, textWidth + 8, 16);
+      const labelPadding = isMobile ? 4 : 8;
+      
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillRect(width - padding - textWidth - labelPadding - 2, y - (isMobile ? 6 : 8), 
+                   textWidth + labelPadding, isMobile ? 12 : 16);
       
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(`$${priceText}`, width - padding - 5, y + 4);
+      ctx.fillText(`$${priceText}`, width - padding - 2, y + (isMobile ? 2 : 4));
     }
 
-    // Current price line
+    // Current price line with mobile optimization
     if (currentPrice) {
       const currentPriceNum = parseFloat(currentPrice.lastPrice);
       const currentPriceY = padding + ((maxPrice - currentPriceNum) / priceRange) * chartHeight;
@@ -235,8 +276,8 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
       
       // Animated price line
       ctx.strokeStyle = isPositive ? '#02C076' : '#F84960';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 4]);
+      ctx.lineWidth = isMobile ? 1.5 : 2;
+      ctx.setLineDash([6, 3]);
       ctx.globalAlpha = 0.9;
       
       ctx.beginPath();
@@ -246,89 +287,95 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
       
-      // Current price label
+      // Compact current price label for mobile
       const priceText = currentPriceNum > 1 ? currentPriceNum.toFixed(2) : currentPriceNum.toFixed(6);
+      const labelWidth = isMobile ? 80 : 115;
+      const labelHeight = isMobile ? 20 : 30;
+      
       ctx.fillStyle = isPositive ? '#02C076' : '#F84960';
-      ctx.fillRect(width - padding - 120, currentPriceY - 15, 115, 30);
+      ctx.fillRect(width - padding - labelWidth, currentPriceY - labelHeight/2, labelWidth, labelHeight);
       
       ctx.fillStyle = 'white';
-      ctx.font = 'bold 12px "Inter", monospace';
+      ctx.font = isMobile ? 'bold 9px "Inter", monospace' : 'bold 12px "Inter", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(`$${priceText}`, width - padding - 62, currentPriceY + 4);
+      ctx.fillText(`$${priceText}`, width - padding - labelWidth/2, currentPriceY + (isMobile ? 2 : 4));
+    }
+
+    // Momentum indicator legend (mobile-optimized)
+    if (maxMomentum > 0) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      const legendWidth = isMobile ? 120 : 140;
+      const legendHeight = isMobile ? 40 : 50;
+      ctx.fillRect(padding, height - bottomPadding + 10, legendWidth, legendHeight);
+      
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = isMobile ? '8px "Inter", system-ui, sans-serif' : '10px "Inter", system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('Momentum', padding + 5, height - bottomPadding + (isMobile ? 22 : 28));
+      ctx.fillText(`Max: ${maxMomentum.toFixed(0)}%`, padding + 5, height - bottomPadding + (isMobile ? 35 : 42));
     }
   };
 
-  // Canvas setup and drawing
+  // Canvas setup and drawing with proper resize handling
   useEffect(() => {
     const resizeCanvas = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      
-      const container = canvas.parentElement;
-      if (!container) return;
-      
-      const devicePixelRatio = window.devicePixelRatio || 1;
-      const rect = container.getBoundingClientRect();
-      
-      canvas.width = rect.width * devicePixelRatio;
-      canvas.height = rect.height * devicePixelRatio;
-      canvas.style.width = rect.width + 'px';
-      canvas.style.height = rect.height + 'px';
-      
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.scale(devicePixelRatio, devicePixelRatio);
+      if (chartData.length > 0) {
+        drawChart();
       }
-      
-      drawChart();
     };
 
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     return () => window.removeEventListener('resize', resizeCanvas);
-  }, [chartData, currentPrice]);
+  }, [chartData, currentPrice, isMobile]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await fetchChartData();
   };
 
-  // Statistics
+  // Statistics with momentum data
   const avgMomentum = chartData.length > 0 
     ? chartData.reduce((sum, c) => sum + c.momentum, 0) / chartData.length 
     : 0;
   const highMomentumCandles = chartData.filter(c => c.momentum > 30).length;
+  const maxMomentum = chartData.length > 0 ? Math.max(...chartData.map(c => c.momentum)) : 0;
 
-  const chartHeight = isFullPage ? 'h-[80vh]' : 'h-[600px]';
+  // Dynamic height based on device
+  const chartHeight = isFullPage 
+    ? (isMobile ? 'h-[70vh]' : 'h-[80vh]')
+    : (isMobile ? 'h-[400px]' : 'h-[600px]');
 
   return (
     <Card className={`bg-gradient-to-br from-gray-900 to-black border-gray-700 ${isFullscreen ? 'fixed inset-4 z-50 max-w-none' : 'w-full'}`}>
-      <CardHeader className="border-b border-gray-700 bg-gradient-to-r from-gray-900 to-gray-800">
+      <CardHeader className="border-b border-gray-700 bg-gradient-to-r from-gray-900 to-gray-800 p-3 md:p-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <CardTitle className="text-2xl font-bold text-white">{symbol}</CardTitle>
-            <Badge variant="outline" className="text-green-400 border-green-400 animate-pulse">
+          <div className="flex items-center gap-2 md:gap-4">
+            <CardTitle className={`font-bold text-white ${isMobile ? 'text-lg' : 'text-2xl'}`}>
+              {symbol}
+            </CardTitle>
+            <Badge variant="outline" className="text-green-400 border-green-400 animate-pulse text-xs">
               LIVE
             </Badge>
             {currentPrice && (
               <Badge 
                 variant={parseFloat(currentPrice.priceChangePercent) >= 0 ? 'default' : 'destructive'}
-                className="px-3 py-1"
+                className={`px-2 py-1 ${isMobile ? 'text-xs' : ''}`}
               >
                 {parseFloat(currentPrice.priceChangePercent) >= 0 ? 
-                  <TrendingUp className="h-4 w-4 mr-1" /> : 
-                  <TrendingDown className="h-4 w-4 mr-1" />
+                  <TrendingUp className={`mr-1 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} /> : 
+                  <TrendingDown className={`mr-1 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                 }
                 {Math.abs(parseFloat(currentPrice.priceChangePercent)).toFixed(2)}%
               </Badge>
             )}
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 md:gap-2">
             <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
-            {!isFullPage && (
+            {!isFullPage && !isMobile && (
               <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)}>
                 {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </Button>
@@ -342,31 +389,35 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
         </div>
       </CardHeader>
       
-      <CardContent className="p-6 space-y-6">
-        {/* Price Info */}
+      <CardContent className={`space-y-4 ${isMobile ? 'p-3' : 'p-6'}`}>
+        {/* Mobile-optimized Price Info */}
         {currentPrice && (
-          <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 p-6 rounded-lg border border-gray-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-4xl font-bold text-white font-mono">
+          <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 p-4 rounded-lg border border-gray-600">
+            <div className={`flex items-center justify-between ${isMobile ? 'flex-col gap-3' : ''}`}>
+              <div className={isMobile ? 'text-center' : ''}>
+                <div className={`font-bold text-white font-mono ${isMobile ? 'text-2xl' : 'text-4xl'}`}>
                   ${parseFloat(currentPrice.lastPrice).toFixed(parseFloat(currentPrice.lastPrice) > 1 ? 2 : 6)}
                 </div>
-                <div className={`flex items-center gap-2 mt-2 ${parseFloat(currentPrice.priceChangePercent) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {parseFloat(currentPrice.priceChangePercent) >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
-                  <span className="text-lg font-semibold">
+                <div className={`flex items-center gap-2 mt-2 ${parseFloat(currentPrice.priceChangePercent) >= 0 ? 'text-green-400' : 'text-red-400'} ${isMobile ? 'justify-center' : ''}`}>
+                  {parseFloat(currentPrice.priceChangePercent) >= 0 ? 
+                    <TrendingUp className={isMobile ? 'h-4 w-4' : 'h-5 w-5'} /> : 
+                    <TrendingDown className={isMobile ? 'h-4 w-4' : 'h-5 w-5'} />
+                  }
+                  <span className={`font-semibold ${isMobile ? 'text-base' : 'text-lg'}`}>
                     {parseFloat(currentPrice.priceChangePercent) >= 0 ? '+' : ''}
                     ${parseFloat(currentPrice.priceChange).toFixed(4)} 
                     ({parseFloat(currentPrice.priceChangePercent).toFixed(2)}%)
                   </span>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="flex items-center gap-2 text-blue-400 mb-2">
-                  <Activity className="h-5 w-5" />
-                  <span className="text-sm">Momentum Analysis</span>
+              <div className={`${isMobile ? 'text-center' : 'text-right'}`}>
+                <div className="flex items-center gap-2 text-blue-400 mb-2 justify-center">
+                  <Activity className={isMobile ? 'h-4 w-4' : 'h-5 w-5'} />
+                  <span className={isMobile ? 'text-xs' : 'text-sm'}>Momentum Analysis</span>
                 </div>
-                <div className="text-sm text-gray-300">
+                <div className={`text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                   <div>Avg: {avgMomentum.toFixed(1)}%</div>
+                  <div>Max: {maxMomentum.toFixed(1)}%</div>
                   <div>High: {highMomentumCandles} candles</div>
                 </div>
               </div>
@@ -374,15 +425,15 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           </div>
         )}
 
-        {/* Timeframe Selector */}
-        <div className="flex gap-2 justify-center">
+        {/* Mobile-optimized Timeframe Selector */}
+        <div className={`flex gap-1 justify-center ${isMobile ? 'flex-wrap' : 'gap-2'}`}>
           {timeframes.map((tf) => (
             <Button
               key={tf.key}
               variant={timeframe === tf.key ? 'default' : 'outline'}
-              size="sm"
+              size={isMobile ? 'sm' : 'sm'}
               onClick={() => setTimeframe(tf.key)}
-              className={timeframe === tf.key ? 'bg-blue-600 hover:bg-blue-700' : ''}
+              className={`${timeframe === tf.key ? 'bg-blue-600 hover:bg-blue-700' : ''} ${isMobile ? 'text-xs px-3 py-1' : ''}`}
             >
               {tf.label}
             </Button>
@@ -394,46 +445,43 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           {isLoading ? (
             <div className={`${chartHeight} flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700`}>
               <div className="text-center text-white">
-                <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-400" />
-                <p className="text-lg">Loading Professional Chart...</p>
-                <p className="text-sm text-gray-400 mt-2">Connecting to Binance API...</p>
+                <Loader2 className={`animate-spin mx-auto mb-4 text-blue-400 ${isMobile ? 'h-8 w-8' : 'h-12 w-12'}`} />
+                <p className={isMobile ? 'text-base' : 'text-lg'}>Loading Professional Chart...</p>
+                <p className={`text-gray-400 mt-2 ${isMobile ? 'text-xs' : 'text-sm'}`}>Connecting to Binance API...</p>
               </div>
             </div>
           ) : error ? (
             <div className={`${chartHeight} flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700`}>
-              <div className="text-center text-white max-w-md">
-                <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
-                <p className="text-lg mb-2">Chart Loading Failed</p>
-                <p className="text-sm text-red-400 mb-4">{error}</p>
-                <p className="text-xs text-gray-500 mb-4">
-                  The Binance proxy function may need to be deployed. Please check the Supabase dashboard.
-                </p>
-                <Button onClick={fetchChartData} variant="outline">
-                  <RefreshCw className="h-4 w-4 mr-2" />
+              <div className="text-center text-white max-w-md px-4">
+                <AlertCircle className={`mx-auto mb-4 text-red-400 ${isMobile ? 'h-8 w-8' : 'h-12 w-12'}`} />
+                <p className={isMobile ? 'text-base mb-2' : 'text-lg mb-2'}>Chart Loading Failed</p>
+                <p className={`text-red-400 mb-4 ${isMobile ? 'text-xs' : 'text-sm'}`}>{error}</p>
+                <Button onClick={fetchChartData} variant="outline" size={isMobile ? 'sm' : 'default'}>
+                  <RefreshCw className={`mr-2 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                   Retry Connection
                 </Button>
               </div>
             </div>
           ) : (
-            <div className={`${chartHeight} bg-black rounded-lg border border-gray-700 overflow-hidden relative`}>
+            <div ref={containerRef} className={`${chartHeight} bg-black rounded-lg border border-gray-700 overflow-hidden relative`}>
               <canvas
                 ref={canvasRef}
                 className="w-full h-full cursor-crosshair"
-                style={{ imageRendering: 'auto' }}
+                style={{ imageRendering: 'auto', touchAction: 'manipulation' }}
               />
               
-              {/* Legend */}
-              <div className="absolute top-4 left-4 bg-black/80 rounded p-3 text-xs text-white">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-3 bg-[#02C076] rounded"></div>
+              {/* Mobile-optimized Legend */}
+              <div className={`absolute top-2 left-2 bg-black/80 rounded p-2 text-white ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-2 bg-[#02C076] rounded"></div>
                   <span>Bullish</span>
                 </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-4 h-3 bg-[#F84960] rounded"></div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-2 bg-[#F84960] rounded"></div>
                   <span>Bearish</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-3" />
+                  <Activity className="w-3 h-2" />
                   <span>Momentum</span>
                 </div>
               </div>
@@ -441,31 +489,31 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           )}
         </div>
 
-        {/* Market Stats */}
+        {/* Mobile-optimized Market Stats */}
         {currentPrice && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gray-800/50 p-4 rounded border border-gray-600 text-center">
-              <p className="text-xs text-gray-400 mb-1">24h High</p>
-              <p className="font-bold text-green-400 font-mono">
+          <div className={`grid gap-2 ${isMobile ? 'grid-cols-2 text-xs' : 'grid-cols-2 md:grid-cols-4 gap-4'}`}>
+            <div className="bg-gray-800/50 p-3 rounded border border-gray-600 text-center">
+              <p className="text-gray-400 mb-1 text-xs">24h High</p>
+              <p className={`font-bold text-green-400 font-mono ${isMobile ? 'text-xs' : ''}`}>
                 ${parseFloat(currentPrice.highPrice).toFixed(parseFloat(currentPrice.highPrice) > 1 ? 2 : 6)}
               </p>
             </div>
-            <div className="bg-gray-800/50 p-4 rounded border border-gray-600 text-center">
-              <p className="text-xs text-gray-400 mb-1">24h Low</p>
-              <p className="font-bold text-red-400 font-mono">
+            <div className="bg-gray-800/50 p-3 rounded border border-gray-600 text-center">
+              <p className="text-gray-400 mb-1 text-xs">24h Low</p>
+              <p className={`font-bold text-red-400 font-mono ${isMobile ? 'text-xs' : ''}`}>
                 ${parseFloat(currentPrice.lowPrice).toFixed(parseFloat(currentPrice.lowPrice) > 1 ? 2 : 6)}
               </p>
             </div>
-            <div className="bg-gray-800/50 p-4 rounded border border-gray-600 text-center">
-              <p className="text-xs text-gray-400 mb-1">24h Volume</p>
-              <p className="font-bold text-white font-mono">
+            <div className="bg-gray-800/50 p-3 rounded border border-gray-600 text-center">
+              <p className="text-gray-400 mb-1 text-xs">24h Volume</p>
+              <p className={`font-bold text-white font-mono ${isMobile ? 'text-xs' : ''}`}>
                 {(parseFloat(currentPrice.volume) / 1000000).toFixed(1)}M
               </p>
             </div>
-            <div className="bg-gray-800/50 p-4 rounded border border-gray-600 text-center">
-              <p className="text-xs text-gray-400 mb-1">Trades</p>
-              <p className="font-bold text-blue-400 font-mono">
-                {parseInt(currentPrice.count).toLocaleString()}
+            <div className="bg-gray-800/50 p-3 rounded border border-gray-600 text-center">
+              <p className="text-gray-400 mb-1 text-xs">Momentum</p>
+              <p className={`font-bold text-blue-400 font-mono ${isMobile ? 'text-xs' : ''}`}>
+                {maxMomentum.toFixed(0)}%
               </p>
             </div>
           </div>
