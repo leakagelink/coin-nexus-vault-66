@@ -67,12 +67,19 @@ const Wallet = () => {
                 ${usdtBalance.toFixed(2)} USDT
               </div>
             </div>
-            <div className="flex gap-3">
-              <Button className="bg-gradient-success flex-1" onClick={() => setDepositModalOpen(true)}>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button 
+                className="bg-gradient-success flex-1" 
+                onClick={() => setDepositModalOpen(true)}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Deposit
               </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setWithdrawalModalOpen(true)}>
+              <Button 
+                variant="outline" 
+                className="flex-1 hover:bg-muted/80" 
+                onClick={() => setWithdrawalModalOpen(true)}
+              >
                 <Minus className="h-4 w-4 mr-2" />
                 Withdraw
               </Button>
@@ -95,7 +102,7 @@ const Wallet = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Button 
                     variant="outline" 
-                    className="h-20 flex-col"
+                    className="h-20 flex-col hover:bg-muted/80"
                     onClick={() => handleDepositMethod('UPI')}
                   >
                     <span className="text-2xl mb-2">🏦</span>
@@ -103,7 +110,7 @@ const Wallet = () => {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="h-20 flex-col"
+                    className="h-20 flex-col hover:bg-muted/80"
                     onClick={() => handleDepositMethod('Bank Account')}
                   >
                     <span className="text-2xl mb-2">💳</span>
@@ -111,7 +118,7 @@ const Wallet = () => {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="h-20 flex-col"
+                    className="h-20 flex-col hover:bg-muted/80"
                     onClick={() => handleDepositMethod('USDT')}
                   >
                     <span className="text-2xl mb-2">₮</span>
@@ -131,7 +138,7 @@ const Wallet = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Button 
                     variant="outline" 
-                    className="h-20 flex-col"
+                    className="h-20 flex-col hover:bg-muted/80"
                     onClick={() => handleWithdrawMethod('UPI')}
                   >
                     <span className="text-2xl mb-2">🏦</span>
@@ -139,7 +146,7 @@ const Wallet = () => {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="h-20 flex-col"
+                    className="h-20 flex-col hover:bg-muted/80"
                     onClick={() => handleWithdrawMethod('Bank Account')}
                   >
                     <span className="text-2xl mb-2">💳</span>
@@ -147,7 +154,7 @@ const Wallet = () => {
                   </Button>
                   <Button 
                     variant="outline" 
-                    className="h-20 flex-col"
+                    className="h-20 flex-col hover:bg-muted/80"
                     onClick={() => handleWithdrawMethod('USDT')}
                   >
                     <span className="text-2xl mb-2">₮</span>

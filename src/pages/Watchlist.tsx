@@ -46,14 +46,15 @@ const Watchlist = () => {
   return (
     <Layout>
       <div className="space-y-6 animate-slide-up pb-20 md:pb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
             <Eye className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold gradient-text">Watchlist</h1>
           </div>
+          
           <Button 
             size="sm" 
-            className="bg-gradient-primary"
+            className="bg-gradient-primary shrink-0"
             onClick={() => setShowAddCryptoModal(true)}
           >
             <Plus className="h-4 w-4 mr-2" />

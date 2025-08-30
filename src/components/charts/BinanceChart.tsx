@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -177,7 +176,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
   const isLatestBullish = latestCandle?.isBullish;
   const latestMomentum = latestCandle?.momentum || 0;
 
-  if (loading) {
+  if (loading && candles.length === 0) {
     return (
       <Card className={`${isFullPage ? 'h-[calc(100vh-120px)]' : 'h-[500px]'} glass overflow-hidden`}>
         <CardContent className="h-full flex items-center justify-center">
@@ -230,7 +229,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
                   <TrendingDown className="h-4 w-4 text-red-400 animate-pulse" />
                 )}
                 <span className={`text-sm font-mono ${isLatestBullish ? 'text-green-400' : 'text-red-400'}`}>
-                  ₹{(latestCandle.close * 84).toLocaleString('en-IN')}
+                  ₹{(latestCandle.close * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                 </span>
                 <Badge 
                   variant="outline" 
@@ -247,9 +246,9 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Interval Selector */}
-            <div className="flex gap-1">
-              {['15m', '1h', '4h', '1d'].map((int) => (
+            {/* Interval Selector - Enhanced with more intervals */}
+            <div className="flex gap-1 flex-wrap">
+              {['1m', '5m', '15m', '30m', '1h', '4h', '1d'].map((int) => (
                 <Button
                   key={int}
                   size="sm"

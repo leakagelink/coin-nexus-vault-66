@@ -1,172 +1,149 @@
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet } from "lucide-react";
 import { useLivePrices } from "@/hooks/useLivePrices";
-import { TrendingUp, TrendingDown, Activity, Zap, ArrowUp, ArrowDown, Minus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { TradingModal } from "@/components/trading/trading-modal";
 
 export function LiveMomentum() {
-  const { prices, isLoading, error, getTrendingPairs, lastUpdate } = useLivePrices();
-  const [timeAgo, setTimeAgo] = useState('just now');
-  const [pulseKey, setPulseKey] = useState(0);
+  const { prices, isLoading, getTrendingPairs, lastUpdate } = useLivePrices();
+  const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
 
-  useEffect(() => {
-    const updateTimeAgo = () => {
-      if (lastUpdate) {
-        const seconds = Math.floor((Date.now() - lastUpdate) / 1000);
-        if (seconds < 60) {
-          setTimeAgo(`${seconds}s ago`);
-        } else {
-          setTimeAgo(`${Math.floor(seconds / 60)}m ago`);
-        }
-      }
-    };
+  const trendingPairs = getTrendingPairs();
 
-    updateTimeAgo();
-    const interval = setInterval(updateTimeAgo, 1000);
-    return () => clearInterval(interval);
-  }, [lastUpdate]);
+  const formatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString('en-IN', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
 
-  // Trigger pulse animation when prices update
-  useEffect(() => {
-    if (lastUpdate) {
-      setPulseKey(prev => prev + 1);
-    }
-  }, [lastUpdate]);
+  const handleTrade = (symbol: string, price: number) => {
+    setSelectedCrypto({
+      symbol: `${symbol}USDT`,
+      name: symbol,
+      price: price
+    });
+  };
 
   if (isLoading) {
     return (
       <Card className="glass">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Zap className="h-5 w-5 text-yellow-500 animate-pulse" />
-            Live Momentum
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-pulse space-y-3 w-full">
-              <div className="h-4 bg-muted rounded w-3/4"></div>
-              <div className="h-4 bg-muted rounded w-1/2"></div>
-              <div className="h-4 bg-muted rounded w-2/3"></div>
-            </div>
-          </div>
+        <CardContent className="flex items-center justify-center py-8">
+          <Activity className="h-8 w-8 animate-pulse text-primary" />
         </CardContent>
       </Card>
     );
   }
 
-  const allPrices = Object.values(prices);
-
   return (
-    <Card className="glass">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Zap className="h-5 w-5 text-yellow-500 animate-pulse" />
-            Live Momentum
-            <Badge variant="outline" className="text-xs animate-pulse bg-green-50 text-green-700 border-green-300">
-              LIVE • 3s
-            </Badge>
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-xs text-muted-foreground">{timeAgo}</span>
+    <>
+      <Card className="glass hover-glow">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary animate-pulse" />
+              Live Market Momentum
+            </CardTitle>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span>Updated: {lastUpdate ? formatTime(lastUpdate) : 'Loading...'}</span>
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error && !allPrices.length ? (
-          <div className="text-center py-4">
-            <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-red-500">{error}</p>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-3">
-              {allPrices.slice(0, 8).map((pair, index) => {
-                const isPositive = pair.changePercent >= 0;
-                const momentum = pair.momentum || 0;
-                
-                const getTrendIcon = () => {
-                  if (pair.trend === 'up') return <ArrowUp className="h-3 w-3 text-green-500" />;
-                  if (pair.trend === 'down') return <ArrowDown className="h-3 w-3 text-red-500" />;
-                  return <Minus className="h-3 w-3 text-gray-500" />;
-                };
-                
-                return (
-                  <div 
-                    key={`${pair.symbol}-${pulseKey}`}
-                    className={`flex items-center justify-between p-3 rounded-lg transition-all duration-500 animate-pulse ${
-                      pair.trend === 'up' ? 'bg-green-50 border border-green-200 shadow-sm' :
-                      pair.trend === 'down' ? 'bg-red-50 border border-red-200 shadow-sm' :
-                      'bg-muted/30 hover:bg-muted/50 border border-muted/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3">
+            {trendingPairs.slice(0, 8).map((crypto) => (
+              <div
+                key={crypto.symbol}
+                className="p-3 rounded-lg border glass-subtle hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-sm">{crypto.symbol}</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm">{pair.symbol}</span>
-                        {getTrendIcon()}
+                        <span className="text-lg font-bold gradient-text">
+                          ₹{(crypto.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </span>
                         <Badge 
-                          variant={momentum > 5 ? "default" : "outline"} 
-                          className={`text-xs transition-all duration-300 ${
-                            momentum > 10 ? 'bg-red-500 text-white animate-pulse' :
-                            momentum > 5 ? 'bg-yellow-500 text-white' :
-                            'bg-gray-100 text-gray-600'
+                          variant="outline" 
+                          className={`text-xs animate-pulse ${
+                            crypto.momentum > 50 ? 'bg-red-900/20 text-red-400 border-red-700' :
+                            crypto.momentum > 25 ? 'bg-yellow-900/20 text-yellow-400 border-yellow-700' :
+                            'bg-green-900/20 text-green-400 border-green-700'
                           }`}
                         >
-                          M: {momentum.toFixed(1)}
+                          M: {crypto.momentum.toFixed(1)}
                         </Badge>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="font-bold text-sm">
-                          ₹{(pair.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                        </div>
-                        <div className={`text-xs flex items-center gap-1 font-medium ${
-                          isPositive ? 'text-green-600' : 'text-red-600'
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="flex items-center gap-1">
+                        {crypto.trend === 'up' ? (
+                          <TrendingUp className="h-4 w-4 text-green-500 animate-pulse" />
+                        ) : crypto.trend === 'down' ? (
+                          <TrendingDown className="h-4 w-4 text-red-500 animate-pulse" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full bg-gray-400" />
+                        )}
+                        <span className={`text-sm font-medium ${
+                          crypto.changePercent > 0 ? 'text-green-500' : 
+                          crypto.changePercent < 0 ? 'text-red-500' : 
+                          'text-gray-500'
                         }`}>
-                          {isPositive ? (
-                            <TrendingUp className="h-3 w-3" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3" />
-                          )}
-                          {isPositive ? '+' : ''}{pair.changePercent.toFixed(3)}%
-                        </div>
+                          {crypto.changePercent > 0 ? '+' : ''}{crypto.changePercent.toFixed(2)}%
+                        </span>
                       </div>
-                      
-                      <div className="w-16 h-3 bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-1000 ${
-                            pair.trend === 'up' ? 'bg-gradient-to-r from-green-400 to-green-600' : 
-                            pair.trend === 'down' ? 'bg-gradient-to-r from-red-400 to-red-600' : 
-                            'bg-gradient-to-r from-gray-300 to-gray-500'
-                          }`}
-                          style={{ 
-                            width: `${Math.min(Math.max(momentum * 8, 15), 100)}%`,
-                          }}
-                        />
+                      <div className="text-xs text-muted-foreground">
+                        Vol: {crypto.volume ? (crypto.volume / 1000000).toFixed(1) : '0'}M
                       </div>
                     </div>
+
+                    <div className="flex gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-8 px-3 text-xs bg-green-900/20 text-green-400 border-green-700 hover:bg-green-900/40"
+                        onClick={() => handleTrade(crypto.symbol, crypto.price)}
+                      >
+                        <ShoppingCart className="h-3 w-3 mr-1" />
+                        Buy
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-8 px-3 text-xs bg-red-900/20 text-red-400 border-red-700 hover:bg-red-900/40"
+                        onClick={() => handleTrade(crypto.symbol, crypto.price)}
+                      >
+                        <Wallet className="h-3 w-3 mr-1" />
+                        Sell
+                      </Button>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-            
-            <div className="pt-2 border-t border-muted/20">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Market Status</span>
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                  <span>Live Trading • Updates every 3s • Enhanced Momentum</span>
                 </div>
               </div>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {selectedCrypto && (
+        <TradingModal
+          isOpen={!!selectedCrypto}
+          onClose={() => setSelectedCrypto(null)}
+          symbol={selectedCrypto.symbol}
+          name={selectedCrypto.name}
+          currentPrice={selectedCrypto.price}
+        />
+      )}
+    </>
   );
 }
