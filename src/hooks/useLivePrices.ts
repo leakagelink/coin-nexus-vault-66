@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,7 +15,7 @@ export interface LivePrice {
   momentum: number;
 }
 
-const CRYPTO_SYMBOLS = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'USDT'];
+const CRYPTO_SYMBOLS = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'USDT', 'XRP', 'DOT', 'LINK', 'LTC', 'DOGE', 'TRX', 'TON', 'MATIC', 'BCH', 'AVAX'];
 
 export function useLivePrices() {
   const [prices, setPrices] = useState<Record<string, LivePrice>>({});
@@ -25,9 +26,9 @@ export function useLivePrices() {
 
   const generateRealisticPrice = (basePrice: number, symbol: string, index: number) => {
     const now = Date.now();
-    const timeBasedVariation = Math.sin(now / 30000 + index) * 0.02; // 30 second cycles
-    const randomWalk = (Math.random() - 0.5) * 0.01; // Random variation
-    const volatility = symbol === 'BTC' ? 0.005 : symbol === 'ETH' ? 0.008 : 0.012;
+    const timeBasedVariation = Math.sin(now / 20000 + index) * 0.015; // 20 second cycles for faster updates
+    const randomWalk = (Math.random() - 0.5) * 0.008; // Random variation
+    const volatility = symbol === 'BTC' ? 0.003 : symbol === 'ETH' ? 0.005 : 0.008;
     
     // Get price history for momentum calculation
     if (!priceHistoryRef.current[symbol]) {
@@ -40,7 +41,7 @@ export function useLivePrices() {
     
     // Keep last 10 prices for trend calculation
     history.push(newPrice);
-    if (history.length > 10) {
+    if (history.length > 15) {
       history.shift();
     }
     
@@ -49,20 +50,20 @@ export function useLivePrices() {
 
   const calculateMomentum = (symbol: string, currentPrice: number) => {
     const history = priceHistoryRef.current[symbol] || [];
-    if (history.length < 2) return 0;
+    if (history.length < 3) return 0;
     
-    const recentPrices = history.slice(-5);
+    const recentPrices = history.slice(-8);
     const trend = recentPrices.reduce((acc, price, idx) => {
       if (idx === 0) return acc;
       return acc + (price - recentPrices[idx - 1]);
     }, 0);
     
-    return (trend / currentPrice) * 1000; // Normalize momentum
+    return (trend / currentPrice) * 2000; // Enhanced momentum calculation
   };
 
   const fetchPrices = async () => {
     try {
-      console.log('Fetching live prices with real momentum...');
+      console.log('Fetching live prices with enhanced frequency...');
       const { data, error: supabaseError } = await supabase.functions.invoke('cmc-proxy', {
         body: { symbols: CRYPTO_SYMBOLS }
       });
@@ -84,26 +85,26 @@ export function useLivePrices() {
             price: livePrice,
             change: livePrice - basePrice,
             changePercent,
-            volume: crypto.market_cap ? crypto.market_cap / livePrice : Math.random() * 1000000,
-            high24h: livePrice * (1 + Math.abs(changePercent) / 100),
-            low24h: livePrice * (1 - Math.abs(changePercent) / 100),
+            volume: crypto.market_cap ? crypto.market_cap / livePrice : Math.random() * 2000000 + 500000,
+            high24h: livePrice * (1 + Math.abs(changePercent) / 100 * 1.2),
+            low24h: livePrice * (1 - Math.abs(changePercent) / 100 * 1.2),
             lastUpdate: Date.now(),
-            trend: changePercent > 0.1 ? 'up' : changePercent < -0.1 ? 'down' : 'neutral',
+            trend: changePercent > 0.05 ? 'up' : changePercent < -0.05 ? 'down' : 'neutral',
             momentum: Math.abs(momentum)
           };
         });
         
         setPrices(pricesMap);
         setError(null);
-        console.log('Live prices updated with momentum:', Object.keys(pricesMap).length, 'symbols');
+        console.log('Live prices updated with enhanced momentum:', Object.keys(pricesMap).length, 'symbols');
       }
     } catch (err) {
       console.error('Error fetching live prices:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch prices');
       
-      // Generate realistic mock data with live fluctuations
+      // Enhanced mock data with better price simulation
       const mockPrices: Record<string, LivePrice> = {};
-      const basePrices = [95000, 3500, 650, 0.45, 180, 1.0];
+      const basePrices = [95000, 3500, 650, 0.45, 180, 1.0, 0.62, 7.8, 15.2, 105, 0.08, 0.11, 5.4, 0.95, 320, 42];
       
       CRYPTO_SYMBOLS.forEach((symbol, index) => {
         const basePrice = basePrices[index] || 100;
@@ -116,11 +117,11 @@ export function useLivePrices() {
           price: livePrice,
           change: livePrice - basePrice,
           changePercent,
-          volume: Math.random() * 1000000 + 500000,
-          high24h: livePrice * 1.05,
-          low24h: livePrice * 0.95,
+          volume: Math.random() * 2000000 + 500000,
+          high24h: livePrice * 1.08,
+          low24h: livePrice * 0.92,
           lastUpdate: Date.now(),
-          trend: changePercent > 0.1 ? 'up' : changePercent < -0.1 ? 'down' : 'neutral',
+          trend: changePercent > 0.05 ? 'up' : changePercent < -0.05 ? 'down' : 'neutral',
           momentum: Math.abs(momentum)
         };
       });
@@ -134,8 +135,8 @@ export function useLivePrices() {
     // Initial fetch
     fetchPrices();
 
-    // Set up interval for live updates every 5 seconds for more dynamic feel
-    intervalRef.current = setInterval(fetchPrices, 5000);
+    // Set up interval for faster live updates every 3 seconds
+    intervalRef.current = setInterval(fetchPrices, 3000);
 
     return () => {
       if (intervalRef.current) {
@@ -151,7 +152,7 @@ export function useLivePrices() {
   const getTrendingPairs = () => {
     return Object.values(prices)
       .sort((a, b) => b.momentum - a.momentum)
-      .slice(0, 3);
+      .slice(0, 6);
   };
 
   const computedLastUpdate = Object.keys(prices).length

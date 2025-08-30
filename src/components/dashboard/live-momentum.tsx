@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 export function LiveMomentum() {
   const { prices, isLoading, error, getTrendingPairs, lastUpdate } = useLivePrices();
   const [timeAgo, setTimeAgo] = useState('just now');
+  const [pulseKey, setPulseKey] = useState(0);
 
   useEffect(() => {
     const updateTimeAgo = () => {
@@ -24,6 +25,13 @@ export function LiveMomentum() {
     updateTimeAgo();
     const interval = setInterval(updateTimeAgo, 1000);
     return () => clearInterval(interval);
+  }, [lastUpdate]);
+
+  // Trigger pulse animation when prices update
+  useEffect(() => {
+    if (lastUpdate) {
+      setPulseKey(prev => prev + 1);
+    }
   }, [lastUpdate]);
 
   if (isLoading) {
@@ -48,7 +56,6 @@ export function LiveMomentum() {
     );
   }
 
-  const trendingPairs = getTrendingPairs();
   const allPrices = Object.values(prices);
 
   return (
@@ -58,8 +65,8 @@ export function LiveMomentum() {
           <CardTitle className="flex items-center gap-2 text-lg">
             <Zap className="h-5 w-5 text-yellow-500 animate-pulse" />
             Live Momentum
-            <Badge variant="outline" className="text-xs animate-pulse">
-              LIVE
+            <Badge variant="outline" className="text-xs animate-pulse bg-green-50 text-green-700 border-green-300">
+              LIVE • 3s
             </Badge>
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -69,7 +76,7 @@ export function LiveMomentum() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error && !trendingPairs.length ? (
+        {error && !allPrices.length ? (
           <div className="text-center py-4">
             <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-sm text-red-500">{error}</p>
@@ -77,7 +84,7 @@ export function LiveMomentum() {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3">
-              {allPrices.slice(0, 6).map((pair, index) => {
+              {allPrices.slice(0, 8).map((pair, index) => {
                 const isPositive = pair.changePercent >= 0;
                 const momentum = pair.momentum || 0;
                 
@@ -89,20 +96,24 @@ export function LiveMomentum() {
                 
                 return (
                   <div 
-                    key={pair.symbol}
-                    className={`flex items-center justify-between p-3 rounded-lg transition-all duration-300 ${
-                      pair.trend === 'up' ? 'bg-green-50 border border-green-200' :
-                      pair.trend === 'down' ? 'bg-red-50 border border-red-200' :
-                      'bg-muted/20 hover:bg-muted/30'
+                    key={`${pair.symbol}-${pulseKey}`}
+                    className={`flex items-center justify-between p-3 rounded-lg transition-all duration-500 animate-pulse ${
+                      pair.trend === 'up' ? 'bg-green-50 border border-green-200 shadow-sm' :
+                      pair.trend === 'down' ? 'bg-red-50 border border-red-200 shadow-sm' :
+                      'bg-muted/30 hover:bg-muted/50 border border-muted/40'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">{pair.symbol}</span>
+                        <span className="font-bold text-sm">{pair.symbol}</span>
                         {getTrendIcon()}
                         <Badge 
                           variant={momentum > 5 ? "default" : "outline"} 
-                          className="text-xs"
+                          className={`text-xs transition-all duration-300 ${
+                            momentum > 10 ? 'bg-red-500 text-white animate-pulse' :
+                            momentum > 5 ? 'bg-yellow-500 text-white' :
+                            'bg-gray-100 text-gray-600'
+                          }`}
                         >
                           M: {momentum.toFixed(1)}
                         </Badge>
@@ -111,10 +122,10 @@ export function LiveMomentum() {
                     
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <div className="font-semibold">
-                          ${pair.price.toFixed(pair.price > 1 ? 2 : 4)}
+                        <div className="font-bold text-sm">
+                          ₹{(pair.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </div>
-                        <div className={`text-sm flex items-center gap-1 ${
+                        <div className={`text-xs flex items-center gap-1 font-medium ${
                           isPositive ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {isPositive ? (
@@ -129,11 +140,12 @@ export function LiveMomentum() {
                       <div className="w-16 h-3 bg-muted rounded-full overflow-hidden">
                         <div 
                           className={`h-full transition-all duration-1000 ${
-                            pair.trend === 'up' ? 'bg-green-500' : 
-                            pair.trend === 'down' ? 'bg-red-500' : 'bg-gray-400'
+                            pair.trend === 'up' ? 'bg-gradient-to-r from-green-400 to-green-600' : 
+                            pair.trend === 'down' ? 'bg-gradient-to-r from-red-400 to-red-600' : 
+                            'bg-gradient-to-r from-gray-300 to-gray-500'
                           }`}
                           style={{ 
-                            width: `${Math.min(Math.max(momentum * 10, 10), 100)}%`,
+                            width: `${Math.min(Math.max(momentum * 8, 15), 100)}%`,
                           }}
                         />
                       </div>
@@ -148,7 +160,7 @@ export function LiveMomentum() {
                 <span>Market Status</span>
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                  <span>Live Trading • Updates every 5s</span>
+                  <span>Live Trading • Updates every 3s • Enhanced Momentum</span>
                 </div>
               </div>
             </div>
