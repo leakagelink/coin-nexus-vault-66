@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -64,7 +63,9 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     fetchData();
     
     if (isAutoRefresh) {
-      refreshIntervalRef.current = setInterval(fetchData, 30000); // 30 seconds
+      refreshIntervalRef.current = setInterval(() => {
+        fetchData();
+      }, 30000); // 30 seconds
     }
     
     return () => {
