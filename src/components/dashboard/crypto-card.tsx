@@ -1,4 +1,5 @@
 
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,15 @@ interface CryptoCardProps {
   onChartClick?: () => void;
 }
 
+const cryptoMapping = {
+  'BTC': 'BTCUSDT',
+  'ETH': 'ETHUSDT', 
+  'BNB': 'BNBUSDT',
+  'ADA': 'ADAUSDT',
+  'SOL': 'SOLUSDT',
+  'USDT': 'USDTUSDT'
+};
+
 export function CryptoCard({
   symbol,
   name,
@@ -23,21 +33,20 @@ export function CryptoCard({
   isWatchlisted = false,
   onChartClick
 }: CryptoCardProps) {
+  const navigate = useNavigate();
   const isPositive = changePercent >= 0;
   
   const handleChartClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log(`Chart button clicked for ${symbol} - ${name}`);
-    if (onChartClick) {
-      onChartClick();
-    }
+    const tradingSymbol = cryptoMapping[symbol as keyof typeof cryptoMapping] || `${symbol}USDT`;
+    console.log(`Chart button clicked for ${symbol} - ${name}, navigating to ${tradingSymbol}`);
+    navigate(`/chart/${tradingSymbol}`);
   };
   
   const handleCardClick = () => {
-    console.log(`Card clicked for ${symbol} - ${name}`);
-    if (onChartClick) {
-      onChartClick();
-    }
+    const tradingSymbol = cryptoMapping[symbol as keyof typeof cryptoMapping] || `${symbol}USDT`;
+    console.log(`Card clicked for ${symbol} - ${name}, navigating to ${tradingSymbol}`);
+    navigate(`/chart/${tradingSymbol}`);
   };
   
   return (
@@ -58,17 +67,15 @@ export function CryptoCard({
           </div>
           
           <div className="flex gap-1 ml-2">
-            {onChartClick && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={handleChartClick}
-                className="h-9 w-9 p-0 hover:bg-primary/10 opacity-70 group-hover:opacity-100 transition-opacity"
-                title={`View ${symbol} professional chart`}
-              >
-                <BarChart3 className="h-4 w-4" />
-              </Button>
-            )}
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleChartClick}
+              className="h-9 w-9 p-0 hover:bg-primary/10 opacity-70 group-hover:opacity-100 transition-opacity"
+              title={`View ${symbol} professional chart`}
+            >
+              <BarChart3 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
@@ -110,7 +117,7 @@ export function CryptoCard({
             
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Activity className="h-3 w-3" />
-              <span>Click to view chart</span>
+              <span>View chart</span>
             </div>
           </div>
 

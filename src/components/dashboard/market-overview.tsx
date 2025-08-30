@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
-import { ChartModal } from "../charts/chart-modal";
 import { Loader2, TrendingUp, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -18,20 +17,16 @@ const cryptoMapping = {
 
 export function MarketOverview() {
   const { prices, isLoading, error } = useLCWPrices();
-  const [selectedChart, setSelectedChart] = useState<{ symbol: string; name: string } | null>(null);
+  const navigate = useNavigate();
 
   const handleChartClick = (symbol: string, name: string) => {
     const tradingSymbol = cryptoMapping[symbol as keyof typeof cryptoMapping]?.symbol || `${symbol}USDT`;
-    console.log(`Opening professional trading chart for ${tradingSymbol} - ${name}`);
-    setSelectedChart({ symbol: tradingSymbol, name });
+    console.log(`Navigating to chart page for ${tradingSymbol} - ${name}`);
+    navigate(`/chart/${tradingSymbol}`);
   };
 
   const handleCryptoCardClick = (symbol: string, name: string) => {
     handleChartClick(symbol, name);
-  };
-
-  const handleCloseChart = () => {
-    setSelectedChart(null);
   };
 
   // Calculate market stats
@@ -83,106 +78,95 @@ export function MarketOverview() {
   }
 
   return (
-    <>
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="glass">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Market Cap</p>
-                  <p className="text-lg font-bold">${(marketStats.totalMarketCap / 1000000000).toFixed(2)}B</p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-green-500 opacity-20" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">24h Volume</p>
-                  <p className="text-lg font-bold">${(marketStats.totalVolume / 1000000).toFixed(1)}M</p>
-                </div>
-                <Activity className="h-8 w-8 text-blue-500 opacity-20" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Gainers</p>
-                  <p className="text-lg font-bold text-green-600">{marketStats.gainers}</p>
-                </div>
-                <Badge variant="default" className="bg-green-100 text-green-800">+</Badge>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="glass">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Losers</p>
-                  <p className="text-lg font-bold text-red-600">{marketStats.losers}</p>
-                </div>
-                <Badge variant="destructive" className="bg-red-100 text-red-800">-</Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="glass">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="gradient-text text-xl sm:text-2xl">Live Market Prices</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Click any coin to view professional trading chart</p>
+                <p className="text-xs text-muted-foreground">Market Cap</p>
+                <p className="text-lg font-bold">${(marketStats.totalMarketCap / 1000000000).toFixed(2)}B</p>
               </div>
-              <Badge variant="outline" className="w-fit">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs">Live</span>
-                </div>
-              </Badge>
+              <TrendingUp className="h-8 w-8 text-green-500 opacity-20" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
-              {Object.entries(prices).map(([symbol, priceData]) => {
-                const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
-                if (!crypto) return null;
-
-                return (
-                  <div key={symbol} onClick={() => handleCryptoCardClick(symbol, crypto.name)} className="cursor-pointer">
-                    <CryptoCard
-                      symbol={symbol}
-                      name={crypto.name}
-                      price={priceData.price}
-                      change={priceData.change24h * priceData.price / 100}
-                      changePercent={priceData.change24h}
-                      isWatchlisted={false}
-                      onChartClick={() => handleChartClick(symbol, crypto.name)}
-                    />
-                  </div>
-                );
-              })}
+          </CardContent>
+        </Card>
+        
+        <Card className="glass">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">24h Volume</p>
+                <p className="text-lg font-bold">${(marketStats.totalVolume / 1000000).toFixed(1)}M</p>
+              </div>
+              <Activity className="h-8 w-8 text-blue-500 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="glass">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Gainers</p>
+                <p className="text-lg font-bold text-green-600">{marketStats.gainers}</p>
+              </div>
+              <Badge variant="default" className="bg-green-100 text-green-800">+</Badge>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="glass">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Losers</p>
+                <p className="text-lg font-bold text-red-600">{marketStats.losers}</p>
+              </div>
+              <Badge variant="destructive" className="bg-red-100 text-red-800">-</Badge>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {selectedChart && (
-        <ChartModal
-          isOpen={!!selectedChart}
-          onClose={handleCloseChart}
-          symbol={selectedChart.symbol}
-          name={selectedChart.name}
-        />
-      )}
-    </>
+      <Card className="glass">
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="gradient-text text-xl sm:text-2xl">Live Market Prices</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Click any coin to view professional trading chart</p>
+            </div>
+            <Badge variant="outline" className="w-fit">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs">Live</span>
+              </div>
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
+            {Object.entries(prices).map(([symbol, priceData]) => {
+              const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
+              if (!crypto) return null;
+
+              return (
+                <div key={symbol} onClick={() => handleCryptoCardClick(symbol, crypto.name)} className="cursor-pointer">
+                  <CryptoCard
+                    symbol={symbol}
+                    name={crypto.name}
+                    price={priceData.price}
+                    change={priceData.change24h * priceData.price / 100}
+                    changePercent={priceData.change24h}
+                    isWatchlisted={false}
+                    onChartClick={() => handleChartClick(symbol, crypto.name)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,18 +23,11 @@ import { useLivePrices } from '@/hooks/useLivePrices';
 interface ProfessionalTradingChartProps {
   symbol: string;
   name: string;
-  onClose: () => void;
+  onClose?: () => void;
+  isFullPage?: boolean;
 }
 
-interface CandleProps {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  payload: ChartData;
-}
-
-export function ProfessionalTradingChart({ symbol, name, onClose }: ProfessionalTradingChartProps) {
+export function ProfessionalTradingChart({ symbol, name, onClose, isFullPage = false }: ProfessionalTradingChartProps) {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [timeframe, setTimeframe] = useState('1h');
   const [isLoading, setIsLoading] = useState(true);
@@ -43,9 +35,7 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [chartOffset, setChartOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
   
   const [indicators, setIndicators] = useState({
     sma20: true,
@@ -100,6 +90,11 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
           lastCandle.close = livePrice.price;
           lastCandle.high = Math.max(lastCandle.high, livePrice.price);
           lastCandle.low = Math.min(lastCandle.low, livePrice.price);
+          
+          // Update momentum for live candle
+          const bodySize = Math.abs(lastCandle.close - lastCandle.open);
+          const totalRange = lastCandle.high - lastCandle.low;
+          lastCandle.momentum = totalRange > 0 ? (bodySize / totalRange) * (lastCandle.volume / 1000000) : 0;
         }
         return newData;
       });
@@ -116,8 +111,8 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
     const { width, height } = canvas;
     ctx.clearRect(0, 0, width, height);
 
-    // Chart dimensions
-    const padding = 60;
+    // Chart dimensions with proper padding
+    const padding = isFullPage ? 80 : 60;
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
 
@@ -127,9 +122,11 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
     const minPrice = Math.min(...prices);
     const priceRange = maxPrice - minPrice;
 
-    // Draw grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    // Draw professional grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
+    
+    // Horizontal grid lines
     for (let i = 0; i <= 10; i++) {
       const y = padding + (chartHeight / 10) * i;
       ctx.beginPath();
@@ -137,72 +134,112 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
       ctx.lineTo(width - padding, y);
       ctx.stroke();
     }
-
-    // Draw candlesticks with momentum
-    const candleWidth = Math.max(chartWidth / chartData.length - 2, 2);
     
+    // Vertical grid lines
+    for (let i = 0; i <= 10; i++) {
+      const x = padding + (chartWidth / 10) * i;
+      ctx.beginPath();
+      ctx.moveTo(x, padding);
+      ctx.lineTo(x, height - padding);
+      ctx.stroke();
+    }
+
+    // Calculate candle width
+    const candleWidth = Math.max((chartWidth / chartData.length) - 1, 2);
+    const candleSpacing = chartWidth / chartData.length;
+    
+    // Draw candlesticks with enhanced momentum visualization
     chartData.forEach((candle, index) => {
-      const x = padding + (index * (chartWidth / chartData.length));
+      const x = padding + (index * candleSpacing);
       const isBullish = candle.close >= candle.open;
       
-      // Professional Binance colors
-      const bullColor = '#0ecb81';
-      const bearColor = '#f6465d';
-      const color = isBullish ? bullColor : bearColor;
+      // Professional Binance colors with momentum intensity
+      const bullColor = '#0ECB81';
+      const bearColor = '#F6465D';
+      const baseColor = isBullish ? bullColor : bearColor;
       
-      // Calculate momentum intensity
-      const momentum = Math.abs(candle.close - candle.open) / candle.open;
-      const opacity = Math.min(0.3 + momentum * 20, 1);
+      // Calculate momentum intensity (0 to 1)
+      const momentum = candle.momentum || 0;
+      const momentumIntensity = Math.min(momentum * 50, 1);
       
-      // Wick positions
+      // Calculate positions
       const highY = padding + ((maxPrice - candle.high) / priceRange) * chartHeight;
       const lowY = padding + ((maxPrice - candle.low) / priceRange) * chartHeight;
       const openY = padding + ((maxPrice - candle.open) / priceRange) * chartHeight;
       const closeY = padding + ((maxPrice - candle.close) / priceRange) * chartHeight;
       
+      // Draw momentum glow effect first (background layer)
+      if (momentum > 0.01) {
+        const glowIntensity = Math.min(momentum * 100, 20);
+        ctx.shadowColor = baseColor;
+        ctx.shadowBlur = glowIntensity;
+        ctx.globalAlpha = 0.3 + (momentumIntensity * 0.4);
+        
+        const bodyHeight = Math.abs(closeY - openY);
+        const bodyY = Math.min(openY, closeY);
+        
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(x, bodyY, candleWidth, Math.max(bodyHeight, 1));
+        
+        // Reset shadow
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+      
       // Draw high-low wick
-      ctx.strokeStyle = color;
-      ctx.globalAlpha = opacity;
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = baseColor;
+      ctx.globalAlpha = 0.8 + (momentumIntensity * 0.2);
+      ctx.lineWidth = Math.max(1, momentum * 5);
       ctx.beginPath();
       ctx.moveTo(x + candleWidth / 2, highY);
       ctx.lineTo(x + candleWidth / 2, lowY);
       ctx.stroke();
       
-      // Draw candle body
+      // Draw candle body with momentum thickness
       const bodyHeight = Math.abs(closeY - openY);
       const bodyY = Math.min(openY, closeY);
+      const enhancedWidth = candleWidth + (momentum * 2);
+      const widthOffset = (enhancedWidth - candleWidth) / 2;
+      
+      ctx.globalAlpha = 0.9 + (momentumIntensity * 0.1);
       
       if (isBullish) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x + 1, bodyY, candleWidth - 2, Math.max(bodyHeight, 2));
+        // Bullish candle (hollow)
+        ctx.strokeStyle = baseColor;
+        ctx.lineWidth = 1 + (momentum * 2);
+        ctx.strokeRect(x - widthOffset, bodyY, enhancedWidth, Math.max(bodyHeight, 2));
+        
+        // Fill with low opacity for momentum
+        if (momentum > 0.02) {
+          ctx.fillStyle = baseColor;
+          ctx.globalAlpha = momentumIntensity * 0.3;
+          ctx.fillRect(x - widthOffset, bodyY, enhancedWidth, Math.max(bodyHeight, 2));
+        }
       } else {
-        ctx.fillStyle = color;
-        ctx.fillRect(x + 1, bodyY, candleWidth - 2, Math.max(bodyHeight, 2));
+        // Bearish candle (filled)
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(x - widthOffset, bodyY, enhancedWidth, Math.max(bodyHeight, 2));
       }
       
-      // Add momentum glow effect
-      if (momentum > 0.02) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = momentum * 100;
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = color;
-        ctx.fillRect(x + 1, bodyY, candleWidth - 2, Math.max(bodyHeight, 2));
-        ctx.shadowBlur = 0;
+      // Add momentum indicator bars at the bottom for high momentum candles
+      if (momentum > 0.05) {
+        const momentumBarHeight = momentum * 20;
+        ctx.fillStyle = baseColor;
+        ctx.globalAlpha = 0.6;
+        ctx.fillRect(x, height - padding - momentumBarHeight, candleWidth, momentumBarHeight);
       }
     });
 
     ctx.globalAlpha = 1;
 
-    // Draw indicators
+    // Draw technical indicators
     if (indicators.sma20 && chartData[0]?.sma20) {
-      ctx.strokeStyle = '#ff9500';
+      ctx.strokeStyle = '#FF9500';
       ctx.lineWidth = 2;
       ctx.beginPath();
       chartData.forEach((candle, index) => {
         if (candle.sma20) {
-          const x = padding + (index * (chartWidth / chartData.length)) + candleWidth / 2;
+          const x = padding + (index * candleSpacing) + candleWidth / 2;
           const y = padding + ((maxPrice - candle.sma20) / priceRange) * chartHeight;
           if (index === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
@@ -212,12 +249,12 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
     }
 
     if (indicators.sma50 && chartData[0]?.sma50) {
-      ctx.strokeStyle = '#007aff';
+      ctx.strokeStyle = '#007AFF';
       ctx.lineWidth = 2;
       ctx.beginPath();
       chartData.forEach((candle, index) => {
         if (candle.sma50) {
-          const x = padding + (index * (chartWidth / chartData.length)) + candleWidth / 2;
+          const x = padding + (index * candleSpacing) + candleWidth / 2;
           const y = padding + ((maxPrice - candle.sma50) / priceRange) * chartHeight;
           if (index === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
@@ -226,14 +263,34 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
       ctx.stroke();
     }
 
-    // Draw price labels
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.font = '12px monospace';
+    // Draw price labels with better positioning
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.font = `${isFullPage ? '14px' : '12px'} monospace`;
     ctx.textAlign = 'right';
-    for (let i = 0; i <= 5; i++) {
-      const price = minPrice + (priceRange / 5) * i;
-      const y = padding + chartHeight - (chartHeight / 5) * i;
-      ctx.fillText(`$${price.toFixed(2)}`, width - padding - 10, y);
+    for (let i = 0; i <= 8; i++) {
+      const price = minPrice + (priceRange / 8) * i;
+      const y = padding + chartHeight - (chartHeight / 8) * i;
+      ctx.fillText(`$${price.toFixed(price > 1 ? 2 : 6)}`, width - padding - 10, y + 4);
+    }
+
+    // Draw current price line
+    if (livePrice) {
+      const currentPriceY = padding + ((maxPrice - livePrice.price) / priceRange) * chartHeight;
+      ctx.strokeStyle = livePrice.changePercent >= 0 ? '#0ECB81' : '#F6465D';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(padding, currentPriceY);
+      ctx.lineTo(width - padding, currentPriceY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      // Price label
+      ctx.fillStyle = livePrice.changePercent >= 0 ? '#0ECB81' : '#F6465D';
+      ctx.textAlign = 'left';
+      ctx.fillRect(width - padding - 80, currentPriceY - 10, 75, 20);
+      ctx.fillStyle = 'white';
+      ctx.fillText(`$${livePrice.price.toFixed(2)}`, width - padding - 75, currentPriceY + 4);
     }
   };
 
@@ -245,10 +302,18 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
       const container = canvas.parentElement;
       if (!container) return;
       
-      canvas.width = container.clientWidth * zoomLevel;
-      canvas.height = container.clientHeight * zoomLevel;
-      canvas.style.width = container.clientWidth + 'px';
-      canvas.style.height = container.clientHeight + 'px';
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      const rect = container.getBoundingClientRect();
+      
+      canvas.width = rect.width * devicePixelRatio * zoomLevel;
+      canvas.height = rect.height * devicePixelRatio * zoomLevel;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.scale(devicePixelRatio * zoomLevel, devicePixelRatio * zoomLevel);
+      }
       
       drawChart();
     };
@@ -256,7 +321,7 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     return () => window.removeEventListener('resize', resizeCanvas);
-  }, [chartData, indicators, zoomLevel]);
+  }, [chartData, indicators, zoomLevel, livePrice]);
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.2, 3));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.2, 0.5));
@@ -276,6 +341,11 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
   const low24h = livePrice?.low24h || Math.min(...chartData.map(d => d.low));
   const volume24h = livePrice?.volume || chartData[chartData.length - 1]?.volume || 0;
 
+  // Get current momentum
+  const currentMomentum = chartData[chartData.length - 1]?.momentum || 0;
+
+  const chartHeight = isFullPage ? 'h-[70vh]' : 'h-96 sm:h-[500px]';
+
   return (
     <Card className={`transition-all duration-300 ${isFullscreen ? 'fixed inset-4 z-50 max-w-none' : 'w-full max-w-7xl mx-auto'}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 px-4 sm:px-6">
@@ -289,6 +359,12 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
             {livePrice && (
               <Badge variant="outline" className="text-green-600 border-green-300 animate-pulse whitespace-nowrap">
                 LIVE
+              </Badge>
+            )}
+            {currentMomentum > 0.02 && (
+              <Badge variant="outline" className="text-blue-600 border-blue-300 whitespace-nowrap">
+                <Activity className="h-3 w-3 mr-1" />
+                High Momentum
               </Badge>
             )}
           </div>
@@ -308,17 +384,21 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
           <Button variant="ghost" size="sm" onClick={resetChart} className="h-8 w-8 sm:h-9 sm:w-9">
             <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="hidden sm:flex h-8 w-8 sm:h-9 sm:w-9"
-          >
-            {isFullscreen ? <Minimize2 className="h-3 w-3 sm:h-4 sm:w-4" /> : <Maximize2 className="h-3 w-3 sm:h-4 sm:w-4" />}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 sm:h-9 sm:w-9">
-            <X className="h-3 w-3 sm:h-4 sm:w-4" />
-          </Button>
+          {!isFullPage && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="hidden sm:flex h-8 w-8 sm:h-9 sm:w-9"
+            >
+              {isFullscreen ? <Minimize2 className="h-3 w-3 sm:h-4 sm:w-4" /> : <Maximize2 className="h-3 w-3 sm:h-4 sm:w-4" />}
+            </Button>
+          )}
+          {onClose && (
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 sm:h-9 sm:w-9">
+              <X className="h-3 w-3 sm:h-4 sm:w-4" />
+            </Button>
+          )}
         </div>
       </CardHeader>
       
@@ -329,12 +409,10 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
               <p className="text-2xl sm:text-3xl lg:text-4xl font-bold font-mono">
                 ${lastPrice.toFixed(lastPrice > 1 ? 2 : 6)}
               </p>
-              {livePrice?.momentum && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Activity className="h-4 w-4" />
-                  <span>Momentum: {livePrice.momentum.toFixed(2)}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Activity className="h-4 w-4" />
+                <span>Momentum: {(currentMomentum * 100).toFixed(1)}%</span>
+              </div>
             </div>
             <div className={`flex items-center gap-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
               {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -393,27 +471,36 @@ export function ProfessionalTradingChart({ symbol, name, onClose }: Professional
 
         <div className="relative">
           {isLoading ? (
-            <div className={`${isFullscreen ? 'h-[60vh]' : 'h-96 sm:h-[500px]'} flex items-center justify-center bg-muted/5 rounded-lg border`}>
+            <div className={`${chartHeight} flex items-center justify-center bg-muted/5 rounded-lg border`}>
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-                <p className="text-sm text-muted-foreground">Loading professional chart...</p>
+                <p className="text-sm text-muted-foreground">Loading professional chart with momentum...</p>
               </div>
             </div>
           ) : chartData.length > 0 ? (
-            <div 
-              className={`${isFullscreen ? 'h-[50vh]' : 'h-96 sm:h-[500px]'} w-full bg-background/50 rounded-lg border overflow-hidden relative`}
-              style={{
-                transform: `translate(${chartOffset.x}px, ${chartOffset.y}px)`,
-              }}
-            >
+            <div className={`${chartHeight} w-full bg-background/50 rounded-lg border overflow-hidden relative`}>
               <canvas
                 ref={canvasRef}
                 className="w-full h-full cursor-crosshair"
-                style={{ imageRendering: 'pixelated' }}
+                style={{ imageRendering: 'auto' }}
               />
+              <div className="absolute top-2 left-2 bg-background/80 rounded p-2 text-xs">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-3 bg-green-500 rounded"></div>
+                  <span>Bullish (Hollow candles)</span>
+                </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-3 h-3 bg-red-500 rounded"></div>
+                  <span>Bearish (Filled candles)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Activity className="w-3 h-3" />
+                  <span>Glow = High momentum</span>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className={`${isFullscreen ? 'h-[60vh]' : 'h-96'} flex items-center justify-center bg-muted/5 rounded-lg border`}>
+            <div className={`${chartHeight} flex items-center justify-center bg-muted/5 rounded-lg border`}>
               <div className="text-center">
                 <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                 <p className="text-muted-foreground text-sm mb-2">No chart data available</p>
