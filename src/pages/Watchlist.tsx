@@ -180,8 +180,8 @@ const Watchlist = () => {
                 </Button>
               </div>
             )}
-          </div>
-        </CardContent>
+          </CardContent>
+        </Card>
 
         <AddCryptoModal
           isOpen={showAddCryptoModal}
