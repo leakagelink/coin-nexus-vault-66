@@ -232,17 +232,19 @@ export function LiveMomentum() {
         </CardHeader>
         
         <CardContent className="px-4 pb-4">
-          {/* Custom scrollbar styles with hidden scrollbar */}
-          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 -mr-2 scrollbar-hide" style={{
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none'
-          }}>
-            <style jsx>{`
+          <style>
+            {`
+              .scrollbar-hide {
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+              }
               .scrollbar-hide::-webkit-scrollbar {
                 display: none;
               }
-            `}</style>
-            
+            `}
+          </style>
+          
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 -mr-2 scrollbar-hide">
             {tradingPairs.map((crypto) => (
               <div
                 key={crypto.symbol}
