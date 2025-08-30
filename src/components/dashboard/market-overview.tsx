@@ -1,8 +1,8 @@
-import { useState } from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
-import { useLCWPrices } from "@/hooks/useLCWPrices";
+import { useRealTimePrices } from "@/hooks/useRealTimePrices";
 import { Loader2, TrendingUp, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -16,7 +16,7 @@ const cryptoMapping = {
 };
 
 export function MarketOverview() {
-  const { prices, isLoading, error } = useLCWPrices();
+  const { prices, isLoading, error, isLive, lastUpdate } = useRealTimePrices();
   const navigate = useNavigate();
 
   const handleChartClick = (symbol: string, name: string) => {
@@ -29,15 +29,12 @@ export function MarketOverview() {
     handleChartClick(symbol, name);
   };
 
-  // Calculate market stats
-  const marketStats = Object.entries(prices).reduce((acc, [symbol, priceData]) => {
-    const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
-    if (!crypto) return acc;
-    
-    acc.totalMarketCap += priceData.price * 1000000;
-    acc.gainers += priceData.change24h > 0 ? 1 : 0;
-    acc.losers += priceData.change24h < 0 ? 1 : 0;
-    acc.totalVolume += Math.random() * 1000000;
+  // Calculate market stats from real-time data
+  const marketStats = Object.values(prices).reduce((acc, priceData) => {
+    acc.totalMarketCap += priceData.marketCap || 0;
+    acc.gainers += priceData.changePercent > 0 ? 1 : 0;
+    acc.losers += priceData.changePercent < 0 ? 1 : 0;
+    acc.totalVolume += priceData.volume24h || 0;
     
     return acc;
   }, { totalMarketCap: 0, gainers: 0, losers: 0, totalVolume: 0 });
@@ -136,30 +133,40 @@ export function MarketOverview() {
               <CardTitle className="gradient-text text-xl sm:text-2xl">Live Market Prices</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Click any coin to view professional trading chart</p>
             </div>
-            <Badge variant="outline" className="w-fit">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs">Live</span>
-              </div>
-            </Badge>
+            <div className="flex items-center gap-3">
+              {isLive && (
+                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs">LIVE</span>
+                  </div>
+                </Badge>
+              )}
+              {lastUpdate > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  Updated {Math.floor((Date.now() - lastUpdate) / 1000)}s ago
+                </span>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
-            {Object.entries(prices).map(([symbol, priceData]) => {
-              const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
+            {Object.values(prices).slice(0, 6).map((priceData) => {
+              const crypto = cryptoMapping[priceData.symbol as keyof typeof cryptoMapping];
               if (!crypto) return null;
 
               return (
-                <div key={symbol} onClick={() => handleCryptoCardClick(symbol, crypto.name)} className="cursor-pointer">
+                <div key={priceData.symbol} onClick={() => handleCryptoCardClick(priceData.symbol, crypto.name)} className="cursor-pointer">
                   <CryptoCard
-                    symbol={symbol}
+                    symbol={priceData.symbol}
                     name={crypto.name}
                     price={priceData.price}
-                    change={priceData.change24h * priceData.price / 100}
-                    changePercent={priceData.change24h}
+                    change={priceData.change24h}
+                    changePercent={priceData.changePercent}
                     isWatchlisted={false}
-                    onChartClick={() => handleChartClick(symbol, crypto.name)}
+                    onChartClick={() => handleChartClick(priceData.symbol, crypto.name)}
+                    momentum={priceData.momentum}
                   />
                 </div>
               );

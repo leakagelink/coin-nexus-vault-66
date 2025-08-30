@@ -1,9 +1,10 @@
 
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Star, BarChart3, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, BarChart3, Star, StarOff } from "lucide-react";
+import { PriceDisplay } from "@/components/ui/price-display";
 
 interface CryptoCardProps {
   symbol: string;
@@ -12,129 +13,114 @@ interface CryptoCardProps {
   change: number;
   changePercent: number;
   isWatchlisted?: boolean;
+  onToggleWatchlist?: () => void;
   onChartClick?: () => void;
+  momentum?: number;
 }
 
-const cryptoMapping = {
-  'BTC': 'BTCUSDT',
-  'ETH': 'ETHUSDT', 
-  'BNB': 'BNBUSDT',
-  'ADA': 'ADAUSDT',
-  'SOL': 'SOLUSDT',
-  'USDT': 'USDTUSDT'
-};
-
-export function CryptoCard({
-  symbol,
-  name,
-  price,
-  change,
-  changePercent,
+export function CryptoCard({ 
+  symbol, 
+  name, 
+  price, 
+  change, 
+  changePercent, 
   isWatchlisted = false,
-  onChartClick
+  onToggleWatchlist,
+  onChartClick,
+  momentum
 }: CryptoCardProps) {
-  const navigate = useNavigate();
+  const [isHovered, setIsHovered] = useState(false);
   const isPositive = changePercent >= 0;
-  
-  const handleChartClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const tradingSymbol = cryptoMapping[symbol as keyof typeof cryptoMapping] || `${symbol}USDT`;
-    console.log(`Chart button clicked for ${symbol} - ${name}, navigating to ${tradingSymbol}`);
-    navigate(`/chart/${tradingSymbol}`);
-  };
-  
-  const handleCardClick = () => {
-    const tradingSymbol = cryptoMapping[symbol as keyof typeof cryptoMapping] || `${symbol}USDT`;
-    console.log(`Card clicked for ${symbol} - ${name}, navigating to ${tradingSymbol}`);
-    navigate(`/chart/${tradingSymbol}`);
-  };
-  
+
   return (
     <Card 
-      className="glass crypto-card hover:shadow-lg transition-all duration-200 hover:scale-105 group cursor-pointer border-2 hover:border-primary/30"
-      onClick={handleCardClick}
+      className="glass hover-glow cursor-pointer transition-all duration-300 group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={onChartClick}
     >
-      <CardContent className="p-4 sm:p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="font-bold text-lg sm:text-xl truncate">{symbol}</h3>
-              {isWatchlisted && (
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+      <CardContent className="p-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div className="space-y-1 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-lg gradient-text">{symbol}</h3>
+              {momentum !== undefined && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs font-medium px-2 py-1 animate-pulse ${
+                    momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+                    momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
+                    'bg-green-500/15 text-green-400 border-green-500/30'
+                  }`}
+                >
+                  🔥 {momentum.toFixed(1)}
+                </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground truncate">{name}</p>
+            <p className="text-sm text-muted-foreground">{name}</p>
           </div>
           
-          <div className="flex gap-1 ml-2">
-            <Button 
-              variant="ghost" 
+          {onToggleWatchlist && (
+            <Button
               size="sm"
-              onClick={handleChartClick}
-              className="h-9 w-9 p-0 hover:bg-primary/10 opacity-70 group-hover:opacity-100 transition-opacity"
-              title={`View ${symbol} professional chart`}
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWatchlist();
+              }}
+              className="h-8 w-8 p-0 opacity-60 hover:opacity-100"
             >
-              <BarChart3 className="h-4 w-4" />
+              {isWatchlisted ? (
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              ) : (
+                <StarOff className="h-4 w-4" />
+              )}
             </Button>
-          </div>
+          )}
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-end justify-between">
-            <div>
-              <span className="text-2xl sm:text-3xl font-bold block">
-                ${price.toFixed(price > 1 ? 2 : 4)}
-              </span>
-            </div>
-            <Badge 
-              variant={isPositive ? "default" : "destructive"}
-              className={`${
-                isPositive 
-                  ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                  : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-              } border transition-colors`}
-            >
-              <div className="flex items-center gap-1">
-                {isPositive ? (
-                  <TrendingUp className="h-3 w-3" />
-                ) : (
-                  <TrendingDown className="h-3 w-3" />
-                )}
-                <span className="font-medium">
-                  {Math.abs(changePercent).toFixed(2)}%
-                </span>
-              </div>
-            </Badge>
-          </div>
-          
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                {isPositive ? '+' : ''}{change.toFixed(change > 1 ? 2 : 4)} USD
-              </span>
-              <span className="text-muted-foreground">24h</span>
-            </div>
-            
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Activity className="h-3 w-3" />
-              <span>View chart</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center pt-2">
-            <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
-              <div 
-                className={`h-full transition-all duration-500 ${
-                  isPositive ? 'bg-green-500' : 'bg-red-500'
-                }`}
-                style={{ 
-                  width: `${Math.min(Math.abs(changePercent) * 10, 100)}%`,
-                  marginLeft: isPositive ? '0' : 'auto'
-                }}
-              />
-            </div>
-          </div>
+        {/* Price */}
+        <div className="space-y-2">
+          <PriceDisplay 
+            price={price}
+            change={change}
+            changePercent={changePercent}
+            size="lg"
+            showDualCurrency
+            usdtPrice={price}
+          />
         </div>
+
+        {/* Trend indicator */}
+        <div className={`flex items-center gap-2 text-sm font-medium ${
+          isPositive ? 'text-success' : 'text-danger'
+        }`}>
+          {isPositive ? (
+            <TrendingUp className="h-4 w-4" />
+          ) : (
+            <TrendingDown className="h-4 w-4" />
+          )}
+          <span>
+            {isPositive ? '+' : ''}{changePercent.toFixed(2)}% (24h)
+          </span>
+        </div>
+
+        {/* Chart button */}
+        <Button
+          size="sm"
+          variant="outline"
+          className={`w-full transition-all duration-300 ${
+            isHovered ? 'bg-primary/10 border-primary/30' : ''
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onChartClick?.();
+          }}
+        >
+          <BarChart3 className="h-4 w-4 mr-2" />
+          View Chart
+        </Button>
       </CardContent>
     </Card>
   );

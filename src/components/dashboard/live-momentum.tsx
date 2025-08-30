@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Play, Pause, Search } from "lucide-react";
-import { useLCWPrices } from "@/hooks/useLCWPrices";
+import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Search } from "lucide-react";
+import { useRealTimePrices } from "@/hooks/useRealTimePrices";
 import { TradingModal } from "@/components/trading/trading-modal";
 
 const cryptoMapping = {
@@ -27,97 +28,15 @@ const cryptoMapping = {
 };
 
 export function LiveMomentum() {
-  const { prices, isLoading, error, refresh } = useLCWPrices();
+  const { prices, isLoading, error, refresh, isLive, lastUpdate } = useRealTimePrices();
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
-  const [isAutoRefresh, setIsAutoRefresh] = useState(false);
-  const [momentum, setMomentum] = useState<Record<string, number>>({});
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const momentumIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const priceHistoryRef = useRef<Record<string, number[]>>({});
-
-  // Calculate momentum based on price history
-  const calculateMomentum = (symbol: string, currentPrice: number) => {
-    if (!priceHistoryRef.current[symbol]) {
-      priceHistoryRef.current[symbol] = [];
-    }
-    
-    const history = priceHistoryRef.current[symbol];
-    history.push(currentPrice);
-    
-    if (history.length > 10) {
-      history.shift();
-    }
-    
-    if (history.length < 3) return Math.random() * 20;
-    
-    const recentPrices = history.slice(-5);
-    const trend = recentPrices.reduce((acc, price, idx) => {
-      if (idx === 0) return acc;
-      return acc + (price - recentPrices[idx - 1]);
-    }, 0);
-    
-    return Math.abs(trend / currentPrice) * 1000;
-  };
-
-  // Update momentum every 8 seconds
-  useEffect(() => {
-    const updateMomentum = () => {
-      console.log('Updating momentum at:', new Date().toLocaleTimeString());
-      const newMomentum: Record<string, number> = {};
-      Object.entries(prices).forEach(([symbol, priceData]) => {
-        newMomentum[symbol] = calculateMomentum(symbol, priceData.price);
-      });
-      setMomentum(newMomentum);
-    };
-
-    if (Object.keys(prices).length > 0) {
-      updateMomentum();
-      
-      if (momentumIntervalRef.current) {
-        clearInterval(momentumIntervalRef.current);
-      }
-      
-      momentumIntervalRef.current = setInterval(updateMomentum, 8000);
-    }
-
-    return () => {
-      if (momentumIntervalRef.current) {
-        clearInterval(momentumIntervalRef.current);
-      }
-    };
-  }, [prices]);
-
-  // Auto refresh for prices (separate from momentum)
-  useEffect(() => {
-    if (isAutoRefresh) {
-      intervalRef.current = setInterval(async () => {
-        setIsRefreshing(true);
-        await refresh();
-        setIsRefreshing(false);
-      }, 30000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isAutoRefresh, refresh]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     await refresh();
     setIsRefreshing(false);
-  };
-
-  const toggleAutoRefresh = () => {
-    setIsAutoRefresh(!isAutoRefresh);
   };
 
   const handleTrade = (symbol: string, price: number, type: 'buy' | 'sell') => {
@@ -131,35 +50,22 @@ export function LiveMomentum() {
 
   // Get trading pairs based on search and momentum
   const getTradingPairs = () => {
-    return Object.entries(prices)
-      .map(([symbol, priceData]) => {
-        const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
-        if (!crypto) return null;
-        
-        return {
-          symbol,
-          name: crypto.name,
-          price: priceData.price,
-          changePercent: priceData.change24h,
-          momentum: momentum[symbol] || 0,
-          trend: priceData.change24h > 0.05 ? 'up' as const : 
-                 priceData.change24h < -0.05 ? 'down' as const : 'neutral' as const,
-          volume: priceData.volume24h || Math.random() * 2000000 + 500000
-        };
-      })
-      .filter(Boolean)
+    return Object.values(prices)
       .filter(crypto => 
-        crypto!.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        crypto!.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+        crypto.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
       )
-      .sort((a, b) => b!.momentum - a!.momentum);
+      .sort((a, b) => b.momentum - a.momentum);
   };
 
   if (isLoading) {
     return (
       <Card className="glass w-full">
         <CardContent className="flex items-center justify-center py-8">
-          <Activity className="h-6 w-6 animate-pulse text-primary" />
+          <div className="flex items-center gap-3">
+            <Activity className="h-6 w-6 animate-pulse text-primary" />
+            <span className="text-sm text-muted-foreground">Loading live market data...</span>
+          </div>
         </CardContent>
       </Card>
     );
@@ -171,6 +77,9 @@ export function LiveMomentum() {
         <CardContent className="flex items-center justify-center py-8">
           <div className="text-center">
             <p className="text-red-500 text-sm">{error}</p>
+            <Button size="sm" onClick={handleManualRefresh} className="mt-2">
+              Try Again
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -187,6 +96,11 @@ export function LiveMomentum() {
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Activity className="h-4 w-4 text-primary animate-pulse" />
               <span className="text-foreground">Market Positions</span>
+              {isLive && (
+                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30 animate-pulse">
+                  LIVE
+                </Badge>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button
@@ -197,14 +111,6 @@ export function LiveMomentum() {
                 className="h-8 w-8 p-0 border-border/50 hover:bg-muted/50"
               >
                 <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={toggleAutoRefresh}
-                className={`h-8 w-8 p-0 border-border/50 ${isAutoRefresh ? 'bg-primary/20 text-primary border-primary/30' : 'hover:bg-muted/50'}`}
-              >
-                {isAutoRefresh ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
               </Button>
             </div>
           </div>
@@ -220,62 +126,66 @@ export function LiveMomentum() {
             />
           </div>
 
-          {/* Status indicator */}
+          {/* Live Status */}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${isAutoRefresh ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/50'}`}></div>
-              <span>{isAutoRefresh ? 'Auto refresh ON' : 'Manual mode'}</span>
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span>Live updates every 4s</span>
             </div>
-            <span className="text-primary/70">Updates every 8s</span>
+            {lastUpdate > 0 && (
+              <span className="text-primary/70">
+                Updated {Math.floor((Date.now() - lastUpdate) / 1000)}s ago
+              </span>
+            )}
           </div>
         </CardHeader>
         
         <CardContent className="px-4 pb-4">
-          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(155, 155, 155, 0.3) transparent' }}>
+          <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
             {tradingPairs.map((crypto) => (
               <div
                 key={crypto.symbol}
-                className="group relative p-4 rounded-xl bg-gradient-to-br from-background/90 to-background/70 border border-border/40 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 backdrop-blur-sm min-h-[140px]"
+                className="group relative p-4 rounded-xl bg-gradient-to-br from-background/90 to-background/70 border border-border/40 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 backdrop-blur-sm"
               >
-                {/* Main container with proper spacing */}
-                <div className="flex flex-col h-full">
+                {/* Main container */}
+                <div className="space-y-4">
                   {/* Top section - Crypto info and price */}
-                  <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex-1">
                           <h3 className="font-bold text-lg text-foreground tracking-wide">{crypto.symbol}</h3>
                           <p className="text-sm text-muted-foreground truncate">{crypto.name}</p>
                         </div>
+                        
+                        {/* Live Momentum Badge */}
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs font-medium px-3 py-1 animate-pulse shrink-0 ${
+                            crypto.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+                            crypto.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
+                            'bg-green-500/15 text-green-400 border-green-500/30'
+                          }`}
+                        >
+                          🔥 {crypto.momentum.toFixed(1)}
+                        </Badge>
                       </div>
                       
-                      {/* Price and momentum info */}
-                      <div className="flex items-center gap-3 flex-wrap">
+                      {/* Price display */}
+                      <div className="flex items-center gap-4 flex-wrap">
                         <div className="space-y-1">
-                          <div className="text-lg font-bold gradient-text">
+                          <div className="text-xl font-bold gradient-text">
                             ₹{(crypto.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-sm text-muted-foreground">
                             ${crypto.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
                           </div>
                         </div>
-                        
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs font-medium px-3 py-1 animate-pulse ${
-                            crypto.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
-                            crypto.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
-                            crypto.momentum <= 8 ? 'bg-green-500/15 text-green-400 border-green-500/30' :
-                            ''
-                          }`}
-                        >
-                          Momentum: {crypto.momentum.toFixed(1)}
-                        </Badge>
                       </div>
                     </div>
 
                     {/* Price change indicator */}
-                    <div className="flex flex-col items-end text-right">
+                    <div className="flex flex-col items-end text-right shrink-0">
                       <div className="flex items-center gap-2 mb-1">
                         {crypto.trend === 'up' ? (
                           <TrendingUp className="h-4 w-4 text-success" />
@@ -293,35 +203,31 @@ export function LiveMomentum() {
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Vol: {crypto.volume ? (crypto.volume / 1000000).toFixed(1) : '0'}M
+                        Vol: {(crypto.volume24h / 1000000).toFixed(1)}M
                       </div>
                     </div>
                   </div>
 
-                  {/* Bottom section - Trading buttons with proper spacing */}
-                  <div className="mt-auto pt-3 border-t border-border/30">
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="h-10 text-sm font-medium bg-success/10 text-success border-success/30 hover:bg-success/20 hover:border-success/50 transition-all duration-200 flex items-center justify-center gap-2"
-                        onClick={() => handleTrade(crypto.symbol, crypto.price, 'buy')}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                        <span className="hidden sm:inline">Long Position</span>
-                        <span className="sm:hidden">Long</span>
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="h-10 text-sm font-medium bg-danger/10 text-danger border-danger/30 hover:bg-danger/20 hover:border-danger/50 transition-all duration-200 flex items-center justify-center gap-2"
-                        onClick={() => handleTrade(crypto.symbol, crypto.price, 'sell')}
-                      >
-                        <Wallet className="h-4 w-4" />
-                        <span className="hidden sm:inline">Short Position</span>
-                        <span className="sm:hidden">Short</span>
-                      </Button>
-                    </div>
+                  {/* Trading buttons with proper spacing */}
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/30">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="h-10 text-sm font-medium bg-success/10 text-success border-success/30 hover:bg-success/20 hover:border-success/50 transition-all duration-200 flex items-center justify-center gap-2 min-w-0"
+                      onClick={() => handleTrade(crypto.symbol, crypto.price, 'buy')}
+                    >
+                      <ShoppingCart className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">Long</span>
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="h-10 text-sm font-medium bg-danger/10 text-danger border-danger/30 hover:bg-danger/20 hover:border-danger/50 transition-all duration-200 flex items-center justify-center gap-2 min-w-0"
+                      onClick={() => handleTrade(crypto.symbol, crypto.price, 'sell')}
+                    >
+                      <Wallet className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">Short</span>
+                    </Button>
                   </div>
                 </div>
               </div>
