@@ -40,17 +40,26 @@ export default function Chart() {
   }, [symbol]);
 
   const handleBack = () => {
-    navigate(-1);
+    // Enhanced back navigation for mobile
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
   };
 
   if (!symbol) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-4">
-        <div className="text-center text-white max-w-md">
-          <AlertCircle className={`mx-auto mb-4 text-red-400 ${isMobile ? 'h-12 w-12' : 'h-16 w-16'}`} />
-          <h1 className={`font-bold mb-4 ${isMobile ? 'text-2xl' : 'text-3xl'}`}>Symbol Not Found</h1>
-          <p className={`text-gray-400 mb-6 ${isMobile ? 'text-sm' : ''}`}>The requested trading symbol was not provided.</p>
-          <Button onClick={() => navigate('/')} className="bg-blue-600 hover:bg-blue-700" size={isMobile ? 'sm' : 'default'}>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-3">
+        <div className="text-center text-white max-w-sm">
+          <AlertCircle className={`mx-auto mb-4 text-red-400 ${isMobile ? 'h-10 w-10' : 'h-12 w-12'}`} />
+          <h1 className={`font-bold mb-3 ${isMobile ? 'text-xl' : 'text-2xl'}`}>Symbol Not Found</h1>
+          <p className={`text-gray-400 mb-4 ${isMobile ? 'text-sm' : ''}`}>The requested trading symbol was not provided.</p>
+          <Button 
+            onClick={() => navigate('/')} 
+            className="bg-blue-600 hover:bg-blue-700" 
+            size={isMobile ? 'sm' : 'default'}
+          >
             Go to Dashboard
           </Button>
         </div>
@@ -60,18 +69,27 @@ export default function Chart() {
 
   if (!isValidSymbol) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-4">
-        <div className="text-center text-white max-w-md">
-          <AlertCircle className={`mx-auto mb-4 text-yellow-400 ${isMobile ? 'h-12 w-12' : 'h-16 w-16'}`} />
-          <h1 className={`font-bold mb-4 ${isMobile ? 'text-2xl' : 'text-3xl'}`}>Invalid Symbol</h1>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-3">
+        <div className="text-center text-white max-w-sm">
+          <AlertCircle className={`mx-auto mb-4 text-yellow-400 ${isMobile ? 'h-10 w-10' : 'h-12 w-12'}`} />
+          <h1 className={`font-bold mb-3 ${isMobile ? 'text-xl' : 'text-2xl'}`}>Invalid Symbol</h1>
           <p className={`text-gray-400 mb-2 ${isMobile ? 'text-sm' : ''}`}>The symbol "{symbol}" is not a valid trading pair.</p>
-          <p className={`text-gray-500 mb-6 ${isMobile ? 'text-xs' : 'text-sm'}`}>Please use format like BTCUSDT, ETHUSDT, etc.</p>
-          <div className={`flex gap-3 justify-center ${isMobile ? 'flex-col' : ''}`}>
-            <Button onClick={handleBack} variant="outline" size={isMobile ? 'sm' : 'default'}>
-              <ArrowLeft className={`mr-2 ${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
+          <p className={`text-gray-500 mb-4 ${isMobile ? 'text-xs' : 'text-sm'}`}>Please use format like BTCUSDT, ETHUSDT, etc.</p>
+          <div className={`flex gap-2 justify-center ${isMobile ? 'flex-col' : ''}`}>
+            <Button 
+              onClick={handleBack} 
+              variant="outline" 
+              size={isMobile ? 'sm' : 'default'}
+              className="flex items-center gap-1"
+            >
+              <ArrowLeft className={isMobile ? 'h-3 w-3' : 'h-4 w-4'} />
               Go Back
             </Button>
-            <Button onClick={() => navigate('/')} className="bg-blue-600 hover:bg-blue-700" size={isMobile ? 'sm' : 'default'}>
+            <Button 
+              onClick={() => navigate('/')} 
+              className="bg-blue-600 hover:bg-blue-700" 
+              size={isMobile ? 'sm' : 'default'}
+            >
               Dashboard
             </Button>
           </div>
@@ -82,14 +100,14 @@ export default function Chart() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black">
-      {/* Mobile-optimized Header */}
-      <div className="sticky top-0 z-10 bg-black/95 backdrop-blur border-b border-gray-700">
-        <div className={`container mx-auto px-4 ${isMobile ? 'py-2' : 'py-4'}`}>
+      {/* Mobile-Enhanced Header */}
+      <div className="sticky top-0 z-20 bg-black/98 backdrop-blur-sm border-b border-gray-700 shadow-lg">
+        <div className={`container mx-auto px-3 ${isMobile ? 'py-2' : 'py-3'}`}>
           <div className="flex items-center justify-between">
             <Button 
               variant="ghost" 
               onClick={handleBack}
-              className="text-white hover:bg-gray-800 flex items-center gap-2"
+              className="text-white hover:bg-gray-800 flex items-center gap-1 active:scale-95 transition-transform"
               size={isMobile ? 'sm' : 'default'}
             >
               <ArrowLeft className={isMobile ? 'h-4 w-4' : 'h-5 w-5'} />
@@ -98,25 +116,25 @@ export default function Chart() {
             
             {!isMobile && (
               <div className="text-center">
-                <h1 className="text-xl font-bold text-white">Professional Trading Chart</h1>
-                <p className="text-sm text-gray-400">Powered by Binance API</p>
+                <h1 className="text-lg font-bold text-white">Professional Trading Chart</h1>
+                <p className="text-xs text-gray-400">Powered by Binance API • Live Updates</p>
               </div>
             )}
             
-            <div className={isMobile ? 'w-12' : 'w-32'}></div> {/* Spacer for centering */}
+            <div className={isMobile ? 'w-16' : 'w-32'}></div> {/* Spacer for centering */}
           </div>
           
           {isMobile && (
-            <div className="text-center mt-2">
-              <h1 className="text-lg font-bold text-white">Professional Chart</h1>
-              <p className="text-xs text-gray-400">Powered by Binance API</p>
+            <div className="text-center mt-1">
+              <h1 className="text-base font-bold text-white">Professional Chart</h1>
+              <p className="text-xs text-gray-400">Powered by Binance API • Live</p>
             </div>
           )}
         </div>
       </div>
       
-      {/* Chart Container */}
-      <div className={`container mx-auto ${isMobile ? 'px-2 py-2' : 'px-4 py-6'}`}>
+      {/* Enhanced Chart Container */}
+      <div className={`container mx-auto ${isMobile ? 'px-1 py-1' : 'px-3 py-4'}`}>
         <BinanceChart
           symbol={symbol}
           name={cryptoName}
