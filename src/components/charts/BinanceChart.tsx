@@ -14,7 +14,8 @@ import {
   RotateCcw,
   Activity,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { binanceService, ProcessedCandle } from '@/services/binanceService';
 
@@ -31,7 +32,6 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
   const [currentPrice, setCurrentPrice] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -52,6 +52,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     
     try {
       console.log(`Fetching Binance data for ${symbol} with ${timeframe} timeframe`);
+      
       const [candleData, priceData] = await Promise.all([
         binanceService.getKlines(symbol, timeframe, 500),
         binanceService.getCurrentPrice(symbol)
@@ -66,7 +67,8 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
       }
     } catch (err) {
       console.error('Binance chart error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load chart data');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load chart data';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -77,12 +79,12 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     fetchChartData();
   }, [symbol, timeframe]);
 
-  // Auto-refresh every 10 seconds
+  // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setIsRefreshing(true);
       fetchChartData();
-    }, 10000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [symbol, timeframe]);
 
@@ -291,10 +293,6 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     await fetchChartData();
   };
 
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.2, 3));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.2, 0.5));
-  const resetChart = () => setZoomLevel(1);
-
   // Statistics
   const avgMomentum = chartData.length > 0 
     ? chartData.reduce((sum, c) => sum + c.momentum, 0) / chartData.length 
@@ -329,15 +327,6 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleZoomIn}>
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleZoomOut}>
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={resetChart}>
-              <RotateCcw className="h-4 w-4" />
             </Button>
             {!isFullPage && (
               <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)}>
@@ -406,19 +395,22 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
             <div className={`${chartHeight} flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700`}>
               <div className="text-center text-white">
                 <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-400" />
-                <p className="text-lg">Loading Binance Chart...</p>
-                <p className="text-sm text-gray-400 mt-2">Fetching live data with momentum analysis</p>
+                <p className="text-lg">Loading Professional Chart...</p>
+                <p className="text-sm text-gray-400 mt-2">Connecting to Binance API...</p>
               </div>
             </div>
           ) : error ? (
             <div className={`${chartHeight} flex items-center justify-center bg-gray-900 rounded-lg border border-gray-700`}>
-              <div className="text-center text-white">
-                <Activity className="h-12 w-12 mx-auto mb-4 text-red-400" />
-                <p className="text-lg mb-2">Failed to load chart</p>
+              <div className="text-center text-white max-w-md">
+                <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+                <p className="text-lg mb-2">Chart Loading Failed</p>
                 <p className="text-sm text-red-400 mb-4">{error}</p>
+                <p className="text-xs text-gray-500 mb-4">
+                  The Binance proxy function may need to be deployed. Please check the Supabase dashboard.
+                </p>
                 <Button onClick={fetchChartData} variant="outline">
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Retry
+                  Retry Connection
                 </Button>
               </div>
             </div>
@@ -473,7 +465,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
             <div className="bg-gray-800/50 p-4 rounded border border-gray-600 text-center">
               <p className="text-xs text-gray-400 mb-1">Trades</p>
               <p className="font-bold text-blue-400 font-mono">
-                {parseInt(currentPrice.openTime).toLocaleString()}
+                {parseInt(currentPrice.count).toLocaleString()}
               </p>
             </div>
           </div>
