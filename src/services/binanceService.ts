@@ -1,4 +1,6 @@
 
+import { supabase } from '@/integrations/supabase/client';
+
 export interface BinanceKline {
   openTime: number;
   open: string;
@@ -28,32 +30,38 @@ export interface ProcessedCandle {
 }
 
 class BinanceService {
-  private baseUrl = 'https://api.binance.com/api/v3';
-  private apiKey = 'eRSKz4nLGhEGj7bSGnxNVA5NLKxQQ8bN21whtTI32cilAugcL9OVVTO1sJ09mnk8';
+  private async callBinanceProxy(endpoint: string, params: Record<string, unknown> = {}) {
+    const { data, error } = await supabase.functions.invoke('binance-proxy', {
+      body: { endpoint, ...params },
+    });
+
+    if (error) {
+      console.error('Supabase function error:', error);
+      throw new Error(error.message || 'Binance proxy failed');
+    }
+
+    if (!data) {
+      throw new Error('Empty response from Binance proxy');
+    }
+
+    // If edge function returns { error: ... }
+    if ((data as any).error) {
+      console.error('Binance API error via proxy:', (data as any).error);
+      throw new Error((data as any).error);
+    }
+
+    return data;
+  }
 
   async getKlines(symbol: string, interval: string, limit: number = 500): Promise<ProcessedCandle[]> {
-    try {
-      const url = `${this.baseUrl}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-      console.log(`Fetching Binance data from: ${url}`);
-      
-      const response = await fetch(url, {
-        headers: {
-          'X-MBX-APIKEY': this.apiKey
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Binance API error: ${response.status} - ${response.statusText}`);
-      }
-      
-      const data: any[][] = await response.json();
-      console.log(`Received ${data.length} candles from Binance`);
-      
-      return this.processCandles(data);
-    } catch (error) {
-      console.error('Error fetching Binance klines:', error);
-      throw error;
+    console.log(`Fetching Binance data for ${symbol} [${interval}], limit=${limit}`);
+    const raw = await this.callBinanceProxy('klines', { symbol, interval, limit });
+
+    if (!Array.isArray(raw)) {
+      throw new Error('Invalid data format from Binance API');
     }
+
+    return this.processCandles(raw as any[][]);
   }
 
   private processCandles(klines: any[][]): ProcessedCandle[] {
@@ -63,19 +71,18 @@ class BinanceService {
       const low = parseFloat(kline[3]);
       const close = parseFloat(kline[4]);
       const volume = parseFloat(kline[5]);
-      
+
       const bodySize = Math.abs(close - open);
       const totalRange = high - low;
       const upperShadow = high - Math.max(open, close);
       const lowerShadow = Math.min(open, close) - low;
       const isBullish = close >= open;
-      
-      // Enhanced momentum calculation
+
       const bodyToRangeRatio = totalRange > 0 ? bodySize / totalRange : 0;
       const volumeWeight = Math.log(volume + 1) / 20;
-      const priceImpact = bodySize / Math.max(open, close);
+      const priceImpact = Math.max(open, close) > 0 ? bodySize / Math.max(open, close) : 0;
       const momentum = (bodyToRangeRatio * volumeWeight * priceImpact) * 100;
-      
+
       return {
         timestamp: parseInt(kline[0]),
         open,
@@ -87,39 +94,17 @@ class BinanceService {
         bodySize,
         upperShadow,
         lowerShadow,
-        isBullish
+        isBullish,
       };
     });
   }
 
   async getCurrentPrice(symbol: string) {
-    try {
-      const response = await fetch(`${this.baseUrl}/ticker/24hr?symbol=${symbol}`, {
-        headers: {
-          'X-MBX-APIKEY': this.apiKey
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching current price:', error);
-      throw error;
-    }
+    return await this.callBinanceProxy('ticker', { symbol });
   }
 
   async getExchangeInfo() {
-    try {
-      const response = await fetch(`${this.baseUrl}/exchangeInfo`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching exchange info:', error);
-      throw error;
-    }
+    return await this.callBinanceProxy('exchangeInfo');
   }
 }
 
