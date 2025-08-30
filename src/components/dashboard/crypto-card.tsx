@@ -33,8 +33,18 @@ export function CryptoCard({
     }
   };
   
+  const handleCardClick = () => {
+    console.log(`Card clicked for ${symbol} - ${name}`);
+    if (onChartClick) {
+      onChartClick();
+    }
+  };
+  
   return (
-    <Card className="glass crypto-card hover:shadow-lg transition-all duration-200 hover:scale-105 group cursor-pointer">
+    <Card 
+      className="glass crypto-card hover:shadow-lg transition-all duration-200 hover:scale-105 group cursor-pointer border-2 hover:border-primary/30"
+      onClick={handleCardClick}
+    >
       <CardContent className="p-4 sm:p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 min-w-0">
@@ -54,7 +64,7 @@ export function CryptoCard({
                 size="sm"
                 onClick={handleChartClick}
                 className="h-9 w-9 p-0 hover:bg-primary/10 opacity-70 group-hover:opacity-100 transition-opacity"
-                title={`View ${symbol} chart`}
+                title={`View ${symbol} professional chart`}
               >
                 <BarChart3 className="h-4 w-4" />
               </Button>
@@ -63,7 +73,6 @@ export function CryptoCard({
         </div>
 
         <div className="space-y-3">
-          {/* Price Display */}
           <div className="flex items-end justify-between">
             <div>
               <span className="text-2xl sm:text-3xl font-bold block">
@@ -91,7 +100,6 @@ export function CryptoCard({
             </Badge>
           </div>
           
-          {/* Change Display */}
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
@@ -102,11 +110,10 @@ export function CryptoCard({
             
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Activity className="h-3 w-3" />
-              <span>Live</span>
+              <span>Click to view chart</span>
             </div>
           </div>
 
-          {/* Mini Chart Indicator */}
           <div className="flex items-center justify-center pt-2">
             <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
               <div 

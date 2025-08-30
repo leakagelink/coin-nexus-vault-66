@@ -1,24 +1,41 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar } from 'recharts';
-import { TrendingUp, TrendingDown, X, BarChart3, Activity, Loader2, Maximize2, Minimize2, ZoomIn, ZoomOut, Settings, Move, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useLivePrices } from '@/hooks/useLivePrices';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  X, 
+  Maximize2, 
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Settings,
+  Activity,
+  Loader2
+} from 'lucide-react';
 import { chartAPI, ChartData } from '@/services/chartApi';
-import { CandlestickRenderer } from './candlestick-renderer';
-import { ChartTooltip } from './chart-tooltip';
-import { ChartIndicators, RSIChart } from './chart-indicators';
+import { useLivePrices } from '@/hooks/useLivePrices';
 
-interface EnhancedCryptoChartProps {
+interface ProfessionalTradingChartProps {
   symbol: string;
   name: string;
   onClose: () => void;
 }
 
-export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoChartProps) {
+interface CandleProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  payload: ChartData;
+}
+
+export function ProfessionalTradingChart({ symbol, name, onClose }: ProfessionalTradingChartProps) {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [timeframe, setTimeframe] = useState('1h');
   const [isLoading, setIsLoading] = useState(true);
@@ -26,35 +43,44 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [chartOffset, setChartOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
   
-  const [indicators, setIndicators] = useState({ 
-    sma20: true, 
-    sma50: true, 
-    rsi: true, 
-    macd: false,
+  const [indicators, setIndicators] = useState({
+    sma20: true,
+    sma50: true,
+    rsi: true,
     bollinger: false,
-    volume: true 
+    volume: true,
+    macd: false
   });
 
-  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { prices, getPrice } = useLivePrices();
   const livePrice = getPrice(symbol.replace('USDT', ''));
+
+  const timeframes = [
+    { key: '1m', label: '1m' },
+    { key: '5m', label: '5m' },
+    { key: '15m', label: '15m' },
+    { key: '1h', label: '1h' },
+    { key: '4h', label: '4h' },
+    { key: '1d', label: '1d' }
+  ];
 
   const fetchChartData = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      console.log(`Fetching real chart data for ${symbol} with timeframe ${timeframe}`);
+      console.log(`Fetching professional chart data for ${symbol} with ${timeframe} timeframe`);
       const data = await chartAPI.getChartData(symbol, timeframe, 200);
       setChartData(data);
-      console.log(`Loaded ${data.length} candles for ${symbol}`);
+      console.log(`Loaded ${data.length} professional candles with momentum`);
     } catch (err) {
-      console.error('Chart data error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch chart data');
+      console.error('Professional chart error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load chart');
     } finally {
       setIsLoading(false);
     }
@@ -64,6 +90,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
     fetchChartData();
   }, [symbol, timeframe]);
 
+  // Live price updates with momentum
   useEffect(() => {
     if (livePrice && chartData.length > 0) {
       setChartData(prevData => {
@@ -77,41 +104,168 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
         return newData;
       });
     }
-  }, [livePrice, chartData.length]);
+  }, [livePrice]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - chartOffset.x, y: e.clientY - chartOffset.y });
-  };
+  const drawChart = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !chartData.length) return;
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !dragStart) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { width, height } = canvas;
+    ctx.clearRect(0, 0, width, height);
+
+    // Chart dimensions
+    const padding = 60;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+
+    // Price range
+    const prices = chartData.flatMap(d => [d.high, d.low]);
+    const maxPrice = Math.max(...prices);
+    const minPrice = Math.min(...prices);
+    const priceRange = maxPrice - minPrice;
+
+    // Draw grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 10; i++) {
+      const y = padding + (chartHeight / 10) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(width - padding, y);
+      ctx.stroke();
+    }
+
+    // Draw candlesticks with momentum
+    const candleWidth = Math.max(chartWidth / chartData.length - 2, 2);
     
-    const newOffset = {
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
+    chartData.forEach((candle, index) => {
+      const x = padding + (index * (chartWidth / chartData.length));
+      const isBullish = candle.close >= candle.open;
+      
+      // Professional Binance colors
+      const bullColor = '#0ecb81';
+      const bearColor = '#f6465d';
+      const color = isBullish ? bullColor : bearColor;
+      
+      // Calculate momentum intensity
+      const momentum = Math.abs(candle.close - candle.open) / candle.open;
+      const opacity = Math.min(0.3 + momentum * 20, 1);
+      
+      // Wick positions
+      const highY = padding + ((maxPrice - candle.high) / priceRange) * chartHeight;
+      const lowY = padding + ((maxPrice - candle.low) / priceRange) * chartHeight;
+      const openY = padding + ((maxPrice - candle.open) / priceRange) * chartHeight;
+      const closeY = padding + ((maxPrice - candle.close) / priceRange) * chartHeight;
+      
+      // Draw high-low wick
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = opacity;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + candleWidth / 2, highY);
+      ctx.lineTo(x + candleWidth / 2, lowY);
+      ctx.stroke();
+      
+      // Draw candle body
+      const bodyHeight = Math.abs(closeY - openY);
+      const bodyY = Math.min(openY, closeY);
+      
+      if (isBullish) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 1, bodyY, candleWidth - 2, Math.max(bodyHeight, 2));
+      } else {
+        ctx.fillStyle = color;
+        ctx.fillRect(x + 1, bodyY, candleWidth - 2, Math.max(bodyHeight, 2));
+      }
+      
+      // Add momentum glow effect
+      if (momentum > 0.02) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = momentum * 100;
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = color;
+        ctx.fillRect(x + 1, bodyY, candleWidth - 2, Math.max(bodyHeight, 2));
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    ctx.globalAlpha = 1;
+
+    // Draw indicators
+    if (indicators.sma20 && chartData[0]?.sma20) {
+      ctx.strokeStyle = '#ff9500';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      chartData.forEach((candle, index) => {
+        if (candle.sma20) {
+          const x = padding + (index * (chartWidth / chartData.length)) + candleWidth / 2;
+          const y = padding + ((maxPrice - candle.sma20) / priceRange) * chartHeight;
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+    }
+
+    if (indicators.sma50 && chartData[0]?.sma50) {
+      ctx.strokeStyle = '#007aff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      chartData.forEach((candle, index) => {
+        if (candle.sma50) {
+          const x = padding + (index * (chartWidth / chartData.length)) + candleWidth / 2;
+          const y = padding + ((maxPrice - candle.sma50) / priceRange) * chartHeight;
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+    }
+
+    // Draw price labels
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 5; i++) {
+      const price = minPrice + (priceRange / 5) * i;
+      const y = padding + chartHeight - (chartHeight / 5) * i;
+      ctx.fillText(`$${price.toFixed(2)}`, width - padding - 10, y);
+    }
+  };
+
+  useEffect(() => {
+    const resizeCanvas = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const container = canvas.parentElement;
+      if (!container) return;
+      
+      canvas.width = container.clientWidth * zoomLevel;
+      canvas.height = container.clientHeight * zoomLevel;
+      canvas.style.width = container.clientWidth + 'px';
+      canvas.style.height = container.clientHeight + 'px';
+      
+      drawChart();
     };
-    setChartOffset(newOffset);
-  };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    setDragStart(null);
-  };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    return () => window.removeEventListener('resize', resizeCanvas);
+  }, [chartData, indicators, zoomLevel]);
 
-  const handleZoomIn = () => {
-    setZoomLevel(prev => Math.min(prev * 1.25, 5));
-  };
-
-  const handleZoomOut = () => {
-    setZoomLevel(prev => Math.max(prev / 1.25, 0.25));
-  };
-
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.2, 3));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.2, 0.5));
   const resetChart = () => {
     setZoomLevel(1);
     setChartOffset({ x: 0, y: 0 });
   };
 
+  // Calculate statistics
   const firstPrice = chartData[0]?.close || 0;
   const lastPrice = livePrice?.price || chartData[chartData.length - 1]?.close || 0;
   const priceChange = livePrice?.change || (lastPrice - firstPrice);
@@ -121,10 +275,6 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
   const high24h = livePrice?.high24h || Math.max(...chartData.map(d => d.high));
   const low24h = livePrice?.low24h || Math.min(...chartData.map(d => d.low));
   const volume24h = livePrice?.volume || chartData[chartData.length - 1]?.volume || 0;
-
-  const CustomCandlestick = (props: any) => {
-    return <CandlestickRenderer {...props} />;
-  };
 
   return (
     <Card className={`transition-all duration-300 ${isFullscreen ? 'fixed inset-4 z-50 max-w-none' : 'w-full max-w-7xl mx-auto'}`}>
@@ -194,37 +344,27 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
             </div>
           </div>
           
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 text-xs"
-            >
-              <BarChart3 className="h-3 w-3" />
-              Candlestick
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchChartData}
-              className="flex items-center gap-1 text-xs"
-            >
-              <Activity className="h-3 w-3" />
-              Refresh
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchChartData}
+            className="flex items-center gap-1 text-xs"
+          >
+            <Activity className="h-3 w-3" />
+            Refresh
+          </Button>
         </div>
 
         <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-          {['1m', '5m', '15m', '1h', '4h', '1d'].map((tf) => (
+          {timeframes.map((tf) => (
             <Button
-              key={tf}
-              variant={timeframe === tf ? 'default' : 'outline'}
+              key={tf.key}
+              variant={timeframe === tf.key ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setTimeframe(tf)}
+              onClick={() => setTimeframe(tf.key)}
               className="text-xs min-w-[3rem] h-8"
             >
-              {tf}
+              {tf.label}
             </Button>
           ))}
         </div>
@@ -256,59 +396,21 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
             <div className={`${isFullscreen ? 'h-[60vh]' : 'h-96 sm:h-[500px]'} flex items-center justify-center bg-muted/5 rounded-lg border`}>
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-                <p className="text-sm text-muted-foreground">Loading chart data...</p>
+                <p className="text-sm text-muted-foreground">Loading professional chart...</p>
               </div>
             </div>
           ) : chartData.length > 0 ? (
             <div 
-              ref={chartContainerRef}
-              className={`${isFullscreen ? 'h-[50vh]' : 'h-96 sm:h-[500px]'} w-full bg-background/50 rounded-lg border cursor-${isDragging ? 'grabbing' : 'grab'} overflow-hidden`}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
+              className={`${isFullscreen ? 'h-[50vh]' : 'h-96 sm:h-[500px]'} w-full bg-background/50 rounded-lg border overflow-hidden relative`}
               style={{
-                transform: `translate(${chartOffset.x}px, ${chartOffset.y}px) scale(${zoomLevel})`,
-                transformOrigin: 'center center'
+                transform: `translate(${chartOffset.x}px, ${chartOffset.y}px)`,
               }}
             >
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart 
-                  data={chartData} 
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                >
-                  <CartesianGrid 
-                    strokeDasharray="1 1" 
-                    stroke="hsl(var(--muted-foreground))" 
-                    opacity={0.1}
-                    horizontal={true}
-                    vertical={false}
-                  />
-                  <XAxis 
-                    dataKey="time"
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={false}
-                    axisLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis 
-                    domain={['dataMin - 0.5%', 'dataMax + 0.5%']}
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `$${value.toFixed(value > 1 ? 0 : 4)}`}
-                    orientation="right"
-                  />
-                  <Tooltip content={<ChartTooltip />} />
-                  
-                  <Bar 
-                    dataKey="close" 
-                    shape={CustomCandlestick}
-                  />
-
-                  <ChartIndicators data={chartData} indicators={indicators} />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <canvas
+                ref={canvasRef}
+                className="w-full h-full cursor-crosshair"
+                style={{ imageRendering: 'pixelated' }}
+              />
             </div>
           ) : (
             <div className={`${isFullscreen ? 'h-[60vh]' : 'h-96'} flex items-center justify-center bg-muted/5 rounded-lg border`}>
@@ -321,8 +423,31 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           )}
         </div>
 
-        {indicators.rsi && (
-          <RSIChart data={chartData} isVisible={true} />
+        {indicators.rsi && chartData.length > 0 && (
+          <div className="h-32 w-full bg-background/50 rounded-lg border p-2">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-foreground">RSI (14)</h4>
+              <span className="text-xs text-muted-foreground font-mono">
+                {chartData[chartData.length - 1]?.rsi?.toFixed(1) || '50.0'}
+              </span>
+            </div>
+            <div className="h-20 relative bg-muted/20 rounded">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full h-px bg-red-500/30 absolute top-4" />
+                <div className="w-full h-px bg-green-500/30 absolute bottom-4" />
+              </div>
+              <svg className="w-full h-full">
+                <polyline
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="2"
+                  points={chartData.map((item, index) => 
+                    `${(index / (chartData.length - 1)) * 100}%,${100 - (item.rsi || 50)}%`
+                  ).join(' ')}
+                />
+              </svg>
+            </div>
+          </div>
         )}
 
         {indicators.volume && chartData.length > 0 && (
@@ -333,29 +458,19 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
                 {(volume24h / 1000000).toFixed(1)}M
               </Badge>
             </div>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="1 1" stroke="hsl(var(--muted-foreground))" opacity={0.1} />
-                <XAxis dataKey="time" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
-                <YAxis 
-                  tick={{ fontSize: 9 }} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
-                  orientation="right"
-                />
-                <Tooltip 
-                  formatter={(value: any) => [`${(value / 1000000).toFixed(2)}M`, 'Volume']}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--popover))', 
-                    border: '1px solid hsl(var(--border))', 
-                    borderRadius: '6px', 
-                    fontSize: '11px' 
+            <div className="h-16 bg-muted/20 rounded flex items-end">
+              {chartData.map((candle, index) => (
+                <div
+                  key={index}
+                  className="bg-primary/60 rounded-t"
+                  style={{
+                    width: `${100 / chartData.length}%`,
+                    height: `${Math.min((candle.volume / Math.max(...chartData.map(d => d.volume))) * 100, 100)}%`,
+                    marginRight: '1px'
                   }}
                 />
-                <Bar dataKey="volume" opacity={0.6} radius={[1, 1, 0, 0]} fill="hsl(var(--primary))" />
-              </ComposedChart>
-            </ResponsiveContainer>
+              ))}
+            </div>
           </div>
         )}
 
@@ -380,8 +495,7 @@ export function EnhancedCryptoChart({ symbol, name, onClose }: EnhancedCryptoCha
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Zoom</p>
-            <p className="font-semibold text-sm font-mono flex items-center justify-center gap-1">
-              <Move className="h-3 w-3" />
+            <p className="font-semibold text-sm font-mono">
               {zoomLevel.toFixed(1)}x
             </p>
           </div>

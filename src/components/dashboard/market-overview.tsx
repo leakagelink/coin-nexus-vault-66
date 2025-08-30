@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
@@ -20,10 +21,13 @@ export function MarketOverview() {
   const [selectedChart, setSelectedChart] = useState<{ symbol: string; name: string } | null>(null);
 
   const handleChartClick = (symbol: string, name: string) => {
-    // Convert symbol to trading pair format for TaapiAPI
     const tradingSymbol = cryptoMapping[symbol as keyof typeof cryptoMapping]?.symbol || `${symbol}USDT`;
-    console.log(`Opening enhanced chart for ${tradingSymbol} - ${name}`);
+    console.log(`Opening professional trading chart for ${tradingSymbol} - ${name}`);
     setSelectedChart({ symbol: tradingSymbol, name });
+  };
+
+  const handleCryptoCardClick = (symbol: string, name: string) => {
+    handleChartClick(symbol, name);
   };
 
   const handleCloseChart = () => {
@@ -35,10 +39,10 @@ export function MarketOverview() {
     const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
     if (!crypto) return acc;
     
-    acc.totalMarketCap += priceData.price * 1000000; // Mock market cap
+    acc.totalMarketCap += priceData.price * 1000000;
     acc.gainers += priceData.change24h > 0 ? 1 : 0;
     acc.losers += priceData.change24h < 0 ? 1 : 0;
-    acc.totalVolume += Math.random() * 1000000; // Mock volume
+    acc.totalVolume += Math.random() * 1000000;
     
     return acc;
   }, { totalMarketCap: 0, gainers: 0, losers: 0, totalVolume: 0 });
@@ -81,7 +85,6 @@ export function MarketOverview() {
   return (
     <>
       <div className="space-y-6">
-        {/* Market Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="glass">
             <CardContent className="p-4">
@@ -132,13 +135,12 @@ export function MarketOverview() {
           </Card>
         </div>
 
-        {/* Main Market Overview */}
         <Card className="glass">
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <CardTitle className="gradient-text text-xl sm:text-2xl">Live Market Prices</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Real-time data from LiveCoinWatch</p>
+                <p className="text-sm text-muted-foreground mt-1">Click any coin to view professional trading chart</p>
               </div>
               <Badge variant="outline" className="w-fit">
                 <div className="flex items-center gap-2">
@@ -155,16 +157,17 @@ export function MarketOverview() {
                 if (!crypto) return null;
 
                 return (
-                  <CryptoCard
-                    key={symbol}
-                    symbol={symbol}
-                    name={crypto.name}
-                    price={priceData.price}
-                    change={priceData.change24h * priceData.price / 100}
-                    changePercent={priceData.change24h}
-                    isWatchlisted={false}
-                    onChartClick={() => handleChartClick(symbol, crypto.name)}
-                  />
+                  <div key={symbol} onClick={() => handleCryptoCardClick(symbol, crypto.name)} className="cursor-pointer">
+                    <CryptoCard
+                      symbol={symbol}
+                      name={crypto.name}
+                      price={priceData.price}
+                      change={priceData.change24h * priceData.price / 100}
+                      changePercent={priceData.change24h}
+                      isWatchlisted={false}
+                      onChartClick={() => handleChartClick(symbol, crypto.name)}
+                    />
+                  </div>
                 );
               })}
             </div>

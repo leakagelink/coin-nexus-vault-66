@@ -16,6 +16,10 @@ export interface ChartData {
   bbUpper?: number;
   bbLower?: number;
   bbMiddle?: number;
+  momentum?: number;
+  bodySize?: number;
+  upperShadow?: number;
+  lowerShadow?: number;
 }
 
 class ChartAPIService {
@@ -35,7 +39,7 @@ class ChartAPIService {
     return sma;
   }
 
-  // Calculate RSI
+  // Calculate RSI with proper momentum
   private calculateRSI(data: ChartData[], period: number = 14): number[] {
     const rsi = [];
     const changes = [];
@@ -48,8 +52,9 @@ class ChartAPIService {
       if (i < period) {
         rsi.push(50);
       } else {
-        const gains = changes.slice(i - period, i).filter(c => c > 0);
-        const losses = changes.slice(i - period, i).filter(c => c < 0).map(c => Math.abs(c));
+        const recentChanges = changes.slice(i - period, i);
+        const gains = recentChanges.filter(c => c > 0);
+        const losses = recentChanges.filter(c => c < 0).map(c => Math.abs(c));
         
         const avgGain = gains.length ? gains.reduce((a, b) => a + b, 0) / period : 0;
         const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / period : 0;
@@ -89,19 +94,41 @@ class ChartAPIService {
     return { upper, lower, middle: sma };
   }
 
-  async getChartData(symbol: string, interval: string = '1h', limit: number = 100): Promise<ChartData[]> {
+  // Calculate momentum and candle patterns
+  private calculateMomentum(data: ChartData[]): ChartData[] {
+    return data.map((candle, index) => {
+      const bodySize = Math.abs(candle.close - candle.open);
+      const totalRange = candle.high - candle.low;
+      const upperShadow = candle.high - Math.max(candle.open, candle.close);
+      const lowerShadow = Math.min(candle.open, candle.close) - candle.low;
+      
+      // Calculate momentum based on body size and volume
+      const momentum = totalRange > 0 ? (bodySize / totalRange) * (candle.volume / 1000000) : 0;
+      
+      return {
+        ...candle,
+        momentum,
+        bodySize,
+        upperShadow,
+        lowerShadow
+      };
+    });
+  }
+
+  async getChartData(symbol: string, interval: string = '1h', limit: number = 200): Promise<ChartData[]> {
     try {
+      console.log(`Fetching real Binance data for ${symbol} - ${interval}`);
       const response = await fetch(
         `${this.baseUrl}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
       );
       
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`Binance API error: ${response.status}`);
       }
       
       const rawData = await response.json();
       
-      // Convert Binance kline data to our format
+      // Convert Binance kline data to professional format
       const chartData: ChartData[] = rawData.map((kline: any[]) => {
         const timestamp = kline[0];
         const date = new Date(timestamp);
@@ -118,33 +145,37 @@ class ChartAPIService {
         };
       });
 
-      // Add technical indicators
+      // Add technical indicators and momentum
       const sma20 = this.calculateSMA(chartData, 20);
       const sma50 = this.calculateSMA(chartData, 50);
       const rsi = this.calculateRSI(chartData);
       const bb = this.calculateBollingerBands(chartData);
 
-      chartData.forEach((item, index) => {
-        if (sma20[index] > 0) item.sma20 = sma20[index];
-        if (sma50[index] > 0) item.sma50 = sma50[index];
-        item.rsi = rsi[index];
+      const enrichedData = chartData.map((item, index) => {
+        const enhanced: ChartData = { ...item };
+        
+        if (sma20[index] > 0) enhanced.sma20 = sma20[index];
+        if (sma50[index] > 0) enhanced.sma50 = sma50[index];
+        enhanced.rsi = rsi[index];
+        
         if (bb.upper[index] > 0) {
-          item.bbUpper = bb.upper[index];
-          item.bbLower = bb.lower[index];
-          item.bbMiddle = bb.middle[index];
+          enhanced.bbUpper = bb.upper[index];
+          enhanced.bbLower = bb.lower[index];
+          enhanced.bbMiddle = bb.middle[index];
         }
+        
+        return enhanced;
       });
 
-      return chartData;
+      return this.calculateMomentum(enrichedData);
       
     } catch (error) {
-      console.error('Error fetching chart data:', error);
-      // Return mock data on error
-      return this.generateMockData(symbol, interval, limit);
+      console.error('Error fetching Binance chart data:', error);
+      return this.generateRealisticMockData(symbol, interval, limit);
     }
   }
 
-  private generateMockData(symbol: string, interval: string, limit: number): ChartData[] {
+  private generateRealisticMockData(symbol: string, interval: string, limit: number): ChartData[] {
     const data: ChartData[] = [];
     const now = Date.now();
     const intervals: { [key: string]: number } = {
@@ -152,10 +183,9 @@ class ChartAPIService {
     };
     const intervalMs = intervals[interval] || 3600000;
     
-    // Base prices for different symbols
     const basePrices: { [key: string]: number } = {
-      'BTCUSDT': 95000, 'ETHUSDT': 3500, 'BNBUSDT': 650, 
-      'ADAUSDT': 0.45, 'SOLUSDT': 180, 'USDTUSDT': 1.0
+      'BTCUSDT': 108000, 'ETHUSDT': 4400, 'BNBUSDT': 860, 
+      'ADAUSDT': 0.83, 'SOLUSDT': 202, 'USDTUSDT': 1.0
     };
     
     let currentPrice = basePrices[symbol] || 100;
@@ -165,21 +195,27 @@ class ChartAPIService {
       const date = new Date(timestamp);
       
       // Generate realistic price movement with momentum
-      const volatility = symbol.includes('BTC') ? 0.02 : 0.03;
-      const trend = Math.sin(i / 20) * 0.005; // Trending component
+      const volatility = symbol.includes('BTC') ? 0.015 : 0.025;
+      const trend = Math.sin(i / 30) * 0.003;
       const momentum = (Math.random() - 0.5) * volatility;
+      const noise = (Math.random() - 0.5) * 0.005;
       
       const open = currentPrice;
-      const priceChange = trend + momentum;
+      const priceChange = trend + momentum + noise;
       const close = open * (1 + priceChange);
       
-      // Create realistic high and low with proper wicks
-      const bodyRange = Math.abs(close - open);
-      const wickMultiplier = 0.5 + Math.random() * 2;
-      const extraRange = bodyRange * wickMultiplier;
+      // Create realistic wicks with momentum
+      const bodySize = Math.abs(close - open);
+      const wickIntensity = Math.random() * 2 + 0.5;
+      const extraRange = bodySize * wickIntensity;
       
       const high = Math.max(open, close) + extraRange * Math.random();
       const low = Math.min(open, close) - extraRange * Math.random();
+      
+      // Volume with momentum correlation
+      const volumeBase = 1000000 + Math.random() * 5000000;
+      const volumeMomentum = Math.abs(priceChange) * 10000000;
+      const volume = volumeBase + volumeMomentum;
       
       data.push({
         timestamp: Math.floor(timestamp / 1000),
@@ -189,30 +225,35 @@ class ChartAPIService {
         high: Math.max(high, 0.001),
         low: Math.max(low, 0.001),
         close: Math.max(close, 0.001),
-        volume: Math.random() * 10000000 + 1000000
+        volume: volume
       });
       
       currentPrice = close;
     }
     
-    // Add technical indicators
+    // Add technical indicators and momentum
     const sma20 = this.calculateSMA(data, 20);
     const sma50 = this.calculateSMA(data, 50);
     const rsi = this.calculateRSI(data);
     const bb = this.calculateBollingerBands(data);
 
-    data.forEach((item, index) => {
-      if (sma20[index] > 0) item.sma20 = sma20[index];
-      if (sma50[index] > 0) item.sma50 = sma50[index];
-      item.rsi = rsi[index];
+    const enrichedData = data.map((item, index) => {
+      const enhanced: ChartData = { ...item };
+      
+      if (sma20[index] > 0) enhanced.sma20 = sma20[index];
+      if (sma50[index] > 0) enhanced.sma50 = sma50[index];
+      enhanced.rsi = rsi[index];
+      
       if (bb.upper[index] > 0) {
-        item.bbUpper = bb.upper[index];
-        item.bbLower = bb.lower[index];
-        item.bbMiddle = bb.middle[index];
+        enhanced.bbUpper = bb.upper[index];
+        enhanced.bbLower = bb.lower[index];
+        enhanced.bbMiddle = bb.middle[index];
       }
+      
+      return enhanced;
     });
-    
-    return data;
+
+    return this.calculateMomentum(enrichedData);
   }
 }
 
