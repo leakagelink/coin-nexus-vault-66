@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,8 +36,8 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
   
   const chartRef = useRef<HTMLDivElement>(null);
-  const panTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const panTimeoutRef = useRef<number | null>(null);
+  const refreshIntervalRef = useRef<number | null>(null);
 
   // Fetch candle data
   const fetchData = useCallback(async () => {
@@ -63,7 +64,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     fetchData();
     
     if (isAutoRefresh) {
-      refreshIntervalRef.current = setInterval(() => {
+      refreshIntervalRef.current = window.setInterval(() => {
         fetchData();
       }, 30000); // 30 seconds
     }
@@ -86,7 +87,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     if (panTimeoutRef.current) {
       clearTimeout(panTimeoutRef.current);
     }
-    panTimeoutRef.current = setTimeout(() => {
+    panTimeoutRef.current = window.setTimeout(() => {
       setIsAutoRefresh(true);
     }, 10000);
   }, []);
