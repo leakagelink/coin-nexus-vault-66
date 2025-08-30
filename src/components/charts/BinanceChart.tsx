@@ -38,6 +38,25 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
   const panTimeoutRef = useRef<number | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
 
+  // Available intervals with proper labels
+  const intervals = [
+    { value: '1m', label: '1m' },
+    { value: '3m', label: '3m' },
+    { value: '5m', label: '5m' },
+    { value: '15m', label: '15m' },
+    { value: '30m', label: '30m' },
+    { value: '1h', label: '1h' },
+    { value: '2h', label: '2h' },
+    { value: '4h', label: '4h' },
+    { value: '6h', label: '6h' },
+    { value: '8h', label: '8h' },
+    { value: '12h', label: '12h' },
+    { value: '1d', label: '1d' },
+    { value: '3d', label: '3d' },
+    { value: '1w', label: '1w' },
+    { value: '1M', label: '1M' }
+  ];
+
   // Fetch candle data
   const fetchData = useCallback(async () => {
     if (!symbol) return;
@@ -45,11 +64,11 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     try {
       setLoading(true);
       setError(null);
-      console.log(`[BinanceChart] Fetching ${symbol} data...`);
+      console.log(`[BinanceChart] Fetching ${symbol} data for ${interval}...`);
       
-      const data = await binanceService.getKlines(symbol, interval, 100);
+      const data = await binanceService.getKlines(symbol, interval, 200);
       setCandles(data);
-      console.log(`[BinanceChart] Loaded ${data.length} candles for ${symbol}`);
+      console.log(`[BinanceChart] Loaded ${data.length} candles for ${symbol} [${interval}]`);
     } catch (err) {
       console.error('[BinanceChart] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load chart data');
@@ -246,20 +265,20 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Interval Selector - Enhanced with more intervals */}
-            <div className="flex gap-1 flex-wrap">
-              {['1m', '5m', '15m', '30m', '1h', '4h', '1d'].map((int) => (
+            {/* Interval Selector - All intervals from 1m to 1M */}
+            <div className="flex gap-1 flex-wrap max-w-md">
+              {intervals.map((int) => (
                 <Button
-                  key={int}
+                  key={int.value}
                   size="sm"
-                  variant={interval === int ? "default" : "ghost"}
+                  variant={interval === int.value ? "default" : "ghost"}
                   className="h-7 px-2 text-xs"
                   onClick={() => {
-                    setInterval(int);
+                    setInterval(int.value);
                     pauseAutoRefresh();
                   }}
                 >
-                  {int}
+                  {int.label}
                 </Button>
               ))}
             </div>
@@ -408,6 +427,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           
           {/* Chart Info Overlay */}
           <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm rounded-lg p-2 text-white text-xs">
+            <div>Interval: {interval}</div>
             <div>Zoom: {zoomLevel.toFixed(1)}x</div>
             <div>Candles: {displayCandles.length}</div>
             <div className="flex items-center gap-1">

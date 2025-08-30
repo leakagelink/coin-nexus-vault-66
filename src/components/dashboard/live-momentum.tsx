@@ -1,9 +1,9 @@
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet } from "lucide-react";
+import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Play, Pause } from "lucide-react";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
 import { TradingModal } from "@/components/trading/trading-modal";
 
@@ -17,12 +17,91 @@ const cryptoMapping = {
 };
 
 export function LiveMomentum() {
-  const { prices, isLoading, error } = useLCWPrices();
+  const { prices, isLoading, error, refresh } = useLCWPrices();
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
+  const [isAutoRefresh, setIsAutoRefresh] = useState(false);
+  const [momentum, setMomentum] = useState<Record<string, number>>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const priceHistoryRef = useRef<Record<string, number[]>>({});
 
-  // Calculate momentum based on 24h change
-  const calculateMomentum = (change24h: number) => {
-    return Math.abs(change24h) * 2; // Simple momentum calculation
+  // Calculate momentum based on price history
+  const calculateMomentum = (symbol: string, currentPrice: number) => {
+    if (!priceHistoryRef.current[symbol]) {
+      priceHistoryRef.current[symbol] = [];
+    }
+    
+    const history = priceHistoryRef.current[symbol];
+    history.push(currentPrice);
+    
+    if (history.length > 10) {
+      history.shift();
+    }
+    
+    if (history.length < 3) return Math.random() * 20;
+    
+    const recentPrices = history.slice(-5);
+    const trend = recentPrices.reduce((acc, price, idx) => {
+      if (idx === 0) return acc;
+      return acc + (price - recentPrices[idx - 1]);
+    }, 0);
+    
+    return Math.abs(trend / currentPrice) * 1000;
+  };
+
+  // Update momentum every 8 seconds
+  useEffect(() => {
+    const updateMomentum = () => {
+      const newMomentum: Record<string, number> = {};
+      Object.entries(prices).forEach(([symbol, priceData]) => {
+        newMomentum[symbol] = calculateMomentum(symbol, priceData.price);
+      });
+      setMomentum(newMomentum);
+    };
+
+    updateMomentum();
+    const momentumInterval = setInterval(updateMomentum, 8000); // Update every 8 seconds
+
+    return () => clearInterval(momentumInterval);
+  }, [prices]);
+
+  // Auto refresh functionality
+  useEffect(() => {
+    if (isAutoRefresh) {
+      intervalRef.current = setInterval(async () => {
+        setIsRefreshing(true);
+        await refresh();
+        setIsRefreshing(false);
+      }, 30000); // Refresh every 30 seconds when auto is enabled
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isAutoRefresh, refresh]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refresh();
+    setIsRefreshing(false);
+  };
+
+  const toggleAutoRefresh = () => {
+    setIsAutoRefresh(!isAutoRefresh);
+  };
+
+  const handleTrade = (symbol: string, price: number, type: 'buy' | 'sell') => {
+    setSelectedCrypto({
+      symbol: `${symbol}USDT`,
+      name: cryptoMapping[symbol as keyof typeof cryptoMapping]?.name || symbol,
+      price: price
+    });
   };
 
   // Get trending pairs based on momentum
@@ -37,7 +116,7 @@ export function LiveMomentum() {
           name: crypto.name,
           price: priceData.price,
           changePercent: priceData.change24h,
-          momentum: calculateMomentum(priceData.change24h),
+          momentum: momentum[symbol] || 0,
           trend: priceData.change24h > 0.05 ? 'up' as const : 
                  priceData.change24h < -0.05 ? 'down' as const : 'neutral' as const,
           volume: priceData.volume24h || Math.random() * 2000000 + 500000
@@ -46,14 +125,6 @@ export function LiveMomentum() {
       .filter(Boolean)
       .sort((a, b) => b!.momentum - a!.momentum)
       .slice(0, 6);
-  };
-
-  const handleTrade = (symbol: string, price: number) => {
-    setSelectedCrypto({
-      symbol: `${symbol}USDT`,
-      name: cryptoMapping[symbol as keyof typeof cryptoMapping]?.name || symbol,
-      price: price
-    });
   };
 
   if (isLoading) {
@@ -87,12 +158,31 @@ export function LiveMomentum() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-sm md:text-base">
               <Activity className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-              <span className="hidden sm:inline">Live Market Momentum</span>
-              <span className="sm:hidden">Market Momentum</span>
+              <span className="hidden sm:inline">Live Market Positions</span>
+              <span className="sm:hidden">Market Positions</span>
             </CardTitle>
-            <div className="flex items-center gap-1 md:gap-2 text-xs text-muted-foreground">
-              <div className="h-1.5 w-1.5 md:h-2 md:w-2 bg-green-400 rounded-full"></div>
-              <span className="text-xs">Live</span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleManualRefresh}
+                disabled={isRefreshing}
+                className="h-7 px-2"
+              >
+                <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={toggleAutoRefresh}
+                className={`h-7 px-2 ${isAutoRefresh ? 'bg-green-900/20 text-green-400 border-green-700' : ''}`}
+              >
+                {isAutoRefresh ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              </Button>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <div className={`h-1.5 w-1.5 md:h-2 md:w-2 rounded-full ${isAutoRefresh ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`}></div>
+                <span className="text-xs">{isAutoRefresh ? 'Auto' : 'Manual'}</span>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -113,9 +203,9 @@ export function LiveMomentum() {
                         </span>
                         <Badge 
                           variant="outline" 
-                          className={`text-xs ${
-                            crypto.momentum > 3 ? 'bg-red-900/20 text-red-400 border-red-700' :
-                            crypto.momentum > 1.5 ? 'bg-yellow-900/20 text-yellow-400 border-yellow-700' :
+                          className={`text-xs animate-pulse ${
+                            crypto.momentum > 15 ? 'bg-red-900/20 text-red-400 border-red-700' :
+                            crypto.momentum > 8 ? 'bg-yellow-900/20 text-yellow-400 border-yellow-700' :
                             'bg-green-900/20 text-green-400 border-green-700'
                           }`}
                         >
@@ -148,24 +238,26 @@ export function LiveMomentum() {
                       </div>
                     </div>
 
-                    <div className="flex gap-1">
+                    <div className="flex flex-col gap-1">
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="h-6 md:h-8 px-2 md:px-3 text-xs bg-green-900/20 text-green-400 border-green-700 hover:bg-green-900/40"
-                        onClick={() => handleTrade(crypto.symbol, crypto.price)}
+                        className="h-6 md:h-7 px-2 text-xs bg-green-900/20 text-green-400 border-green-700 hover:bg-green-900/40"
+                        onClick={() => handleTrade(crypto.symbol, crypto.price, 'buy')}
                       >
-                        <ShoppingCart className="h-2.5 w-2.5 md:h-3 md:w-3 mr-0.5 md:mr-1" />
-                        <span className="hidden sm:inline">Buy</span>
+                        <ShoppingCart className="h-2.5 w-2.5 mr-1" />
+                        <span className="hidden sm:inline">Open Long</span>
+                        <span className="sm:hidden">Long</span>
                       </Button>
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="h-6 md:h-8 px-2 md:px-3 text-xs bg-red-900/20 text-red-400 border-red-700 hover:bg-red-900/40"
-                        onClick={() => handleTrade(crypto.symbol, crypto.price)}
+                        className="h-6 md:h-7 px-2 text-xs bg-red-900/20 text-red-400 border-red-700 hover:bg-red-900/40"
+                        onClick={() => handleTrade(crypto.symbol, crypto.price, 'sell')}
                       >
-                        <Wallet className="h-2.5 w-2.5 md:h-3 md:w-3 mr-0.5 md:mr-1" />
-                        <span className="hidden sm:inline">Sell</span>
+                        <Wallet className="h-2.5 w-2.5 mr-1" />
+                        <span className="hidden sm:inline">Open Short</span>
+                        <span className="sm:hidden">Short</span>
                       </Button>
                     </div>
                   </div>
