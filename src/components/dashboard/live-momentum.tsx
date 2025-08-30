@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -232,28 +231,16 @@ export function LiveMomentum() {
         </CardHeader>
         
         <CardContent className="px-4 pb-4">
-          <style>
-            {`
-              .scrollbar-hide {
-                scrollbar-width: none;
-                -ms-overflow-style: none;
-              }
-              .scrollbar-hide::-webkit-scrollbar {
-                display: none;
-              }
-            `}
-          </style>
-          
-          <div className="space-y-4 max-h-[400px] overflow-y-auto scrollbar-hide">
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(155, 155, 155, 0.3) transparent' }}>
             {tradingPairs.map((crypto) => (
               <div
                 key={crypto.symbol}
-                className="group relative p-4 rounded-xl bg-gradient-to-br from-background/80 to-background/60 border border-border/30 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 backdrop-blur-sm"
+                className="group relative p-4 rounded-xl bg-gradient-to-br from-background/90 to-background/70 border border-border/40 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 backdrop-blur-sm min-h-[140px]"
               >
                 {/* Main container with proper spacing */}
-                <div className="space-y-4">
-                  {/* Top row - Crypto info and price */}
-                  <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col h-full">
+                  {/* Top section - Crypto info and price */}
+                  <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <div>
@@ -278,7 +265,8 @@ export function LiveMomentum() {
                           className={`text-xs font-medium px-3 py-1 animate-pulse ${
                             crypto.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
                             crypto.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
-                            'bg-green-500/15 text-green-400 border-green-500/30'
+                            crypto.momentum <= 8 ? 'bg-green-500/15 text-green-400 border-green-500/30' :
+                            ''
                           }`}
                         >
                           Momentum: {crypto.momentum.toFixed(1)}
@@ -310,26 +298,30 @@ export function LiveMomentum() {
                     </div>
                   </div>
 
-                  {/* Bottom row - Trading buttons */}
-                  <div className="flex items-center justify-center gap-3 pt-2 border-t border-border/20">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="flex-1 h-9 text-sm font-medium bg-success/10 text-success border-success/30 hover:bg-success/20 hover:border-success/40 transition-all duration-200"
-                      onClick={() => handleTrade(crypto.symbol, crypto.price, 'buy')}
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Long Position
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="flex-1 h-9 text-sm font-medium bg-danger/10 text-danger border-danger/30 hover:bg-danger/20 hover:border-danger/40 transition-all duration-200"
-                      onClick={() => handleTrade(crypto.symbol, crypto.price, 'sell')}
-                    >
-                      <Wallet className="h-4 w-4 mr-2" />
-                      Short Position
-                    </Button>
+                  {/* Bottom section - Trading buttons with proper spacing */}
+                  <div className="mt-auto pt-3 border-t border-border/30">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-10 text-sm font-medium bg-success/10 text-success border-success/30 hover:bg-success/20 hover:border-success/50 transition-all duration-200 flex items-center justify-center gap-2"
+                        onClick={() => handleTrade(crypto.symbol, crypto.price, 'buy')}
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        <span className="hidden sm:inline">Long Position</span>
+                        <span className="sm:hidden">Long</span>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-10 text-sm font-medium bg-danger/10 text-danger border-danger/30 hover:bg-danger/20 hover:border-danger/50 transition-all duration-200 flex items-center justify-center gap-2"
+                        onClick={() => handleTrade(crypto.symbol, crypto.price, 'sell')}
+                      >
+                        <Wallet className="h-4 w-4" />
+                        <span className="hidden sm:inline">Short Position</span>
+                        <span className="sm:hidden">Short</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
