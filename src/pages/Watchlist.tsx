@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,13 +9,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
-import { ChartModal } from "@/components/charts/chart-modal";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
+import { useNavigate } from "react-router-dom";
 
 const Watchlist = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
-  const [selectedChart, setSelectedChart] = useState<{ symbol: string; name: string } | null>(null);
   const { prices, isLoading: pricesLoading } = useLCWPrices();
 
   const { data: watchlist, isLoading, refetch } = useQuery({
@@ -36,14 +37,10 @@ const Watchlist = () => {
   };
 
   const handleChartClick = (symbol: string, name: string) => {
-    // Convert to trading pair format for TaapiAPI
+    // Navigate to the dedicated chart page
     const tradingSymbol = `${symbol}USDT`;
-    console.log(`Opening enhanced chart for ${tradingSymbol} - ${name}`);
-    setSelectedChart({ symbol: tradingSymbol, name });
-  };
-
-  const handleCloseChart = () => {
-    setSelectedChart(null);
+    console.log(`Opening chart for ${tradingSymbol} - ${name}`);
+    navigate(`/chart/${tradingSymbol}`);
   };
 
   return (
@@ -127,15 +124,6 @@ const Watchlist = () => {
           onClose={() => setShowAddCryptoModal(false)}
           onCryptoAdded={handleCryptoAdded}
         />
-
-        {selectedChart && (
-          <ChartModal
-            isOpen={!!selectedChart}
-            onClose={handleCloseChart}
-            symbol={selectedChart.symbol}
-            name={selectedChart.name}
-          />
-        )}
       </div>
     </Layout>
   );
