@@ -4,6 +4,7 @@ import { PortfolioSummary } from "@/components/dashboard/portfolio-summary";
 import { MarketOverview } from "@/components/dashboard/market-overview";
 import { LiveMomentum } from "@/components/dashboard/live-momentum";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
   const isMobile = useIsMobile();
