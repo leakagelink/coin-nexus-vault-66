@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Search } from "lucide-react";
 import { useRealTimePrices } from "@/hooks/useRealTimePrices";
 import { TradingModal } from "@/components/trading/trading-modal";
@@ -141,108 +142,110 @@ export function LiveMomentum() {
         </CardHeader>
         
         <CardContent className="px-4 pb-4">
-          <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-            {tradingPairs.map((crypto) => (
-              <div
-                key={crypto.symbol}
-                className="group relative p-4 rounded-xl bg-gradient-to-br from-background/90 to-background/70 border border-border/40 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 backdrop-blur-sm"
-              >
-                {/* Main container */}
-                <div className="space-y-4">
-                  {/* Top section - Crypto info and price */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg text-foreground tracking-wide">{crypto.symbol}</h3>
-                          <p className="text-sm text-muted-foreground truncate">{crypto.name}</p>
+          <ScrollArea className="h-[500px]">
+            <div className="space-y-4 pr-4">
+              {tradingPairs.map((crypto) => (
+                <div
+                  key={crypto.symbol}
+                  className="group relative p-4 rounded-xl bg-gradient-to-br from-background/90 to-background/70 border border-border/40 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 backdrop-blur-sm"
+                >
+                  {/* Main container */}
+                  <div className="space-y-4">
+                    {/* Top section - Crypto info and price */}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex-1">
+                            <h3 className="font-bold text-lg text-foreground tracking-wide">{crypto.symbol}</h3>
+                            <p className="text-sm text-muted-foreground truncate">{crypto.name}</p>
+                          </div>
+                          
+                          {/* Live Momentum Badge */}
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs font-medium px-3 py-1 animate-pulse shrink-0 ${
+                              crypto.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+                              crypto.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
+                              'bg-green-500/15 text-green-400 border-green-500/30'
+                            }`}
+                          >
+                            🔥 {crypto.momentum.toFixed(1)}
+                          </Badge>
                         </div>
                         
-                        {/* Live Momentum Badge */}
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs font-medium px-3 py-1 animate-pulse shrink-0 ${
-                            crypto.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
-                            crypto.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
-                            'bg-green-500/15 text-green-400 border-green-500/30'
-                          }`}
-                        >
-                          🔥 {crypto.momentum.toFixed(1)}
-                        </Badge>
+                        {/* Price display */}
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <div className="space-y-1">
+                            <div className="text-xl font-bold gradient-text">
+                              ₹{(crypto.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              ${crypto.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      
-                      {/* Price display */}
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <div className="space-y-1">
-                          <div className="text-xl font-bold gradient-text">
-                            ₹{(crypto.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            ${crypto.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                          </div>
+
+                      {/* Price change indicator */}
+                      <div className="flex flex-col items-end text-right shrink-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {crypto.trend === 'up' ? (
+                            <TrendingUp className="h-4 w-4 text-success" />
+                          ) : crypto.trend === 'down' ? (
+                            <TrendingDown className="h-4 w-4 text-danger" />
+                          ) : (
+                            <div className="h-4 w-4 rounded-full bg-muted-foreground/50" />
+                          )}
+                          <span className={`text-sm font-bold ${
+                            crypto.changePercent > 0 ? 'text-success' : 
+                            crypto.changePercent < 0 ? 'text-danger' : 
+                            'text-muted-foreground'
+                          }`}>
+                            {crypto.changePercent > 0 ? '+' : ''}{crypto.changePercent.toFixed(2)}%
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Vol: {(crypto.volume24h / 1000000).toFixed(1)}M
                         </div>
                       </div>
                     </div>
 
-                    {/* Price change indicator */}
-                    <div className="flex flex-col items-end text-right shrink-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {crypto.trend === 'up' ? (
-                          <TrendingUp className="h-4 w-4 text-success" />
-                        ) : crypto.trend === 'down' ? (
-                          <TrendingDown className="h-4 w-4 text-danger" />
-                        ) : (
-                          <div className="h-4 w-4 rounded-full bg-muted-foreground/50" />
-                        )}
-                        <span className={`text-sm font-bold ${
-                          crypto.changePercent > 0 ? 'text-success' : 
-                          crypto.changePercent < 0 ? 'text-danger' : 
-                          'text-muted-foreground'
-                        }`}>
-                          {crypto.changePercent > 0 ? '+' : ''}{crypto.changePercent.toFixed(2)}%
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Vol: {(crypto.volume24h / 1000000).toFixed(1)}M
-                      </div>
+                    {/* Trading buttons with proper spacing */}
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/30">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-10 text-sm font-medium bg-success/10 text-success border-success/30 hover:bg-success/20 hover:border-success/50 transition-all duration-200 flex items-center justify-center gap-2"
+                        onClick={() => handleTrade(crypto.symbol, crypto.price, 'buy')}
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        <span>Long</span>
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-10 text-sm font-medium bg-danger/10 text-danger border-danger/30 hover:bg-danger/20 hover:border-danger/50 transition-all duration-200 flex items-center justify-center gap-2"
+                        onClick={() => handleTrade(crypto.symbol, crypto.price, 'sell')}
+                      >
+                        <Wallet className="h-4 w-4" />
+                        <span>Short</span>
+                      </Button>
                     </div>
                   </div>
-
-                  {/* Trading buttons with proper spacing */}
-                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/30">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="h-10 text-sm font-medium bg-success/10 text-success border-success/30 hover:bg-success/20 hover:border-success/50 transition-all duration-200 flex items-center justify-center gap-2 min-w-0"
-                      onClick={() => handleTrade(crypto.symbol, crypto.price, 'buy')}
-                    >
-                      <ShoppingCart className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">Long</span>
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="h-10 text-sm font-medium bg-danger/10 text-danger border-danger/30 hover:bg-danger/20 hover:border-danger/50 transition-all duration-200 flex items-center justify-center gap-2 min-w-0"
-                      onClick={() => handleTrade(crypto.symbol, crypto.price, 'sell')}
-                    >
-                      <Wallet className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">Short</span>
-                    </Button>
+                </div>
+              ))}
+              
+              {tradingPairs.length === 0 && searchTerm && (
+                <div className="text-center py-8">
+                  <div className="flex flex-col items-center gap-2">
+                    <Search className="h-8 w-8 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">No cryptocurrencies found for "{searchTerm}"</p>
+                    <p className="text-xs text-muted-foreground/70">Try searching for Bitcoin, Ethereum, etc.</p>
                   </div>
                 </div>
-              </div>
-            ))}
-            
-            {tradingPairs.length === 0 && searchTerm && (
-              <div className="text-center py-8">
-                <div className="flex flex-col items-center gap-2">
-                  <Search className="h-8 w-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">No cryptocurrencies found for "{searchTerm}"</p>
-                  <p className="text-xs text-muted-foreground/70">Try searching for Bitcoin, Ethereum, etc.</p>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </ScrollArea>
         </CardContent>
       </Card>
 
