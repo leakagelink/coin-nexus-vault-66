@@ -11,6 +11,7 @@ type AdminUser = {
   id: string;
   email: string | null;
   display_name: string | null;
+  mobile_number: string | null;
   role: string;
   registered_at: string;
   wallet_balance: number;
@@ -33,6 +34,7 @@ export function AdminUsersTable() {
           id,
           email,
           display_name,
+          mobile_number,
           role,
           created_at,
           wallets(balance, currency, updated_at)
@@ -57,6 +59,7 @@ export function AdminUsersTable() {
           id: profile.id,
           email: profile.email,
           display_name: profile.display_name,
+          mobile_number: profile.mobile_number,
           role: profile.role,
           registered_at: profile.created_at,
           wallet_balance: Number(wallet?.balance || 0),
@@ -106,6 +109,7 @@ export function AdminUsersTable() {
                   <TableHead>Registered</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Mobile</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
                   <TableHead>Actions</TableHead>
@@ -119,6 +123,7 @@ export function AdminUsersTable() {
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{u.display_name || "-"}</TableCell>
                     <TableCell className="text-xs break-all">{u.email || "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{u.mobile_number || "-"}</TableCell>
                     <TableCell className="whitespace-nowrap capitalize">{u.role}</TableCell>
                     <TableCell className="whitespace-nowrap text-right">
                       ₹{Number(u.wallet_balance || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}

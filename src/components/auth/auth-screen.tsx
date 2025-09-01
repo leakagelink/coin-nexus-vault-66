@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Mail, CheckCircle } from 'lucide-react';
 
-type AuthStep = 'login' | 'signup';
+type AuthStep = 'login' | 'signup' | 'email-confirmation';
 
 export function AuthScreen() {
   const [step, setStep] = useState<AuthStep>('login');
@@ -20,6 +20,7 @@ export function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [signupEmail, setSignupEmail] = useState('');
   
   const { signIn, signUp } = useAuth();
 
@@ -72,7 +73,10 @@ export function AuthScreen() {
 
         const { error } = await signUp(email, password, fullName, mobile);
         if (!error) {
-          // Success toast already shown in signUp
+          // Success - show confirmation screen
+          setSignupEmail(email);
+          setStep('email-confirmation');
+          resetFields();
         }
       }
     } catch (error) {
@@ -84,6 +88,75 @@ export function AuthScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderEmailConfirmation = () => {
+    return (
+      <div className="text-center space-y-6">
+        <div className="flex justify-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+            <Mail className="h-8 w-8 text-green-600" />
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold text-gray-900">
+            Check Your Email
+          </h3>
+          <p className="text-gray-600">
+            We've sent a confirmation email to:
+          </p>
+          <p className="font-semibold text-gray-900 break-all">
+            {signupEmail}
+          </p>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-left">
+              <p className="text-sm font-medium text-blue-900">
+                Next Steps:
+              </p>
+              <ul className="text-sm text-blue-800 space-y-1 mt-1">
+                <li>• Check your email inbox</li>
+                <li>• Click the verification link</li>
+                <li>• Return here to login</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-sm text-gray-500">
+            Didn't receive the email? Check your spam folder or try signing up again.
+          </p>
+          
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => {
+                setStep('login');
+                setSignupEmail('');
+              }}
+              className="w-full bg-gradient-primary"
+            >
+              Back to Login
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStep('signup');
+                setSignupEmail('');
+              }}
+              className="w-full"
+            >
+              Try Different Email
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderForm = () => {
@@ -203,6 +276,23 @@ export function AuthScreen() {
       </form>
     );
   };
+
+  if (step === 'email-confirmation') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-primary p-4">
+        <Card className="w-full max-w-md glass">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl gradient-text">
+              Account Created Successfully!
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {renderEmailConfirmation()}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-primary p-4">
