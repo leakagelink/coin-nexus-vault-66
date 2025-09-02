@@ -102,21 +102,28 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
     try {
       console.log(`Admin executing ${tradeType} ${positionType} position: ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for user ${userId}`);
 
-      // Check for existing position with same symbol and position type
-      const { data: existingPosition } = await supabase
+      // IMPORTANT FIX: use maybeSingle() so that "no rows" doesn't throw an error
+      const { data: existingPosition, error: existingErr } = await supabase
         .from('portfolio_positions')
         .select('*')
         .eq('user_id', userId)
         .eq('symbol', selectedCoin)
         .eq('position_type', positionType)
-        .single();
+        .maybeSingle();
+
+      if (existingErr) {
+        console.warn('Existing position lookup returned error (will treat as no existing position if benign):', existingErr);
+      }
 
       if (tradeType === 'buy') {
         if (existingPosition) {
           // Update existing position - add to quantity and recalculate average price
-          const oldQty = Number(existingPosition.amount);
+          const oldQty = Number(existingPosition.amount || 0);
           const newQty = oldQty + parsedQty;
-          const oldInvestment = Number(existingPosition.total_investment || (oldQty * Number(existingPosition.buy_price)));
+          const oldInvestment = Number(
+            existingPosition.total_investment ??
+            (oldQty * Number(existingPosition.buy_price || 0))
+          );
           const newTotalInvestment = oldInvestment + totalCost;
           const newAvgPrice = newQty > 0 ? newTotalInvestment / newQty : parsedPrice;
 
@@ -131,6 +138,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
               pnl: (newQty * parsedPrice) - newTotalInvestment,
               pnl_percentage: newTotalInvestment > 0 ? (((newQty * parsedPrice) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
               updated_at: new Date().toISOString(),
+              status: 'open',
             })
             .eq('id', existingPosition.id);
           
@@ -211,7 +219,10 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           console.log(`Completely closed ${positionType} position for ${selectedCoin}`);
         } else {
           // Partially close position
-          const oldInvestment = Number(existingPosition.total_investment || (Number(existingPosition.amount) * Number(existingPosition.buy_price)));
+          const oldInvestment = Number(
+            existingPosition.total_investment ?? 
+            (Number(existingPosition.amount) * Number(existingPosition.buy_price))
+          );
           const newTotalInvestment = Math.max(0, oldInvestment - (parsedQty * Number(existingPosition.buy_price)));
           
           const { error } = await supabase
