@@ -87,6 +87,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
       return;
     }
 
+    // For buy trades, check if user has sufficient balance
     if (tradeType === 'buy' && userBalance < totalCost) {
       toast({
         title: "Insufficient balance",
@@ -99,20 +100,24 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
     setSubmitting(true);
     
     try {
-      // Check for existing position
+      console.log(`Admin executing ${tradeType} ${positionType} position: ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for user ${userId}`);
+
+      // Check for existing position with same symbol and position type
       const { data: existingPosition } = await supabase
         .from('portfolio_positions')
         .select('*')
         .eq('user_id', userId)
         .eq('symbol', selectedCoin)
+        .eq('position_type', positionType)
         .single();
 
       if (tradeType === 'buy') {
         if (existingPosition) {
-          // Update existing position
+          // Update existing position - add to quantity and recalculate average price
           const oldQty = Number(existingPosition.amount);
           const newQty = oldQty + parsedQty;
-          const newTotalInvestment = Number(existingPosition.total_investment || (oldQty * Number(existingPosition.buy_price))) + totalCost;
+          const oldInvestment = Number(existingPosition.total_investment || (oldQty * Number(existingPosition.buy_price)));
+          const newTotalInvestment = oldInvestment + totalCost;
           const newAvgPrice = newQty > 0 ? newTotalInvestment / newQty : parsedPrice;
 
           const { error } = await supabase
@@ -125,46 +130,67 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
               current_value: newQty * parsedPrice,
               pnl: (newQty * parsedPrice) - newTotalInvestment,
               pnl_percentage: newTotalInvestment > 0 ? (((newQty * parsedPrice) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
-              position_type: positionType,
               updated_at: new Date().toISOString(),
             })
             .eq('id', existingPosition.id);
           
-          if (error) throw error;
+          if (error) {
+            console.error('Error updating existing position:', error);
+            throw error;
+          }
+          
+          console.log(`Updated existing ${positionType} position for ${selectedCoin}`);
         } else {
           // Create new position
+          const positionData = {
+            user_id: userId,
+            symbol: selectedCoin,
+            coin_name: selectedCoinData?.name || selectedCoin,
+            amount: parsedQty,
+            buy_price: parsedPrice,
+            current_price: parsedPrice,
+            total_investment: totalCost,
+            current_value: parsedQty * parsedPrice,
+            pnl: 0,
+            pnl_percentage: 0,
+            position_type: positionType,
+            status: 'open',
+            trade_type: 'buy',
+          };
+
+          console.log('Creating new position with data:', positionData);
+
           const { error } = await supabase
             .from('portfolio_positions')
-            .insert({
-              user_id: userId,
-              symbol: selectedCoin,
-              coin_name: selectedCoinData?.name || selectedCoin,
-              amount: parsedQty,
-              buy_price: parsedPrice,
-              current_price: parsedPrice,
-              total_investment: totalCost,
-              current_value: parsedQty * parsedPrice,
-              pnl: 0,
-              pnl_percentage: 0,
-              position_type: positionType,
-              trade_type: 'buy',
-            });
+            .insert(positionData);
           
-          if (error) throw error;
+          if (error) {
+            console.error('Error creating new position:', error);
+            throw error;
+          }
+          
+          console.log(`Created new ${positionType} position for ${selectedCoin}`);
         }
 
-        // Update user wallet (deduct money for buy)
-        await supabase
+        // Deduct money from user wallet for buy order
+        const { error: walletError } = await supabase
           .from('wallets')
           .update({
             balance: userBalance - totalCost,
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', userId);
+
+        if (walletError) {
+          console.error('Error updating wallet:', walletError);
+          throw walletError;
+        }
+
+        console.log(`Deducted ₹${totalCost} from user wallet`);
       } else {
-        // Handle sell
+        // Handle sell (close position)
         if (!existingPosition) {
-          throw new Error("No position found to sell");
+          throw new Error(`No ${positionType} position found for ${selectedCoin} to sell`);
         }
 
         if (Number(existingPosition.amount) < parsedQty) {
@@ -175,20 +201,20 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
         const proceeds = parsedQty * parsedPrice;
 
         if (newAmount === 0) {
-          // Close position
-          await supabase
+          // Close position completely
+          const { error } = await supabase
             .from('portfolio_positions')
             .delete()
             .eq('id', existingPosition.id);
-        } else {
-          // Update position
-          const newTotalInvestment = Math.max(
-            0,
-            Number(existingPosition.total_investment || (Number(existingPosition.amount) * Number(existingPosition.buy_price))) -
-              (parsedQty * Number(existingPosition.buy_price))
-          );
           
-          await supabase
+          if (error) throw error;
+          console.log(`Completely closed ${positionType} position for ${selectedCoin}`);
+        } else {
+          // Partially close position
+          const oldInvestment = Number(existingPosition.total_investment || (Number(existingPosition.amount) * Number(existingPosition.buy_price)));
+          const newTotalInvestment = Math.max(0, oldInvestment - (parsedQty * Number(existingPosition.buy_price)));
+          
+          const { error } = await supabase
             .from('portfolio_positions')
             .update({
               amount: newAmount,
@@ -200,20 +226,30 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
               updated_at: new Date().toISOString()
             })
             .eq('id', existingPosition.id);
+          
+          if (error) throw error;
+          console.log(`Partially closed ${positionType} position for ${selectedCoin}`);
         }
 
-        // Update user wallet (add money for sell)
-        await supabase
+        // Add proceeds to user wallet for sell order
+        const { error: walletError } = await supabase
           .from('wallets')
           .update({
             balance: userBalance + proceeds,
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', userId);
+
+        if (walletError) {
+          console.error('Error updating wallet after sell:', walletError);
+          throw walletError;
+        }
+
+        console.log(`Added ₹${proceeds} to user wallet from sell`);
       }
 
-      // Record trade
-      await supabase.from('trades').insert({
+      // Record the trade in trades table
+      const tradeData = {
         user_id: userId,
         symbol: selectedCoin,
         coin_name: selectedCoinData?.name || selectedCoin,
@@ -222,24 +258,43 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
         price: parsedPrice,
         total_amount: totalCost,
         status: 'completed',
-      });
+      };
+
+      console.log('Recording trade with data:', tradeData);
+
+      const { error: tradeError } = await supabase
+        .from('trades')
+        .insert(tradeData);
+
+      if (tradeError) {
+        console.error('Error recording trade:', tradeError);
+        throw tradeError;
+      }
 
       toast({
         title: "Trade executed successfully",
-        description: `${tradeType.toUpperCase()} ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for ${userLabel}`,
+        description: `${tradeType.toUpperCase()} ${positionType.toUpperCase()}: ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for ${userLabel}`,
       });
 
-      // Refresh data
-      await queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] });
+      // Refresh all relevant queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] }),
+        queryClient.invalidateQueries({ queryKey: ['portfolio'] }),
+        queryClient.invalidateQueries({ queryKey: ['trades'] }),
+      ]);
       
+      // Reset form and close dialog
       setOpen(false);
       setSelectedCoin("");
       setQuantity("");
       setPrice("");
+      setTradeType('buy');
+      setPositionType('long');
+      
       onSuccess?.();
 
     } catch (error: any) {
-      console.error('Error executing trade:', error);
+      console.error('Error executing admin trade:', error);
       toast({
         title: "Trade failed",
         description: error.message || "Failed to execute trade",
@@ -295,13 +350,13 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
                   <SelectItem value="buy">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-green-500" />
-                      Buy
+                      Buy/Open
                     </div>
                   </SelectItem>
                   <SelectItem value="sell">
                     <div className="flex items-center gap-2">
                       <TrendingDown className="h-4 w-4 text-red-500" />
-                      Sell
+                      Sell/Close
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -349,6 +404,9 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           {selectedCoin && quantity && price && (
             <div className="text-sm text-muted-foreground">
               Total: ₹{totalCost.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+              <div className="text-xs mt-1">
+                Action: {tradeType === 'buy' ? 'Open' : 'Close'} {positionType} position
+              </div>
             </div>
           )}
         </div>
