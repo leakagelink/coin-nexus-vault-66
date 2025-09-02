@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AddFundsDialog } from "./AddFundsDialog";
+import { EditBalanceDialog } from "./EditBalanceDialog";
+import { AdminTradeDialog } from "./AdminTradeDialog";
+import { UserPositionsDialog } from "./UserPositionsDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 
@@ -88,8 +91,8 @@ export function AdminUsersTable() {
     }
   }, [error, toast]);
 
-  const handleFundsAdded = async () => {
-    console.log("Funds added successfully, refetching user data...");
+  const handleDataUpdate = async () => {
+    console.log("Data updated, refetching user data...");
     await refetch();
   };
 
@@ -129,11 +132,28 @@ export function AdminUsersTable() {
                       ₹{Number(u.wallet_balance || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      <AddFundsDialog 
-                        userId={u.id} 
-                        userLabel={u.display_name || u.email || u.id} 
-                        onSuccess={handleFundsAdded} 
-                      />
+                      <div className="flex flex-wrap gap-2">
+                        <AddFundsDialog 
+                          userId={u.id} 
+                          userLabel={u.display_name || u.email || u.id} 
+                          onSuccess={handleDataUpdate} 
+                        />
+                        <EditBalanceDialog
+                          userId={u.id}
+                          currentBalance={u.wallet_balance}
+                          userLabel={u.display_name || u.email || u.id}
+                          onSuccess={handleDataUpdate}
+                        />
+                        <AdminTradeDialog
+                          userId={u.id}
+                          userLabel={u.display_name || u.email || u.id}
+                          onSuccess={handleDataUpdate}
+                        />
+                        <UserPositionsDialog
+                          userId={u.id}
+                          userLabel={u.display_name || u.email || u.id}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
