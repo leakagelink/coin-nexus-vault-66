@@ -1,6 +1,7 @@
 
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, DollarSign, FileText, Phone, Lock, ChevronRight } from "lucide-react";
 import { ProfileSection } from "@/components/account/profile-section";
 import { BankAccountsSection } from "@/components/account/bank-accounts-section";
@@ -180,36 +181,70 @@ const Account = () => {
             >
               ← Back
             </Button>
-            <div className="bg-card rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4">All Orders</h3>
-              {orders && orders.length > 0 ? (
-                <div className="space-y-3">
-                  {orders.map((order) => (
-                    <div key={order.id} className="flex justify-between items-center p-3 border rounded">
-                      <div>
-                        <p className="font-medium">{order.symbol}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {order.trade_type.toUpperCase()} • {order.quantity} @ ${order.price}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(order.created_at).toLocaleDateString()}
-                        </p>
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  All Orders ({orders?.length || 0})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {orders && orders.length > 0 ? (
+                  <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-1">
+                    {orders.map((order) => (
+                      <div key={order.id} className="p-4 border rounded-lg bg-card/50 hover:bg-card/80 transition-colors">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-semibold text-lg">{order.symbol}</span>
+                              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                order.trade_type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {order.trade_type.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="text-sm text-muted-foreground space-y-1">
+                              <div className="flex flex-wrap gap-4">
+                                <span>Qty: {Number(order.quantity).toLocaleString('en-IN', { maximumFractionDigits: 6 })}</span>
+                                <span>Price: ₹{Number(order.price).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <p className="text-xs">
+                                {new Date(order.created_at).toLocaleDateString('en-IN', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2">
+                            <div className="text-right">
+                              <p className="font-bold text-lg">₹{Number(order.total_amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                              <p className="text-xs text-muted-foreground">${(Number(order.total_amount) / 84).toFixed(2)}</p>
+                            </div>
+                            <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                              order.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {order.status}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">${order.total_amount}</p>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          order.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/20 flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-muted-foreground" />
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">No orders found</p>
-              )}
-            </div>
+                    <p className="text-muted-foreground">No orders found</p>
+                    <p className="text-muted-foreground/70 text-xs mt-1">Your trading history will appear here</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

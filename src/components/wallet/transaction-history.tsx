@@ -147,10 +147,10 @@ export function TransactionHistory() {
           Transaction History
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="p-3 sm:p-6">
         {allTransactions && allTransactions.length > 0 ? (
-          <ScrollArea className="h-[400px] px-6">
-            <div className="space-y-3 pb-4">
+          <div className="max-h-[400px] overflow-y-auto px-1">
+            <div className="space-y-3 pb-2">{/* Remove ScrollArea for better mobile performance */}
               {allTransactions.map((transaction) => {
                 const statusConfig = getStatusBadge(transaction.status);
                 const dateTime = formatDate(transaction.created_at);
@@ -169,7 +169,7 @@ export function TransactionHistory() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm capitalize leading-tight">
-                            {transaction.transaction_type === 'admin_credit' ? 'Admin Credit' : transaction.transaction_type}
+                            {transaction.transaction_type === 'admin_credit' ? 'Deposit' : transaction.transaction_type}
                             {transaction.type === 'deposit_request' && ' Request'}
                             {transaction.type === 'withdrawal_request' && ' Request'}
                           </p>
@@ -209,9 +209,9 @@ export function TransactionHistory() {
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
         ) : (
-          <div className="text-center py-12 px-6">
+          <div className="text-center py-12 px-3">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/20 flex items-center justify-center">
               <History className="h-8 w-8 text-muted-foreground" />
             </div>

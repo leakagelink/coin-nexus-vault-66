@@ -228,58 +228,61 @@ const Portfolio = () => {
           </Card>
         </div>
 
-        {/* Holdings Table */}
+        {/* Holdings */}
         <Card className="glass">
           <CardHeader>
-            <CardTitle>Your Holdings</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUpIcon className="h-5 w-5" />
+              Your Holdings
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="text-center py-6 text-muted-foreground">Loading...</div>
             ) : updatedPositions && updatedPositions.length > 0 ? (
-              <div className="w-full overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Asset</TableHead>
-                      <TableHead className="text-right">Holdings</TableHead>
-                      <TableHead className="text-right">Avg Price</TableHead>
-                      <TableHead className="text-right">Current Price</TableHead>
-                      <TableHead className="text-right">Investment</TableHead>
-                      <TableHead className="text-right">Current Value</TableHead>
-                      <TableHead className="text-right">P&L</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {updatedPositions.map((position) => {
-                      const isPositive = position.pnl >= 0;
-                      return (
-                        <TableRow key={position.id}>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-semibold">{position.symbol}</span>
-                              <span className="text-sm text-muted-foreground">{position.coin_name}</span>
+              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-1">
+                {updatedPositions.map((position) => {
+                  const isPositive = position.pnl >= 0;
+                  return (
+                    <div key={position.id} className="p-4 border rounded-lg bg-card/50 hover:bg-card/80 transition-colors">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div>
+                              <span className="font-semibold text-lg">{position.symbol}</span>
+                              <p className="text-sm text-muted-foreground">{position.coin_name}</p>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {Number(position.amount).toLocaleString("en-IN", { maximumFractionDigits: 6 })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            ₹{Number(position.buy_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            ₹{Number(position.current_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            ₹{Number(position.total_investment).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            ₹{position.current_value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex flex-col items-end">
-                              <span className={isPositive ? 'text-green-600' : 'text-red-600'}>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Holdings</p>
+                              <p className="font-medium">{Number(position.amount).toLocaleString("en-IN", { maximumFractionDigits: 6 })}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Avg Price</p>
+                              <p className="font-medium">₹{Number(position.buy_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Current Price</p>
+                              <p className="font-medium">₹{Number(position.current_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Investment</p>
+                              <p className="font-medium">₹{Number(position.total_investment).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col sm:items-end gap-3">
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Current Value</p>
+                            <p className="font-bold text-lg">₹{position.current_value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                          </div>
+                          
+                          <div className="text-right">
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={`font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                                 {isPositive ? '+' : ''}₹{position.pnl.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                               </span>
                               <Badge 
@@ -293,35 +296,38 @@ const Portfolio = () => {
                                 {isPositive ? '+' : ''}{position.pnl_percentage.toFixed(2)}%
                               </Badge>
                             </div>
-                          </TableCell>
-                           <TableCell className="text-right">
-                             <div className="flex gap-2 justify-end">
-                               <Button
-                                 size="sm"
-                                 onClick={() => handleTradeClick(position)}
-                                 className="bg-blue-600 hover:bg-blue-700"
-                               >
-                                 Trade
-                               </Button>
-                               <Button
-                                 size="sm"
-                                 variant="destructive"
-                                 onClick={() => handleClosePosition(position)}
-                                 className="bg-red-600 hover:bg-red-700"
-                               >
-                                 Close
-                               </Button>
-                             </div>
-                           </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                          </div>
+                          
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <Button
+                              size="sm"
+                              onClick={() => handleTradeClick(position)}
+                              className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-none"
+                            >
+                              Trade
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleClosePosition(position)}
+                              className="bg-red-600 hover:bg-red-700 flex-1 sm:flex-none"
+                            >
+                              Close
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              <div className="text-center py-6 text-muted-foreground">
-                No holdings yet. Start trading to build your portfolio!
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/20 flex items-center justify-center">
+                  <TrendingUpIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground">No holdings yet</p>
+                <p className="text-muted-foreground/70 text-xs mt-1">Start trading to build your portfolio!</p>
               </div>
             )}
           </CardContent>
