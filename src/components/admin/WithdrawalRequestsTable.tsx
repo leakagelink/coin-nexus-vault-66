@@ -33,17 +33,23 @@ export function WithdrawalRequestsTable() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["admin-withdrawal-requests"],
+  // Query data
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["admin-withdrawal-requests", user?.id],
     queryFn: async () => {
-      // Admin can view all, per RLS policy
+      console.log("Fetching withdrawal requests for admin...");
       const { data, error } = await supabase
         .from("withdrawal_requests")
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
+      console.log(`Loaded ${data?.length || 0} withdrawal requests`);
       return data as WithdrawalRequest[];
     },
+    enabled: !!user, // ensure we query after auth so RLS allows admin
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const approve = async (id: string) => {

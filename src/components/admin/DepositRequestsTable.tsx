@@ -33,8 +33,8 @@ export function DepositRequestsTable() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["admin-deposit-requests"],
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["admin-deposit-requests", user?.id],
     queryFn: async () => {
       // Admin can view all, per RLS policy
       const { data, error } = await supabase
@@ -44,6 +44,9 @@ export function DepositRequestsTable() {
       if (error) throw error;
       return data as DepositRequest[];
     },
+    enabled: !!user,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const approve = async (id: string) => {
