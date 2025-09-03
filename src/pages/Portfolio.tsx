@@ -11,6 +11,7 @@ import { useLCWPrices } from "@/hooks/useLCWPrices";
 import { TrendingUp, TrendingDown, DollarSign, Percent, TrendingUpIcon, Activity } from "lucide-react";
 import { useState } from "react";
 import { TradingModal } from "@/components/trading/trading-modal";
+import { useToast } from "@/hooks/use-toast";
 
 type PortfolioPosition = {
   id: string;
@@ -28,6 +29,7 @@ type PortfolioPosition = {
 const Portfolio = () => {
   const { user } = useAuth();
   const { prices } = useLCWPrices();
+  const { toast } = useToast();
   const [selectedCrypto, setSelectedCrypto] = useState<{
     symbol: string;
     name: string;
@@ -87,6 +89,72 @@ const Portfolio = () => {
     setIsTradingModalOpen(false);
     setSelectedCrypto(null);
     refetch(); // Refresh portfolio data after trade
+  };
+
+  const handleClosePosition = async (position: PortfolioPosition) => {
+    if (!user) return;
+
+    try {
+      const livePrice = prices[position.symbol]?.price || position.current_price;
+      const proceeds = position.amount * livePrice;
+
+      // Delete the position
+      const { error: positionError } = await supabase
+        .from('portfolio_positions')
+        .delete()
+        .eq('id', position.id);
+
+      if (positionError) throw positionError;
+
+      // Update wallet balance
+      const { data: walletData, error: walletFetchError } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .single();
+
+      if (walletFetchError) throw walletFetchError;
+
+      const { error: walletError } = await supabase
+        .from('wallets')
+        .update({
+          balance: Number(walletData.balance) + proceeds,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+
+      if (walletError) throw walletError;
+
+      // Record the trade
+      const { error: tradeError } = await supabase
+        .from('trades')
+        .insert({
+          user_id: user.id,
+          symbol: position.symbol,
+          coin_name: position.coin_name,
+          trade_type: 'sell',
+          quantity: position.amount,
+          price: livePrice,
+          total_amount: proceeds,
+          status: 'completed',
+        });
+
+      if (tradeError) throw tradeError;
+
+      toast({
+        title: "Position closed successfully",
+        description: `Sold ${position.amount.toFixed(6)} ${position.symbol} for ₹${proceeds.toFixed(2)}`,
+      });
+
+      refetch(); // Refresh portfolio data
+    } catch (error: any) {
+      console.error('Error closing position:', error);
+      toast({
+        title: "Error closing position",
+        description: error.message || "Failed to close position",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -226,15 +294,25 @@ const Portfolio = () => {
                               </Badge>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              onClick={() => handleTradeClick(position)}
-                              className="bg-blue-600 hover:bg-blue-700"
-                            >
-                              Trade
-                            </Button>
-                          </TableCell>
+                           <TableCell className="text-right">
+                             <div className="flex gap-2 justify-end">
+                               <Button
+                                 size="sm"
+                                 onClick={() => handleTradeClick(position)}
+                                 className="bg-blue-600 hover:bg-blue-700"
+                               >
+                                 Trade
+                               </Button>
+                               <Button
+                                 size="sm"
+                                 variant="destructive"
+                                 onClick={() => handleClosePosition(position)}
+                                 className="bg-red-600 hover:bg-red-700"
+                               >
+                                 Close
+                               </Button>
+                             </div>
+                           </TableCell>
                         </TableRow>
                       );
                     })}
