@@ -95,8 +95,9 @@ export function KYCSection() {
         const { error } = await supabase.from('kyc_documents').insert({
           user_id: user.id,
           ...updates,
-          status: 'pending',
+          status: 'approved',
           submitted_at: new Date().toISOString(),
+          reviewed_at: new Date().toISOString(),
         });
         if (error) throw error;
       } else {
@@ -104,8 +105,9 @@ export function KYCSection() {
           .from('kyc_documents')
           .update({
             ...updates,
-            status: 'pending',
+            status: 'approved',
             submitted_at: new Date().toISOString(),
+            reviewed_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', user.id);

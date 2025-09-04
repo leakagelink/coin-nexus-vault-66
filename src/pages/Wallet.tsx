@@ -76,6 +76,14 @@ const Wallet = () => {
                 Deposit
               </Button>
               <Button 
+                variant="secondary" 
+                className="flex-1" 
+                onClick={() => window.open('https://razorpay.me/@kunaljat', '_blank')}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Quick Deposit
+              </Button>
+              <Button 
                 variant="outline" 
                 className="flex-1 hover:bg-muted/80" 
                 onClick={() => setWithdrawalModalOpen(true)}
