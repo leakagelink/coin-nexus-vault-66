@@ -61,7 +61,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
       const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@ticker`);
       
       ws.onopen = () => {
-        console.log('[BinanceChart] WebSocket connected');
+        console.log('[BinanceChart] WebSocket connected for', symbol);
         setIsLiveConnected(true);
         setError(null);
       };
@@ -75,7 +75,7 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           setCurrentPrice(newPrice);
           setPriceChange(change);
 
-          // Update the latest candle with current price
+          // Update the latest candle with current price  
           setCandles(prevCandles => {
             if (prevCandles.length === 0) return prevCandles;
             
@@ -87,7 +87,13 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
             lastCandle.high = Math.max(lastCandle.high, newPrice);
             lastCandle.low = Math.min(lastCandle.low, newPrice);
             lastCandle.isBullish = lastCandle.close >= lastCandle.open;
-            lastCandle.momentum = Math.abs(change) * 5; // Amplify for visual effect
+            
+            // Enhanced momentum calculation based on price velocity
+            const bodySize = Math.abs(lastCandle.close - lastCandle.open);
+            const totalRange = lastCandle.high - lastCandle.low;
+            const bodyToRangeRatio = totalRange > 0 ? bodySize / totalRange : 0;
+            const priceImpact = lastCandle.open > 0 ? bodySize / lastCandle.open : 0;
+            lastCandle.momentum = Math.min((bodyToRangeRatio * priceImpact * Math.abs(change)) * 1000, 100);
             
             updatedCandles[updatedCandles.length - 1] = lastCandle;
             return updatedCandles;
