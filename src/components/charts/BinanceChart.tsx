@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,11 +27,15 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
   const [showIntervalMenu, setShowIntervalMenu] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [priceChange, setPriceChange] = useState<number>(0);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
   const isMobile = useIsMobile();
   
   const chartRef = useRef<HTMLDivElement>(null);
   const panTimeoutRef = useRef<number | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Available intervals
   const intervals = [
@@ -45,6 +48,79 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
 
   const quickIntervals = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
+  // WebSocket connection for live updates
+  const connectWebSocket = useCallback(() => {
+    if (!symbol) return;
+
+    // Close existing connection
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    try {
+      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@ticker`);
+      
+      ws.onopen = () => {
+        console.log('[BinanceChart] WebSocket connected');
+        setIsLiveConnected(true);
+        setError(null);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const ticker = JSON.parse(event.data);
+          const newPrice = parseFloat(ticker.c);
+          const change = parseFloat(ticker.P);
+          
+          setCurrentPrice(newPrice);
+          setPriceChange(change);
+
+          // Update the latest candle with current price
+          setCandles(prevCandles => {
+            if (prevCandles.length === 0) return prevCandles;
+            
+            const updatedCandles = [...prevCandles];
+            const lastCandle = { ...updatedCandles[updatedCandles.length - 1] };
+            
+            // Update close price and recalculate momentum
+            lastCandle.close = newPrice;
+            lastCandle.high = Math.max(lastCandle.high, newPrice);
+            lastCandle.low = Math.min(lastCandle.low, newPrice);
+            lastCandle.isBullish = lastCandle.close >= lastCandle.open;
+            lastCandle.momentum = Math.abs(change) * 5; // Amplify for visual effect
+            
+            updatedCandles[updatedCandles.length - 1] = lastCandle;
+            return updatedCandles;
+          });
+        } catch (err) {
+          console.error('[BinanceChart] WebSocket message error:', err);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('[BinanceChart] WebSocket error:', error);
+        setIsLiveConnected(false);
+      };
+
+      ws.onclose = () => {
+        console.log('[BinanceChart] WebSocket disconnected');
+        setIsLiveConnected(false);
+        
+        // Reconnect after 3 seconds if auto-refresh is enabled
+        if (isAutoRefresh) {
+          setTimeout(() => {
+            if (isAutoRefresh) connectWebSocket();
+          }, 3000);
+        }
+      };
+
+      wsRef.current = ws;
+    } catch (err) {
+      console.error('[BinanceChart] WebSocket connection error:', err);
+      setIsLiveConnected(false);
+    }
+  }, [symbol, isAutoRefresh]);
+
   // Fetch data
   const fetchData = useCallback(async () => {
     if (!symbol) return;
@@ -54,6 +130,11 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
       setError(null);
       const data = await binanceService.getKlines(symbol, interval, 200);
       setCandles(data);
+      
+      // Set initial current price
+      if (data.length > 0) {
+        setCurrentPrice(data[data.length - 1].close);
+      }
     } catch (err) {
       console.error('[BinanceChart] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load chart data');
@@ -62,26 +143,34 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
     }
   }, [symbol, interval]);
 
-  // Auto-refresh setup
+  // Auto-refresh and WebSocket setup
   useEffect(() => {
     fetchData();
     
+    // Connect WebSocket for live updates
     if (isAutoRefresh) {
-      refreshIntervalRef.current = window.setInterval(fetchData, 30000);
+      connectWebSocket();
+      refreshIntervalRef.current = window.setInterval(fetchData, 60000); // Reduced frequency since we have live updates
     }
     
     return () => {
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
       }
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
-  }, [fetchData, isAutoRefresh]);
+  }, [fetchData, isAutoRefresh, connectWebSocket]);
 
   // Pause auto-refresh on interaction
   const pauseAutoRefresh = useCallback(() => {
     setIsAutoRefresh(false);
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current);
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
     }
     
     if (panTimeoutRef.current) {
@@ -251,6 +340,9 @@ export function BinanceChart({ symbol, name, onClose, isFullPage = false }: Bina
           onTouchEnd={handleTouchEnd}
           onWheel={handleWheel}
           zoomLevel={zoomLevel}
+          currentPrice={currentPrice}
+          priceChange={priceChange}
+          isLiveConnected={isLiveConnected}
         />
       </CardContent>
     </Card>

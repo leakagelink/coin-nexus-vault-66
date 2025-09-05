@@ -18,6 +18,9 @@ interface BinanceChartCanvasProps {
   onTouchEnd: (e: React.TouchEvent) => void;
   onWheel: (e: React.WheelEvent) => void;
   zoomLevel: number;
+  currentPrice?: number | null;
+  priceChange?: number;
+  isLiveConnected?: boolean;
 }
 
 export function BinanceChartCanvas({
@@ -35,7 +38,10 @@ export function BinanceChartCanvas({
   onTouchMove,
   onTouchEnd,
   onWheel,
-  zoomLevel
+  zoomLevel,
+  currentPrice,
+  priceChange = 0,
+  isLiveConnected = false
 }: BinanceChartCanvasProps) {
   
   return (
@@ -135,17 +141,29 @@ export function BinanceChartCanvas({
                   <circle
                     cx={`${x + candleWidth/2}%`}
                     cy={`${closeY}%`}
-                    r="2"
+                    r="3"
                     fill={candle.isBullish ? 'hsl(var(--success))' : 'hsl(var(--danger))'}
                     className="animate-ping"
-                    opacity="0.6"
+                    opacity="0.8"
                   />
                   <circle
                     cx={`${x + candleWidth/2}%`}
                     cy={`${closeY}%`}
-                    r="1"
+                    r="1.5"
                     fill={candle.isBullish ? 'hsl(var(--success))' : 'hsl(var(--danger))'}
+                    className={isLiveConnected ? 'animate-pulse' : ''}
                   />
+                  {/* Price change arrow */}
+                  {Math.abs(priceChange) > 0.01 && (
+                    <polygon
+                      points={priceChange > 0 
+                        ? `${x + candleWidth/2},${closeY - 3} ${x + candleWidth/2 - 2},${closeY - 1} ${x + candleWidth/2 + 2},${closeY - 1}`
+                        : `${x + candleWidth/2},${closeY + 3} ${x + candleWidth/2 - 2},${closeY + 1} ${x + candleWidth/2 + 2},${closeY + 1}`
+                      }
+                      fill={priceChange > 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))'}
+                      className="animate-bounce"
+                    />
+                  )}
                 </>
               )}
             </g>
@@ -153,14 +171,49 @@ export function BinanceChartCanvas({
         })}
       </svg>
       
+      {/* Live price line */}
+      {currentPrice && displayCandles.length > 0 && (
+        <line
+          x1="0%"
+          y1={`${((maxPrice + padding - currentPrice) / (priceRange + 2 * padding)) * 100}%`}
+          x2="100%"
+          y2={`${((maxPrice + padding - currentPrice) / (priceRange + 2 * padding)) * 100}%`}
+          stroke={priceChange >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))'}
+          strokeWidth="1"
+          strokeDasharray="4,4"
+          opacity="0.8"
+          className={isLiveConnected ? 'animate-pulse' : ''}
+        />
+      )}
+
       {/* Chart Info Overlay */}
       <div className="absolute top-1 left-1 bg-black/70 backdrop-blur-sm rounded-md p-1.5 text-white text-xs">
         <div className="flex items-center gap-2">
           <span>Zoom: {zoomLevel.toFixed(1)}x</span>
           <span>•</span>
           <span>{displayCandles.length} candles</span>
+          {isLiveConnected && (
+            <>
+              <span>•</span>
+              <span className="text-green-400 animate-pulse">● LIVE</span>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Live Price Display */}
+      {currentPrice && (
+        <div className="absolute top-1 right-1 bg-black/70 backdrop-blur-sm rounded-md p-1.5 text-white text-xs">
+          <div className="flex items-center gap-2">
+            <span>Price: ${currentPrice.toFixed(2)}</span>
+            {Math.abs(priceChange) > 0.01 && (
+              <span className={`font-bold ${priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
