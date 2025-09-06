@@ -19,6 +19,19 @@ interface TradingModalProps {
 
 type TradeMode = 'quantity' | 'amount';
 
+const getMinimumTradeAmount = (symbol: string): number => {
+  // XRP and DOGE: minimum $50
+  if (['XRP', 'DOGE'].includes(symbol)) {
+    return 50;
+  }
+  // BTC and ETH: minimum $350
+  if (['BTC', 'ETH'].includes(symbol)) {
+    return 350;
+  }
+  // All other coins: minimum $150
+  return 150;
+};
+
 export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: TradingModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -186,6 +199,17 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
     if (qty <= 0 || totalCost <= 0) {
       toast({ title: 'Invalid input', description: 'Enter a valid quantity or amount', variant: 'destructive' });
+      return;
+    }
+
+    // Check minimum trade amounts based on coin type
+    const minimumAmount = getMinimumTradeAmount(symbolPure);
+    if (totalCost < minimumAmount) {
+      toast({
+        title: 'Minimum amount required',
+        description: `Minimum trade amount for ${symbolPure} is $${minimumAmount}`,
+        variant: 'destructive',
+      });
       return;
     }
 

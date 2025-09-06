@@ -61,10 +61,10 @@ const Wallet = () => {
           <CardContent>
             <div className="space-y-2 mb-4">
               <div className="text-3xl font-bold gradient-text">
-                {balanceLoading ? "Loading..." : `₹${inrBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+                {balanceLoading ? "Loading..." : `$${usdtBalance.toFixed(2)} USDT`}
               </div>
               <div className="text-lg text-muted-foreground">
-                ${usdtBalance.toFixed(2)} USDT
+                ₹{inrBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
