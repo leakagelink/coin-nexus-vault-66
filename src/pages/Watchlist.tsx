@@ -18,6 +18,13 @@ const Watchlist = () => {
   const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
   const { prices, isLoading: pricesLoading, isLive, lastUpdate } = useRealTimePrices();
 
+  // Minimum trading amounts for different coins
+  const getMinimumAmount = (symbol: string) => {
+    if (symbol === 'BTC' || symbol === 'ETH') return 350;
+    if (symbol === 'XRP' || symbol === 'DOGE') return 50;
+    return 150; // Default for other coins
+  };
+
   const { data: watchlist, isLoading, refetch } = useQuery({
     queryKey: ['watchlist', user?.id],
     queryFn: async () => {
@@ -150,6 +157,9 @@ const Watchlist = () => {
                             </div>
                             <div className="text-xs text-primary/70">
                               Live updated {Math.floor((Date.now() - livePrice.lastUpdate) / 1000)}s ago
+                            </div>
+                            <div className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded mt-2">
+                              Min Trade: ${getMinimumAmount(item.symbol)} USDT
                             </div>
                           </div>
                         )}

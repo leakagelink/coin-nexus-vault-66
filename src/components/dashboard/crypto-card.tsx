@@ -16,6 +16,7 @@ interface CryptoCardProps {
   onToggleWatchlist?: () => void;
   onChartClick?: () => void;
   momentum?: number;
+  minimumAmount?: number;
 }
 
 export function CryptoCard({ 
@@ -27,7 +28,8 @@ export function CryptoCard({
   isWatchlisted = false,
   onToggleWatchlist,
   onChartClick,
-  momentum
+  momentum,
+  minimumAmount
 }: CryptoCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const isPositive = changePercent >= 0;
@@ -105,6 +107,13 @@ export function CryptoCard({
             {isPositive ? '+' : ''}{changePercent.toFixed(2)}% (24h)
           </span>
         </div>
+
+        {/* Minimum Amount */}
+        {minimumAmount && (
+          <div className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded">
+            Min: ${minimumAmount} USDT
+          </div>
+        )}
 
         {/* Chart button */}
         <Button

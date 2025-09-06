@@ -7,12 +7,12 @@ import { Loader2, TrendingUp, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const cryptoMapping = {
-  'BTC': { name: 'Bitcoin', symbol: 'BTCUSDT' },
-  'ETH': { name: 'Ethereum', symbol: 'ETHUSDT' },
-  'BNB': { name: 'BNB', symbol: 'BNBUSDT' },
-  'ADA': { name: 'Cardano', symbol: 'ADAUSDT' },
-  'SOL': { name: 'Solana', symbol: 'SOLUSDT' },
-  'USDT': { name: 'Tether', symbol: 'USDTUSDT' }
+  'BTC': { name: 'Bitcoin', symbol: 'BTCUSDT', minAmount: 350 },
+  'ETH': { name: 'Ethereum', symbol: 'ETHUSDT', minAmount: 350 },
+  'BNB': { name: 'BNB', symbol: 'BNBUSDT', minAmount: 150 },
+  'ADA': { name: 'Cardano', symbol: 'ADAUSDT', minAmount: 150 },
+  'SOL': { name: 'Solana', symbol: 'SOLUSDT', minAmount: 150 },
+  'USDT': { name: 'Tether', symbol: 'USDTUSDT', minAmount: 50 }
 };
 
 export function MarketOverview() {
@@ -167,6 +167,7 @@ export function MarketOverview() {
                     isWatchlisted={false}
                     onChartClick={() => handleChartClick(priceData.symbol, crypto.name)}
                     momentum={priceData.momentum}
+                    minimumAmount={crypto.minAmount}
                   />
                 </div>
               );
