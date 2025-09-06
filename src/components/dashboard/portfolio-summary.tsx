@@ -122,10 +122,10 @@ export function PortfolioSummary() {
               <CardContent>
                 <div className="space-y-1">
                   <div className="text-2xl font-bold">
-                    ₹{stat.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    ${stat.usdtValue.toFixed(2)} USDT
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    ${stat.usdtValue.toFixed(2)} USDT
+                    ₹{stat.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </div>
                   {stat.change !== 0 && (
                     <p className={`text-xs flex items-center gap-1 ${
@@ -167,10 +167,10 @@ export function PortfolioSummary() {
                   </div>
                   <div className="text-right">
                     <div className="font-semibold">
-                      ₹{Number(trade.total_amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      ${(Number(trade.total_amount) / 84).toFixed(2)} USDT
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      ${(Number(trade.total_amount) / 84).toFixed(2)} USDT
+                      ₹{Number(trade.total_amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {new Date(trade.created_at).toLocaleDateString()}

@@ -213,6 +213,17 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       return;
     }
 
+    // Check if user has sufficient balance
+    const userBalanceInUSD = walletBalance / 84;
+    if (userBalanceInUSD < totalCost) {
+      toast({
+        title: 'Insufficient balance',
+        description: `You need $${totalCost.toFixed(2)} but only have $${userBalanceInUSD.toFixed(2)} available`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (walletBalance < totalCost) {
       toast({
         title: 'Insufficient balance',
