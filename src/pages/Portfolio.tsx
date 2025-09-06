@@ -37,6 +37,13 @@ const Portfolio = () => {
   } | null>(null);
   const [isTradingModalOpen, setIsTradingModalOpen] = useState(false);
 
+  // Get minimum trading amount for each coin
+  const getMinimumAmount = (symbol: string) => {
+    if (symbol === 'BTC' || symbol === 'ETH') return 350;
+    if (symbol === 'XRP' || symbol === 'DOGE') return 50;
+    return 150; // Default for other coins
+  };
+
   const { data: positions, isLoading, refetch } = useQuery({
     queryKey: ["portfolio-positions", user?.id],
     queryFn: async () => {
@@ -251,6 +258,9 @@ const Portfolio = () => {
                             <div>
                               <span className="font-semibold text-lg">{position.symbol}</span>
                               <p className="text-sm text-muted-foreground">{position.coin_name}</p>
+                              <div className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded mt-1">
+                                Min Trade: ${getMinimumAmount(position.symbol)} USDT
+                              </div>
                             </div>
                           </div>
                           
@@ -261,15 +271,30 @@ const Portfolio = () => {
                             </div>
                             <div>
                               <p className="text-muted-foreground">Avg Price</p>
-                              <p className="font-medium">₹{Number(position.buy_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                              <p className="font-medium">
+                                ${(Number(position.buy_price) / 84).toFixed(2)} USDT
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                ₹{Number(position.buy_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                              </p>
                             </div>
                             <div>
                               <p className="text-muted-foreground">Current Price</p>
-                              <p className="font-medium">₹{Number(position.current_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                              <p className="font-medium">
+                                ${(Number(position.current_price) / 84).toFixed(2)} USDT
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                ₹{Number(position.current_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                              </p>
                             </div>
                             <div>
                               <p className="text-muted-foreground">Investment</p>
-                              <p className="font-medium">₹{Number(position.total_investment).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                              <p className="font-medium">
+                                ${(Number(position.total_investment) / 84).toFixed(2)} USDT
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                ₹{Number(position.total_investment).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -277,12 +302,20 @@ const Portfolio = () => {
                         <div className="flex flex-col sm:items-end gap-3">
                           <div className="text-right">
                             <p className="text-sm text-muted-foreground">Current Value</p>
-                            <p className="font-bold text-lg">₹{position.current_value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                            <p className="font-bold text-lg">
+                              ${(position.current_value / 84).toFixed(2)} USDT
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              ₹{position.current_value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                            </p>
                           </div>
                           
                           <div className="text-right">
                             <div className="flex flex-col items-end gap-1">
                               <span className={`font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                {isPositive ? '+' : ''}${(position.pnl / 84).toFixed(2)} USDT
+                              </span>
+                              <span className={`text-xs ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                                 {isPositive ? '+' : ''}₹{position.pnl.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                               </span>
                               <Badge 
