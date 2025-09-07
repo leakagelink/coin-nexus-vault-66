@@ -183,7 +183,8 @@ const Portfolio = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Investment</p>
-                  <p className="text-xl font-bold">₹{totalInvestment.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                  <p className="text-xl font-bold">${(totalInvestment / 84).toFixed(2)} USDT</p>
+                  <p className="text-xs text-muted-foreground">₹{totalInvestment.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
                 </div>
                 <DollarSign className="h-8 w-8 text-blue-500" />
               </div>
@@ -195,7 +196,8 @@ const Portfolio = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Current Value</p>
-                  <p className="text-xl font-bold">₹{totalCurrentValue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+                  <p className="text-xl font-bold">${(totalCurrentValue / 84).toFixed(2)} USDT</p>
+                  <p className="text-xs text-muted-foreground">₹{totalCurrentValue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
                 </div>
                 <TrendingUpIcon className="h-8 w-8 text-green-500" />
               </div>
@@ -208,6 +210,9 @@ const Portfolio = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Total P&L</p>
                   <p className={`text-xl font-bold ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {totalPnL >= 0 ? '+' : ''}${(totalPnL / 84).toFixed(2)} USDT
+                  </p>
+                  <p className={`text-xs text-muted-foreground ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {totalPnL >= 0 ? '+' : ''}₹{totalPnL.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                   </p>
                 </div>
