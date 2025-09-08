@@ -28,7 +28,12 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
     );
   }
 
-  if (!user) {
+  // Protected routes that require authentication
+  const protectedRoutes = ['/portfolio', '/trades', '/wallet', '/watchlist', '/account', '/admin'];
+  const requiresAuth = protectedRoutes.some(route => location.pathname.startsWith(route));
+
+  // If user is not logged in and trying to access protected routes
+  if (!user && requiresAuth) {
     return <AuthScreen />;
   }
 
