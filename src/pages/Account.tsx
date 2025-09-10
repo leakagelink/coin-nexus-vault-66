@@ -2,9 +2,11 @@
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, DollarSign, FileText, Phone, Lock, ChevronRight, Download } from "lucide-react";
+import { User, DollarSign, FileText, Phone, Lock, ChevronRight, Download, Shield } from "lucide-react";
 import { ProfileSection } from "@/components/account/profile-section";
 import { BankAccountsSection } from "@/components/account/bank-accounts-section";
+import { PrivacyPolicy } from "@/components/account/privacy-policy";
+import { TermsConditions } from "@/components/account/terms-conditions";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -171,6 +173,30 @@ const Account = () => {
                 </div>
                 <ChevronRight className="h-4 w-4" />
               </Button>
+
+              <Button 
+                variant="outline" 
+                className="h-16 justify-between glass hover-glow"
+                onClick={() => setActiveSection('privacy')}
+              >
+                <div className="flex items-center gap-3">
+                  <Shield className="h-5 w-5 text-primary" />
+                  <span>Privacy Policy</span>
+                </div>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+
+              <Button 
+                variant="outline" 
+                className="h-16 justify-between glass hover-glow"
+                onClick={() => setActiveSection('terms')}
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <span>Terms & Conditions</span>
+                </div>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
 
             <div className="pt-4">
@@ -284,6 +310,32 @@ const Account = () => {
                 )}
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {activeSection === 'privacy' && (
+          <div className="space-y-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => setActiveSection('')}
+              className="mb-4"
+            >
+              ← Back
+            </Button>
+            <PrivacyPolicy />
+          </div>
+        )}
+
+        {activeSection === 'terms' && (
+          <div className="space-y-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => setActiveSection('')}
+              className="mb-4"
+            >
+              ← Back
+            </Button>
+            <TermsConditions />
           </div>
         )}
       </div>
