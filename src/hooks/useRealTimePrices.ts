@@ -103,67 +103,72 @@ export function useRealTimePrices() {
         console.log('Using fallback price generation');
       }
       
-      const newPrices: Record<string, RealTimePrice> = {};
-      
-      CRYPTO_SYMBOLS.forEach((symbol, index) => {
-        const basePrice = BASE_PRICES[symbol] || 100;
-        const realDataItem = realData.find(item => item.symbol === symbol);
+      setPrices(currentPrices => {
+        const newPrices: Record<string, RealTimePrice> = {};
         
-        let currentPrice: number;
-        let change24hPercent: number;
+        CRYPTO_SYMBOLS.forEach((symbol, index) => {
+          const basePrice = BASE_PRICES[symbol] || 100;
+          const realDataItem = realData.find(item => item.symbol === symbol);
+          
+          let currentPrice: number;
+          let change24hPercent: number;
+          
+          if (realDataItem) {
+            currentPrice = generateRealisticPrice(realDataItem.price, symbol);
+            change24hPercent = realDataItem.percent_change_24h || (Math.random() - 0.5) * 10;
+          } else {
+            currentPrice = generateRealisticPrice(basePrice, symbol);
+            change24hPercent = (Math.random() - 0.5) * 8; // ±4% for mock data
+          }
+          
+          const previousPrice = currentPrices[symbol]?.price;
+          const momentum = calculateMomentum(symbol, currentPrice, previousPrice);
+          const change24h = (currentPrice * change24hPercent) / 100;
+          
+          newPrices[symbol] = {
+            symbol,
+            name: CRYPTO_NAMES[symbol] || symbol,
+            price: currentPrice,
+            change24h,
+            changePercent: change24hPercent,
+            volume24h: (realDataItem?.market_cap || Math.random() * 1000000000) / 10,
+            marketCap: realDataItem?.market_cap || currentPrice * Math.random() * 500000000,
+            momentum,
+            trend: change24hPercent > 0.1 ? 'up' : change24hPercent < -0.1 ? 'down' : 'neutral',
+            lastUpdate: now
+          };
+        });
         
-        if (realDataItem) {
-          currentPrice = generateRealisticPrice(realDataItem.price, symbol);
-          change24hPercent = realDataItem.percent_change_24h || (Math.random() - 0.5) * 10;
-        } else {
-          currentPrice = generateRealisticPrice(basePrice, symbol);
-          change24hPercent = (Math.random() - 0.5) * 8; // ±4% for mock data
-        }
-        
-        const previousPrice = prices[symbol]?.price;
-        const momentum = calculateMomentum(symbol, currentPrice, previousPrice);
-        const change24h = (currentPrice * change24hPercent) / 100;
-        
-        newPrices[symbol] = {
-          symbol,
-          name: CRYPTO_NAMES[symbol] || symbol,
-          price: currentPrice,
-          change24h,
-          changePercent: change24hPercent,
-          volume24h: (realDataItem?.market_cap || Math.random() * 1000000000) / 10,
-          marketCap: realDataItem?.market_cap || currentPrice * Math.random() * 500000000,
-          momentum,
-          trend: change24hPercent > 0.1 ? 'up' : change24hPercent < -0.1 ? 'down' : 'neutral',
-          lastUpdate: now
-        };
+        return newPrices;
       });
       
-      setPrices(newPrices);
       setError(null);
       lastUpdateRef.current = now;
       
-      console.log('✅ Real-time prices updated:', Object.keys(newPrices).length, 'symbols with live momentum');
+      console.log('✅ Real-time prices updated with live momentum');
     } catch (err) {
       console.error('❌ Error updating prices:', err);
       setError('Failed to update live prices');
     } finally {
       setIsLoading(false);
     }
-  }, [prices, calculateMomentum, generateRealisticPrice]);
+  }, [calculateMomentum, generateRealisticPrice]);
 
   useEffect(() => {
     // Initial load
     updatePrices();
     
     // Set up real-time updates every 4 seconds
-    intervalRef.current = setInterval(updatePrices, 4000);
+    intervalRef.current = setInterval(() => {
+      updatePrices();
+    }, 4000);
     
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [updatePrices]);
+  }, []); // Remove updatePrices from dependency array to prevent recreating interval
 
   const getPrice = useCallback((symbol: string): RealTimePrice | null => {
     return prices[symbol] || null;

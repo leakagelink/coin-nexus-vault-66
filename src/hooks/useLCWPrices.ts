@@ -8,6 +8,7 @@ export function useLCWPrices() {
   const [prices, setPrices] = useState<Record<string, LCWPrice>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState(0);
 
   const fetchPrices = useCallback(async () => {
     try {
@@ -50,6 +51,7 @@ export function useLCWPrices() {
       
       setPrices(pricesMap);
       setError(null);
+      setLastUpdate(Date.now());
       console.log('LCW prices loaded:', Object.keys(pricesMap).length, 'symbols');
     } catch (err) {
       setError('Failed to fetch prices from LiveCoinWatch');
@@ -79,6 +81,7 @@ export function useLCWPrices() {
       });
       
       setPrices(mockPrices);
+      setLastUpdate(Date.now());
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +89,12 @@ export function useLCWPrices() {
 
   useEffect(() => {
     fetchPrices();
-  }, [fetchPrices]);
+    
+    // Set up automatic refresh every 5 seconds for live updates
+    const interval = setInterval(fetchPrices, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const refresh = useCallback(() => {
     return fetchPrices();
@@ -101,6 +109,8 @@ export function useLCWPrices() {
     isLoading,
     error,
     getPrice,
-    refresh
+    refresh,
+    lastUpdate,
+    isLive: Object.keys(prices).length > 0
   };
 }
