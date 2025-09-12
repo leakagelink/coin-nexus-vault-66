@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, X, TrendingUp, TrendingDown } from "lucide-react";
+import { Eye, X, TrendingUp, TrendingDown, Edit2, Save, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -36,6 +37,9 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(false);
   const [closingPosition, setClosingPosition] = useState<string | null>(null);
+  const [editingPosition, setEditingPosition] = useState<string | null>(null);
+  const [editingValues, setEditingValues] = useState<Partial<Position>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -77,6 +81,72 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
       fetchPositions();
     }
   }, [open, userId]);
+
+  const startEdit = (position: Position) => {
+    setEditingPosition(position.id);
+    setEditingValues({
+      amount: position.amount,
+      buy_price: position.buy_price,
+      current_price: position.current_price,
+      total_investment: position.total_investment,
+      current_value: position.current_value,
+      pnl: position.pnl,
+      pnl_percentage: position.pnl_percentage,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingPosition(null);
+    setEditingValues({});
+  };
+
+  const saveEdit = async () => {
+    if (!editingPosition || !editingValues) return;
+    
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('portfolio_positions')
+        .update({
+          amount: editingValues.amount,
+          buy_price: editingValues.buy_price,
+          current_price: editingValues.current_price,
+          total_investment: editingValues.total_investment,
+          current_value: editingValues.current_value,
+          pnl: editingValues.pnl,
+          pnl_percentage: editingValues.pnl_percentage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingPosition);
+
+      if (error) throw error;
+
+      toast({
+        title: "Position updated successfully",
+        description: "Position details have been updated",
+      });
+
+      // Refresh data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] }),
+        queryClient.invalidateQueries({ queryKey: ['portfolio'] }),
+      ]);
+      
+      fetchPositions();
+      setEditingPosition(null);
+      setEditingValues({});
+      
+    } catch (error: any) {
+      console.error('Error updating position:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update position",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const closePosition = async (positionId: string, symbol: string, positionType: string) => {
     if (!user) return;
@@ -233,27 +303,143 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                         )}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">{Number(position.amount).toFixed(6)}</TableCell>
-                    <TableCell className="text-right">₹{Number(position.buy_price).toFixed(2)}</TableCell>
-                    <TableCell className="text-right">₹{Number(position.current_price).toFixed(2)}</TableCell>
-                    <TableCell className="text-right">₹{Number(position.total_investment).toFixed(2)}</TableCell>
-                    <TableCell className="text-right">₹{Number(position.current_value).toFixed(2)}</TableCell>
+                    <TableCell className="text-right">
+                      {editingPosition === position.id ? (
+                        <Input
+                          type="number"
+                          step="0.000001"
+                          value={editingValues.amount || 0}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                          className="w-20 text-right"
+                        />
+                      ) : (
+                        Number(position.amount).toFixed(6)
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {editingPosition === position.id ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editingValues.buy_price || 0}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, buy_price: Number(e.target.value) }))}
+                          className="w-20 text-right"
+                        />
+                      ) : (
+                        `₹${Number(position.buy_price).toFixed(2)}`
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {editingPosition === position.id ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editingValues.current_price || 0}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, current_price: Number(e.target.value) }))}
+                          className="w-20 text-right"
+                        />
+                      ) : (
+                        `₹${Number(position.current_price).toFixed(2)}`
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {editingPosition === position.id ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editingValues.total_investment || 0}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, total_investment: Number(e.target.value) }))}
+                          className="w-24 text-right"
+                        />
+                      ) : (
+                        `₹${Number(position.total_investment).toFixed(2)}`
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {editingPosition === position.id ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editingValues.current_value || 0}
+                          onChange={(e) => setEditingValues(prev => ({ ...prev, current_value: Number(e.target.value) }))}
+                          className="w-24 text-right"
+                        />
+                      ) : (
+                        `₹${Number(position.current_value).toFixed(2)}`
+                      )}
+                    </TableCell>
                     <TableCell className={`text-right ${Number(position.pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ₹{Number(position.pnl).toFixed(2)}
-                      <div className="text-xs">
-                        ({Number(position.pnl_percentage).toFixed(2)}%)
-                      </div>
+                      {editingPosition === position.id ? (
+                        <div className="space-y-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editingValues.pnl || 0}
+                            onChange={(e) => setEditingValues(prev => ({ ...prev, pnl: Number(e.target.value) }))}
+                            className="w-20 text-right"
+                          />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editingValues.pnl_percentage || 0}
+                            onChange={(e) => setEditingValues(prev => ({ ...prev, pnl_percentage: Number(e.target.value) }))}
+                            className="w-16 text-right text-xs"
+                            placeholder="%"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          ₹{Number(position.pnl).toFixed(2)}
+                          <div className="text-xs">
+                            ({Number(position.pnl_percentage).toFixed(2)}%)
+                          </div>
+                        </>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => closePosition(position.id, position.symbol, position.position_type)}
-                        disabled={closingPosition === position.id}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        {closingPosition === position.id ? 'Closing...' : 'Close'}
-                      </Button>
+                      <div className="flex gap-1">
+                        {editingPosition === position.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={saveEdit}
+                              disabled={savingEdit}
+                            >
+                              <Save className="h-4 w-4 mr-1" />
+                              {savingEdit ? 'Saving...' : 'Save'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={cancelEdit}
+                              disabled={savingEdit}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEdit(position)}
+                              disabled={closingPosition === position.id || editingPosition !== null}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => closePosition(position.id, position.symbol, position.position_type)}
+                              disabled={closingPosition === position.id || editingPosition !== null}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              {closingPosition === position.id ? 'Closing...' : 'Close'}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
