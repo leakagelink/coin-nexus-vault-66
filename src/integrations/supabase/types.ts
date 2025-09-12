@@ -462,9 +462,12 @@ export type Database = {
           bank_account_id: string | null
           created_at: string
           id: string
+          payment_method: string | null
           processed_at: string | null
           status: string
           updated_at: string
+          upi_id: string | null
+          usdt_address: string | null
           user_id: string
           wallet_updated: boolean | null
         }
@@ -475,9 +478,12 @@ export type Database = {
           bank_account_id?: string | null
           created_at?: string
           id?: string
+          payment_method?: string | null
           processed_at?: string | null
           status?: string
           updated_at?: string
+          upi_id?: string | null
+          usdt_address?: string | null
           user_id: string
           wallet_updated?: boolean | null
         }
@@ -488,9 +494,12 @@ export type Database = {
           bank_account_id?: string | null
           created_at?: string
           id?: string
+          payment_method?: string | null
           processed_at?: string | null
           status?: string
           updated_at?: string
+          upi_id?: string | null
+          usdt_address?: string | null
           user_id?: string
           wallet_updated?: boolean | null
         }

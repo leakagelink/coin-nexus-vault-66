@@ -144,13 +144,23 @@ export function WithdrawalModal({ isOpen, onClose, method }: WithdrawalModalProp
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.from('withdrawal_requests').insert({
+      const insertData: any = {
         user_id: user.id,
         amount: withdrawalAmount,
         payment_method: method,
-        bank_account_id: method === 'Bank Account' ? selectedBankAccount : null,
         status: 'pending'
-      });
+      };
+
+      // Add method-specific fields
+      if (method === 'Bank Account') {
+        insertData.bank_account_id = selectedBankAccount;
+      } else if (method === 'UPI') {
+        insertData.upi_id = upiId.trim();
+      } else if (method === 'USDT') {
+        insertData.usdt_address = usdtAddress.trim();
+      }
+
+      const { error } = await supabase.from('withdrawal_requests').insert(insertData);
 
       if (error) throw error;
 
