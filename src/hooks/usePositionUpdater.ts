@@ -53,8 +53,9 @@ export const usePositionUpdater = (userId?: string) => {
 
         await Promise.all(updates.filter(Boolean));
         
-        // Invalidate queries to refresh UI
+        // Invalidate queries to refresh UI across clients
         queryClient.invalidateQueries({ queryKey: ['portfolio-positions'] });
+        queryClient.invalidateQueries({ queryKey: ['my-trades'] });
       } catch (error) {
         console.error('Error updating positions:', error);
       }
@@ -62,7 +63,7 @@ export const usePositionUpdater = (userId?: string) => {
 
     // Update immediately and then every 30 seconds
     updatePositions();
-    const interval = setInterval(updatePositions, 30000);
+    const interval = setInterval(updatePositions, 5000);
 
     return () => clearInterval(interval);
   }, [userId, prices, queryClient]);

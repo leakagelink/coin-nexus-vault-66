@@ -21,13 +21,14 @@ type Trade = {
 const Trades = () => {
   const { user } = useAuth();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["my-trades", user?.id],
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from("trades")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Trade[];
@@ -36,6 +37,22 @@ const Trades = () => {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('trades_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trades', filter: `user_id=eq.${user.id}` },
+        () => refetch()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, refetch]);
 
   return (
     <Layout>

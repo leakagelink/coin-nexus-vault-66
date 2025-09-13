@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLCWPrices } from "@/hooks/useLCWPrices";
 import { TrendingUp, TrendingDown, DollarSign, Percent, TrendingUpIcon, Activity } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TradingModal } from "@/components/trading/trading-modal";
 import { useToast } from "@/hooks/use-toast";
 import { usePositionUpdater } from "@/hooks/usePositionUpdater";
@@ -65,26 +65,42 @@ const Portfolio = () => {
     refetchOnWindowFocus: true,
   });
 
+  // Realtime: auto-refresh when positions change for this user
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('portfolio_positions_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'portfolio_positions', filter: `user_id=eq.${user.id}` },
+        () => refetch()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, refetch]);
+
   // Update positions with live prices - respect admin edits
   const updatedPositions = positions?.map(position => {
-    // Use admin-edited values if they exist, otherwise calculate from live prices
-    const shouldUseLivePrice = position.current_price === position.buy_price; // Indicates fresh position
-    const livePrice = prices[position.symbol]?.price || position.current_price;
-    
-    // If admin has edited the position, keep the edited values
-    if (!shouldUseLivePrice && Math.abs(position.current_price - livePrice) > livePrice * 0.01) {
-      // Admin has set custom values, keep them as is
-      return position;
+    // Live price from LCW is in USDT; convert to INR when available
+    const usdPrice = prices[position.symbol]?.price;
+    const livePriceINR = usdPrice ? usdPrice * 84 : Number(position.current_price);
+
+    // If admin has explicitly overridden current_price, keep their values
+    const adminOverrode = Math.abs(Number(position.current_price) - livePriceINR) > livePriceINR * 0.01;
+    if (adminOverrode) {
+      return { ...position };
     }
-    
-    // Use live prices for calculation
-    const currentValue = position.amount * livePrice;
-    const pnl = currentValue - position.total_investment;
-    const pnlPercentage = position.total_investment > 0 ? (pnl / position.total_investment) * 100 : 0;
-    
+
+    const currentValue = Number(position.amount) * livePriceINR;
+    const pnl = currentValue - Number(position.total_investment);
+    const pnlPercentage = Number(position.total_investment) > 0 ? (pnl / Number(position.total_investment)) * 100 : 0;
+
     return {
       ...position,
-      current_price: livePrice,
+      current_price: livePriceINR,
       current_value: currentValue,
       pnl,
       pnl_percentage: pnlPercentage,
