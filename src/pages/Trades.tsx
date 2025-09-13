@@ -1,10 +1,10 @@
-
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 type Trade = {
   id: string;
@@ -38,6 +38,7 @@ const Trades = () => {
     refetchOnWindowFocus: true,
   });
 
+  // Realtime: auto-refresh when trades change for this user
   useEffect(() => {
     if (!user) return;
     const channel = supabase
