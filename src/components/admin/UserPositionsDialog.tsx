@@ -105,31 +105,90 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
     
     setSavingEdit(true);
     try {
+      // Update the position (trigger will recalc derived values)
       const { error } = await supabase
         .from('portfolio_positions')
         .update({
           amount: editingValues.amount,
           buy_price: editingValues.buy_price,
           current_price: editingValues.current_price,
-          total_investment: editingValues.total_investment,
-          current_value: editingValues.current_value,
-          pnl: editingValues.pnl,
-          pnl_percentage: editingValues.pnl_percentage,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingPosition);
 
       if (error) throw error;
 
+      // Also update the latest BUY trade for this symbol so user Trade History reflects the change
+      const editedPosition = positions.find(p => p.id === editingPosition);
+      if (editedPosition) {
+        const { data: lastBuy, error: buyFetchErr } = await supabase
+          .from('trades')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('symbol', editedPosition.symbol)
+          .eq('trade_type', 'buy')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (buyFetchErr) {
+          console.warn('Could not fetch latest buy trade (will insert adjustment instead):', buyFetchErr);
+        }
+
+        const qty = Number(editingValues.amount ?? editedPosition.amount);
+        const buyPrice = Number(editingValues.buy_price ?? editedPosition.buy_price);
+        const totalAmt = qty * buyPrice;
+
+        if (lastBuy?.id) {
+          const { error: tradeUpdateErr } = await supabase
+            .from('trades')
+            .update({
+              quantity: qty,
+              price: buyPrice,
+              total_amount: totalAmt,
+              updated_at: new Date().toISOString(),
+              status: 'completed',
+            })
+            .eq('id', lastBuy.id);
+          if (tradeUpdateErr) {
+            console.warn('Failed to update latest buy trade, inserting adjustment instead:', tradeUpdateErr);
+            await supabase.from('trades').insert({
+              user_id: userId,
+              symbol: editedPosition.symbol,
+              coin_name: editedPosition.coin_name,
+              trade_type: 'adjustment',
+              quantity: qty,
+              price: buyPrice,
+              total_amount: totalAmt,
+              status: 'completed',
+            });
+          }
+        } else {
+          // No previous buy trade found, record an adjustment
+          await supabase.from('trades').insert({
+            user_id: userId,
+            symbol: editedPosition.symbol,
+            coin_name: editedPosition.coin_name,
+            trade_type: 'adjustment',
+            quantity: qty,
+            price: buyPrice,
+            total_amount: totalAmt,
+            status: 'completed',
+          });
+        }
+      }
+
       toast({
         title: "Position updated successfully",
-        description: "Position details have been updated",
+        description: "Changes saved and reflected in user's view",
       });
 
-      // Refresh data
+      // Refresh data and notify UIs
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] }),
         queryClient.invalidateQueries({ queryKey: ['portfolio'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-trades'] }),
+        queryClient.invalidateQueries({ queryKey: ['trades'] }),
       ]);
       
       fetchPositions();
