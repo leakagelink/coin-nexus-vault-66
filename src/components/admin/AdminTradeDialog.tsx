@@ -78,6 +78,12 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
     }
   }, [selectedCoin, prices]);
 
+  // Get current live price for calculations
+  const getCurrentLivePrice = (symbol: string): number => {
+    const livePrice = prices[symbol]?.price;
+    return livePrice ? livePrice * 84 : parseFloat(price || '0');
+  };
+
   const handleSubmit = async () => {
     if (!user || !selectedCoin || !quantity || !price) {
       toast({
@@ -136,17 +142,23 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           );
           const newTotalInvestment = oldInvestment + totalCost;
           const newAvgPrice = newQty > 0 ? newTotalInvestment / newQty : parsedPrice;
+          
+          // Use live price for current calculations
+          const currentPrice = getCurrentLivePrice(selectedCoin);
+          const currentValue = newQty * currentPrice;
+          const pnl = currentValue - newTotalInvestment;
+          const pnlPercentage = newTotalInvestment > 0 ? (pnl / newTotalInvestment) * 100 : 0;
 
           const { error } = await supabase
             .from('portfolio_positions')
             .update({
               amount: newQty,
               buy_price: newAvgPrice,
-              current_price: parsedPrice,
+              current_price: currentPrice,
               total_investment: newTotalInvestment,
-              current_value: newQty * parsedPrice,
-              pnl: (newQty * parsedPrice) - newTotalInvestment,
-              pnl_percentage: newTotalInvestment > 0 ? (((newQty * parsedPrice) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
+              current_value: currentValue,
+              pnl: pnl,
+              pnl_percentage: pnlPercentage,
               updated_at: new Date().toISOString(),
               status: 'open',
             })
@@ -159,18 +171,23 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           
           console.log(`Updated existing ${positionType} position for ${selectedCoin}`);
         } else {
-          // Create new position
+          // Create new position with live price
+          const currentPrice = getCurrentLivePrice(selectedCoin);
+          const currentValue = parsedQty * currentPrice;
+          const pnl = currentValue - totalCost;
+          const pnlPercentage = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+          
           const positionData = {
             user_id: userId,
             symbol: selectedCoin,
             coin_name: selectedCoinData?.name || selectedCoin,
             amount: parsedQty,
             buy_price: parsedPrice,
-            current_price: parsedPrice,
+            current_price: currentPrice,
             total_investment: totalCost,
-            current_value: parsedQty * parsedPrice,
-            pnl: 0,
-            pnl_percentage: 0,
+            current_value: currentValue,
+            pnl: pnl,
+            pnl_percentage: pnlPercentage,
             position_type: positionType,
             status: 'open',
             trade_type: 'buy',

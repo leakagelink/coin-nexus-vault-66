@@ -12,6 +12,7 @@ import { TrendingUp, TrendingDown, DollarSign, Percent, TrendingUpIcon, Activity
 import { useState } from "react";
 import { TradingModal } from "@/components/trading/trading-modal";
 import { useToast } from "@/hooks/use-toast";
+import { usePositionUpdater } from "@/hooks/usePositionUpdater";
 
 type PortfolioPosition = {
   id: string;
@@ -30,6 +31,9 @@ const Portfolio = () => {
   const { user } = useAuth();
   const { prices, lastUpdate, isLive } = useLCWPrices();
   const { toast } = useToast();
+  
+  // Auto-update positions with live prices
+  usePositionUpdater(user?.id);
   const [selectedCrypto, setSelectedCrypto] = useState<{
     symbol: string;
     name: string;
@@ -61,9 +65,19 @@ const Portfolio = () => {
     refetchOnWindowFocus: true,
   });
 
-  // Update positions with live prices
+  // Update positions with live prices - respect admin edits
   const updatedPositions = positions?.map(position => {
+    // Use admin-edited values if they exist, otherwise calculate from live prices
+    const shouldUseLivePrice = position.current_price === position.buy_price; // Indicates fresh position
     const livePrice = prices[position.symbol]?.price || position.current_price;
+    
+    // If admin has edited the position, keep the edited values
+    if (!shouldUseLivePrice && Math.abs(position.current_price - livePrice) > livePrice * 0.01) {
+      // Admin has set custom values, keep them as is
+      return position;
+    }
+    
+    // Use live prices for calculation
     const currentValue = position.amount * livePrice;
     const pnl = currentValue - position.total_investment;
     const pnlPercentage = position.total_investment > 0 ? (pnl / position.total_investment) * 100 : 0;
