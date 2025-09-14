@@ -91,23 +91,20 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         throw new Error('Position not found');
       }
 
-      // Update admin adjustment percentage
+      // Increment admin adjustment and derived values
       const newAdminAdjustment = (position.admin_adjustment_pct || 0) + percentageChange;
-      
-      // Calculate new P&L percentage with admin adjustment
-      const basePnlPercentage = position.total_investment > 0 
-        ? ((position.current_value - position.total_investment) / position.total_investment) * 100 
-        : 0;
-      const newPnlPercentage = basePnlPercentage + newAdminAdjustment;
-      
-      // Calculate new P&L
-      const newPnl = (newPnlPercentage / 100) * position.total_investment;
+      const newPnlPercentage = (Number(position.pnl_percentage) || 0) + percentageChange;
+      const newPnl = (newPnlPercentage / 100) * Number(position.total_investment);
+      const newCurrentValue = Number(position.total_investment) + newPnl;
+      const newCurrentPrice = newCurrentValue / Number(position.amount || 1);
 
-      // Update the position with admin adjustment
+      // Update the position with admin adjustment and derived fields
       const { error } = await supabase
         .from('portfolio_positions')
         .update({
           admin_adjustment_pct: newAdminAdjustment,
+          current_price: newCurrentPrice,
+          current_value: newCurrentValue,
           pnl: newPnl,
           pnl_percentage: newPnlPercentage,
           updated_at: new Date().toISOString(),
