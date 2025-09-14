@@ -34,10 +34,16 @@ export const usePositionUpdater = (userId?: string) => {
           if (priceDiff < livePriceINR * 0.001) return;
 
           const currentValue = position.amount * livePriceINR;
-          const pnl = currentValue - position.total_investment;
-          const pnlPercentage = position.total_investment > 0 
+          let pnl = currentValue - position.total_investment;
+          let pnlPercentage = position.total_investment > 0 
             ? (pnl / position.total_investment) * 100 
             : 0;
+
+          // Apply admin adjustment if present
+          if (position.admin_adjustment_pct) {
+            pnlPercentage += position.admin_adjustment_pct;
+            pnl = (pnlPercentage / 100) * position.total_investment;
+          }
 
           return supabase
             .from('portfolio_positions')

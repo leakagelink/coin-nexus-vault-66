@@ -187,6 +187,7 @@ export type Database = {
       }
       portfolio_positions: {
         Row: {
+          admin_adjustment_pct: number
           amount: number
           buy_price: number
           coin_name: string
@@ -207,6 +208,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          admin_adjustment_pct?: number
           amount: number
           buy_price: number
           coin_name: string
@@ -227,6 +229,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          admin_adjustment_pct?: number
           amount?: number
           buy_price?: number
           coin_name?: string

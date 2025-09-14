@@ -30,6 +30,7 @@ type Position = {
   position_type: string;
   status: string;
   created_at: string;
+  admin_adjustment_pct?: number;
 };
 
 export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogProps) {
@@ -90,22 +91,23 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         throw new Error('Position not found');
       }
 
-      // Calculate new P&L percentage
-      const newPnlPercentage = position.pnl_percentage + percentageChange;
+      // Update admin adjustment percentage
+      const newAdminAdjustment = (position.admin_adjustment_pct || 0) + percentageChange;
       
-      // Calculate new current value based on the new P&L percentage
-      const newCurrentValue = position.total_investment * (1 + newPnlPercentage / 100);
-      const newPnl = newCurrentValue - position.total_investment;
+      // Calculate new P&L percentage with admin adjustment
+      const basePnlPercentage = position.total_investment > 0 
+        ? ((position.current_value - position.total_investment) / position.total_investment) * 100 
+        : 0;
+      const newPnlPercentage = basePnlPercentage + newAdminAdjustment;
       
-      // Calculate new current price
-      const newCurrentPrice = newCurrentValue / position.amount;
+      // Calculate new P&L
+      const newPnl = (newPnlPercentage / 100) * position.total_investment;
 
-      // Update the position
+      // Update the position with admin adjustment
       const { error } = await supabase
         .from('portfolio_positions')
         .update({
-          current_price: newCurrentPrice,
-          current_value: newCurrentValue,
+          admin_adjustment_pct: newAdminAdjustment,
           pnl: newPnl,
           pnl_percentage: newPnlPercentage,
           updated_at: new Date().toISOString(),
@@ -123,8 +125,8 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
           coin_name: position.coin_name,
           trade_type: 'adjustment',
           quantity: position.amount,
-          price: newCurrentPrice,
-          total_amount: newCurrentValue,
+          price: position.current_price,
+          total_amount: position.total_investment + newPnl,
           status: 'completed',
         });
 
