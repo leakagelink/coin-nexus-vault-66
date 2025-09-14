@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, X, TrendingUp, TrendingDown, Edit2, Save, XCircle } from "lucide-react";
+import { Eye, X, TrendingUp, TrendingDown, Plus, Minus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -37,9 +37,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(false);
   const [closingPosition, setClosingPosition] = useState<string | null>(null);
-  const [editingPosition, setEditingPosition] = useState<string | null>(null);
-  const [editingValues, setEditingValues] = useState<Partial<Position>>({});
-  const [savingEdit, setSavingEdit] = useState(false);
+  const [adjustingPosition, setAdjustingPosition] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -82,128 +80,82 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
     }
   }, [open, userId]);
 
-  const startEdit = (position: Position) => {
-    setEditingPosition(position.id);
-    setEditingValues({
-      amount: position.amount,
-      buy_price: position.buy_price,
-      current_price: position.current_price,
-      total_investment: position.total_investment,
-      current_value: position.current_value,
-      pnl: position.pnl,
-      pnl_percentage: position.pnl_percentage,
-    });
-  };
-
-  const cancelEdit = () => {
-    setEditingPosition(null);
-    setEditingValues({});
-  };
-
-  const saveEdit = async () => {
-    if (!editingPosition || !editingValues) return;
+  const adjustPnlPercentage = async (positionId: string, percentageChange: number) => {
+    if (!user) return;
     
-    setSavingEdit(true);
+    setAdjustingPosition(positionId);
     try {
-      // Update the position (trigger will recalc derived values)
+      const position = positions.find(p => p.id === positionId);
+      if (!position) {
+        throw new Error('Position not found');
+      }
+
+      // Calculate new P&L percentage
+      const newPnlPercentage = position.pnl_percentage + percentageChange;
+      
+      // Calculate new current value based on the new P&L percentage
+      const newCurrentValue = position.total_investment * (1 + newPnlPercentage / 100);
+      const newPnl = newCurrentValue - position.total_investment;
+      
+      // Calculate new current price
+      const newCurrentPrice = newCurrentValue / position.amount;
+
+      // Update the position
       const { error } = await supabase
         .from('portfolio_positions')
         .update({
-          amount: editingValues.amount,
-          buy_price: editingValues.buy_price,
-          current_price: editingValues.current_price,
+          current_price: newCurrentPrice,
+          current_value: newCurrentValue,
+          pnl: newPnl,
+          pnl_percentage: newPnlPercentage,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', editingPosition);
+        .eq('id', positionId);
 
       if (error) throw error;
 
-      // Also update the latest BUY trade for this symbol so user Trade History reflects the change
-      const editedPosition = positions.find(p => p.id === editingPosition);
-      if (editedPosition) {
-        const { data: lastBuy, error: buyFetchErr } = await supabase
-          .from('trades')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('symbol', editedPosition.symbol)
-          .eq('trade_type', 'buy')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      // Record an adjustment trade to reflect this change in user's trade history
+      const { error: tradeError } = await supabase
+        .from('trades')
+        .insert({
+          user_id: userId,
+          symbol: position.symbol,
+          coin_name: position.coin_name,
+          trade_type: 'adjustment',
+          quantity: position.amount,
+          price: newCurrentPrice,
+          total_amount: newCurrentValue,
+          status: 'completed',
+        });
 
-        if (buyFetchErr) {
-          console.warn('Could not fetch latest buy trade (will insert adjustment instead):', buyFetchErr);
-        }
-
-        const qty = Number(editingValues.amount ?? editedPosition.amount);
-        const buyPrice = Number(editingValues.buy_price ?? editedPosition.buy_price);
-        const totalAmt = qty * buyPrice;
-
-        if (lastBuy?.id) {
-          const { error: tradeUpdateErr } = await supabase
-            .from('trades')
-            .update({
-              quantity: qty,
-              price: buyPrice,
-              total_amount: totalAmt,
-              updated_at: new Date().toISOString(),
-              status: 'completed',
-            })
-            .eq('id', lastBuy.id);
-          if (tradeUpdateErr) {
-            console.warn('Failed to update latest buy trade, inserting adjustment instead:', tradeUpdateErr);
-            await supabase.from('trades').insert({
-              user_id: userId,
-              symbol: editedPosition.symbol,
-              coin_name: editedPosition.coin_name,
-              trade_type: 'adjustment',
-              quantity: qty,
-              price: buyPrice,
-              total_amount: totalAmt,
-              status: 'completed',
-            });
-          }
-        } else {
-          // No previous buy trade found, record an adjustment
-          await supabase.from('trades').insert({
-            user_id: userId,
-            symbol: editedPosition.symbol,
-            coin_name: editedPosition.coin_name,
-            trade_type: 'adjustment',
-            quantity: qty,
-            price: buyPrice,
-            total_amount: totalAmt,
-            status: 'completed',
-          });
-        }
+      if (tradeError) {
+        console.warn('Failed to record adjustment trade:', tradeError);
       }
 
       toast({
-        title: "Position updated successfully",
-        description: "Changes saved and reflected in user's view",
+        title: "P&L adjusted successfully",
+        description: `${percentageChange > 0 ? 'Increased' : 'Decreased'} P&L by ${Math.abs(percentageChange)}%`,
       });
 
-      // Refresh data and notify UIs
+      // Refresh data
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] }),
-        queryClient.invalidateQueries({ queryKey: ['portfolio'] }),
+        queryClient.invalidateQueries({ queryKey: ['portfolio-positions'] }),
         queryClient.invalidateQueries({ queryKey: ['my-trades'] }),
         queryClient.invalidateQueries({ queryKey: ['trades'] }),
       ]);
       
       fetchPositions();
-      setEditingPosition(null);
-      setEditingValues({});
-      
+
     } catch (error: any) {
-      console.error('Error updating position:', error);
+      console.error('Error adjusting position:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update position",
+        description: error.message || "Failed to adjust position",
         variant: "destructive"
       });
     } finally {
-      setSavingEdit(false);
+      setAdjustingPosition(null);
     }
   };
 
@@ -334,6 +286,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                   <TableHead className="text-right">Investment</TableHead>
                   <TableHead className="text-right">Current Value</TableHead>
                   <TableHead className="text-right">P&L</TableHead>
+                  <TableHead>P&L Adjust</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -363,142 +316,60 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      {editingPosition === position.id ? (
-                        <Input
-                          type="number"
-                          step="0.000001"
-                          value={editingValues.amount || 0}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, amount: Number(e.target.value) }))}
-                          className="w-20 text-right"
-                        />
-                      ) : (
-                        Number(position.amount).toFixed(6)
-                      )}
+                      {Number(position.amount).toFixed(6)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {editingPosition === position.id ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editingValues.buy_price || 0}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, buy_price: Number(e.target.value) }))}
-                          className="w-20 text-right"
-                        />
-                      ) : (
-                        `₹${Number(position.buy_price).toFixed(2)}`
-                      )}
+                      ₹{Number(position.buy_price).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {editingPosition === position.id ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editingValues.current_price || 0}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, current_price: Number(e.target.value) }))}
-                          className="w-20 text-right"
-                        />
-                      ) : (
-                        `₹${Number(position.current_price).toFixed(2)}`
-                      )}
+                      ₹{Number(position.current_price).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {editingPosition === position.id ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editingValues.total_investment || 0}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, total_investment: Number(e.target.value) }))}
-                          className="w-24 text-right"
-                        />
-                      ) : (
-                        `₹${Number(position.total_investment).toFixed(2)}`
-                      )}
+                      ₹{Number(position.total_investment).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {editingPosition === position.id ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={editingValues.current_value || 0}
-                          onChange={(e) => setEditingValues(prev => ({ ...prev, current_value: Number(e.target.value) }))}
-                          className="w-24 text-right"
-                        />
-                      ) : (
-                        `₹${Number(position.current_value).toFixed(2)}`
-                      )}
+                      ₹{Number(position.current_value).toFixed(2)}
                     </TableCell>
                     <TableCell className={`text-right ${Number(position.pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {editingPosition === position.id ? (
-                        <div className="space-y-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={editingValues.pnl || 0}
-                            onChange={(e) => setEditingValues(prev => ({ ...prev, pnl: Number(e.target.value) }))}
-                            className="w-20 text-right"
-                          />
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={editingValues.pnl_percentage || 0}
-                            onChange={(e) => setEditingValues(prev => ({ ...prev, pnl_percentage: Number(e.target.value) }))}
-                            className="w-16 text-right text-xs"
-                            placeholder="%"
-                          />
-                        </div>
-                      ) : (
-                        <>
-                          ₹{Number(position.pnl).toFixed(2)}
-                          <div className="text-xs">
-                            ({Number(position.pnl_percentage).toFixed(2)}%)
-                          </div>
-                        </>
-                      )}
+                      ₹{Number(position.pnl).toFixed(2)}
+                      <div className="text-xs">
+                        ({Number(position.pnl_percentage).toFixed(2)}%)
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        {editingPosition === position.id ? (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={saveEdit}
-                              disabled={savingEdit}
-                            >
-                              <Save className="h-4 w-4 mr-1" />
-                              {savingEdit ? 'Saving...' : 'Save'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={cancelEdit}
-                              disabled={savingEdit}
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => startEdit(position)}
-                              disabled={closingPosition === position.id || editingPosition !== null}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => closePosition(position.id, position.symbol, position.position_type)}
-                              disabled={closingPosition === position.id || editingPosition !== null}
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              {closingPosition === position.id ? 'Closing...' : 'Close'}
-                            </Button>
-                          </>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => adjustPnlPercentage(position.id, 5)}
+                          disabled={adjustingPosition === position.id}
+                          className="text-green-600 hover:text-green-700"
+                          title="Increase P&L by 5%"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => adjustPnlPercentage(position.id, -5)}
+                          disabled={adjustingPosition === position.id}
+                          className="text-red-600 hover:text-red-700"
+                          title="Decrease P&L by 5%"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => closePosition(position.id, position.symbol, position.position_type)}
+                        disabled={closingPosition === position.id}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        {closingPosition === position.id ? 'Closing...' : 'Close'}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
