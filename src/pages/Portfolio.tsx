@@ -145,8 +145,8 @@ const Portfolio = () => {
     if (!user) return;
 
     try {
-      const livePrice = prices[position.symbol]?.price || position.current_price;
-      const proceeds = position.amount * livePrice;
+      // Use current_value which includes P&L (profit/loss)
+      const proceeds = position.current_value;
 
       // Delete the position
       const { error: positionError } = await supabase
@@ -184,7 +184,7 @@ const Portfolio = () => {
           coin_name: position.coin_name,
           trade_type: 'sell',
           quantity: position.amount,
-          price: livePrice,
+          price: position.current_price,
           total_amount: proceeds,
           status: 'completed',
         });

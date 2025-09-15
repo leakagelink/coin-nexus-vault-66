@@ -233,7 +233,9 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
         }
 
         const newAmount = Number(existingPosition.amount) - parsedQty;
-        const proceeds = parsedQty * parsedPrice;
+        // Calculate proportional proceeds based on current_value (includes P&L)
+        const sellRatio = parsedQty / Number(existingPosition.amount);
+        const proceeds = Number(existingPosition.current_value) * sellRatio;
 
         if (newAmount === 0) {
           // Close position completely
