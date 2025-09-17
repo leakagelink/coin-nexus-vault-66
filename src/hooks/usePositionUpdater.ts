@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useLCWPrices } from './useLCWPrices';
+import { useRealTimePrices } from './useRealTimePrices';
 
 export const usePositionUpdater = (userId?: string) => {
-  const { prices } = useLCWPrices();
+  const { prices } = useRealTimePrices();
   const queryClient = useQueryClient();
 
   useEffect(() => {
