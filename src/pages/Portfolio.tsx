@@ -83,42 +83,9 @@ const Portfolio = () => {
     };
   }, [user, refetch]);
 
-  // Update positions with live prices - respect admin edits
-  const updatedPositions = positions?.map(position => {
-    // Live price from LCW is in USDT; convert to INR when available
-    const usdPrice = prices[position.symbol]?.price;
-    const livePriceINR = usdPrice ? usdPrice * 84 : Number(position.current_price);
+  // Use server-calculated fields; avoid double-applying admin adjustments
+  const updatedPositions = positions;
 
-    // Compute base values from live price or fallback
-    const baseCurrentValue = Number(position.amount) * livePriceINR;
-    const basePnL = baseCurrentValue - Number(position.total_investment);
-    const basePnLPercentage = Number(position.total_investment) > 0 ? (basePnL / Number(position.total_investment)) * 100 : 0;
-
-    const adminAdj = Number(position.admin_adjustment_pct || 0);
-
-    if (adminAdj !== 0) {
-      const adjPnlPercentage = basePnLPercentage + adminAdj;
-      const adjPnl = (adjPnlPercentage / 100) * Number(position.total_investment);
-      const adjCurrentValue = Number(position.total_investment) + adjPnl;
-      const adjCurrentPrice = adjCurrentValue / Number(position.amount || 1);
-
-      return {
-        ...position,
-        current_price: adjCurrentPrice,
-        current_value: adjCurrentValue,
-        pnl: adjPnl,
-        pnl_percentage: adjPnlPercentage,
-      };
-    }
-
-    return {
-      ...position,
-      current_price: livePriceINR,
-      current_value: baseCurrentValue,
-      pnl: basePnL,
-      pnl_percentage: basePnLPercentage,
-    };
-  });
 
   const totalInvestment = updatedPositions?.reduce((sum, p) => sum + p.total_investment, 0) || 0;
   const totalCurrentValue = updatedPositions?.reduce((sum, p) => sum + p.current_value, 0) || 0;
@@ -126,11 +93,11 @@ const Portfolio = () => {
   const totalPnLPercentage = totalInvestment > 0 ? (totalPnL / totalInvestment) * 100 : 0;
 
   const handleTradeClick = (position: PortfolioPosition) => {
-    const livePrice = prices[position.symbol]?.price || position.current_price;
+    const livePriceUSD = prices[position.symbol]?.price ?? (Number(position.current_price) / 84);
     setSelectedCrypto({
       symbol: position.symbol + 'USDT',
       name: position.coin_name,
-      currentPrice: livePrice,
+      currentPrice: livePriceUSD,
     });
     setIsTradingModalOpen(true);
   };

@@ -37,7 +37,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   const { toast } = useToast();
   const [quantity, setQuantity] = useState('');
   const [amount, setAmount] = useState('');
-  const [price, setPrice] = useState(currentPrice.toString());
+  const [priceInINR, setPriceInINR] = useState((currentPrice * 84).toString());
   const [isLoading, setIsLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [mode, setMode] = useState<TradeMode>('quantity');
@@ -112,24 +112,24 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   // Keep price in sync with currentPrice when modal opens/changes
   useEffect(() => {
     if (isOpen) {
-      setPrice(currentPrice.toString());
+      setPriceInINR((currentPrice * 84).toString());
     }
   }, [isOpen, currentPrice]);
 
-  const parsedPrice = parseFloat(price || '0');
+  const parsedPriceINR = parseFloat(priceInINR || '0');
   const parsedQty = parseFloat(quantity || '0');
   const parsedAmount = parseFloat(amount || '0');
 
   const computed = {
-    qty: mode === 'amount' ? (parsedPrice > 0 ? parsedAmount / parsedPrice : 0) : parsedQty,
-    total: mode === 'amount' ? parsedAmount : parsedQty * parsedPrice,
+    qty: mode === 'amount' ? (parsedPriceINR > 0 ? parsedAmount / parsedPriceINR : 0) : parsedQty,
+    total: mode === 'amount' ? parsedAmount : parsedQty * parsedPriceINR,
   };
 
   const symbolPure = symbol.replace('USDT', '');
 
   const setMaxForBalance = () => {
-    if (!parsedPrice || parsedPrice <= 0) return;
-    const maxQty = walletBalance / parsedPrice;
+    if (!parsedPriceINR || parsedPriceINR <= 0) return;
+    const maxQty = walletBalance / parsedPriceINR;
     if (mode === 'amount') {
       setAmount(walletBalance.toFixed(2));
     } else {
@@ -148,7 +148,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
     
     const maxSellQty = Number(existingPosition.amount);
     if (mode === 'amount') {
-      setAmount((maxSellQty * parsedPrice).toFixed(2));
+      setAmount((maxSellQty * parsedPriceINR).toFixed(2));
     } else {
       setQuantity(maxSellQty.toString());
     }
@@ -185,7 +185,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   };
 
   const handleBuy = async () => {
-    if (!user || !price) {
+    if (!user || !priceInINR) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -202,27 +202,18 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       return;
     }
 
-    // Check minimum trade amounts based on coin type
-    const minimumAmount = getMinimumTradeAmount(symbolPure);
-    if (totalCost < minimumAmount) {
+    // Check minimum trade amounts based on coin type (in USD)
+    const minimumAmountUSD = getMinimumTradeAmount(symbolPure);
+    const totalCostUSD = totalCost / 84;
+    if (totalCostUSD < minimumAmountUSD) {
       toast({
         title: 'Minimum amount required',
-        description: `Minimum trade amount for ${symbolPure} is $${minimumAmount}`,
+        description: `Minimum trade amount for ${symbolPure} is $${minimumAmountUSD}`,
         variant: 'destructive',
       });
       return;
     }
 
-    // Check if user has sufficient balance
-    const userBalanceInUSD = walletBalance / 84;
-    if (userBalanceInUSD < totalCost) {
-      toast({
-        title: 'Insufficient balance',
-        description: `You need $${totalCost.toFixed(2)} but only have $${userBalanceInUSD.toFixed(2)} available`,
-        variant: 'destructive',
-      });
-      return;
-    }
 
     if (walletBalance < totalCost) {
       toast({
@@ -235,24 +226,24 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
     setIsLoading(true);
     try {
-      const buyPrice = parseFloat(price);
+      const buyPriceINR = parseFloat(priceInINR);
 
       if (existingPosition) {
         const oldQty = Number(existingPosition.amount);
         const newQty = oldQty + qty;
         const newTotalInvestment = Number(existingPosition.total_investment || (oldQty * Number(existingPosition.buy_price))) + totalCost;
-        const newAvgPrice = newQty > 0 ? newTotalInvestment / newQty : buyPrice;
+        const newAvgPriceINR = newQty > 0 ? newTotalInvestment / newQty : buyPriceINR;
 
         const { error } = await supabase
           .from('portfolio_positions')
           .update({
             amount: newQty,
-            buy_price: newAvgPrice,
-            current_price: buyPrice,
+            buy_price: newAvgPriceINR,
+            current_price: buyPriceINR,
             total_investment: newTotalInvestment,
-            current_value: newQty * buyPrice,
-            pnl: (newQty * buyPrice) - newTotalInvestment,
-            pnl_percentage: newTotalInvestment > 0 ? (((newQty * buyPrice) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
+            current_value: newQty * buyPriceINR,
+            pnl: (newQty * buyPriceINR) - newTotalInvestment,
+            pnl_percentage: newTotalInvestment > 0 ? (((newQty * buyPriceINR) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingPosition.id);
@@ -265,10 +256,10 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
             symbol: symbolPure,
             coin_name: name,
             amount: qty,
-            buy_price: buyPrice,
-            current_price: buyPrice,
+            buy_price: buyPriceINR,
+            current_price: buyPriceINR,
             total_investment: totalCost,
-            current_value: qty * buyPrice,
+            current_value: qty * buyPriceINR,
             pnl: 0,
             pnl_percentage: 0,
           });
@@ -276,7 +267,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       }
 
       await updateWallet(walletBalance - totalCost);
-      await recordTrade('buy', qty, buyPrice, totalCost);
+      await recordTrade('buy', qty, buyPriceINR, totalCost);
 
       toast({
         title: "Success",
@@ -299,7 +290,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   };
 
   const handleSell = async () => {
-    if (!user || !price) {
+    if (!user || !priceInINR) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -334,9 +325,10 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
     setIsLoading(true);
     try {
-      const sellPrice = parseFloat(price);
+      const sellPriceINR = parseFloat(priceInINR);
       const newAmount = Number(existingPosition.amount) - qty;
-      const proceeds = qty * sellPrice;
+      const sellRatio = qty / Number(existingPosition.amount);
+      const proceeds = Number(existingPosition.current_value) * sellRatio;
 
       if (newAmount === 0) {
         const { error } = await supabase
@@ -350,15 +342,17 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           Number(existingPosition.total_investment || (Number(existingPosition.amount) * Number(existingPosition.buy_price))) -
             (qty * Number(existingPosition.buy_price))
         );
+        const newCurrentValue = Number(existingPosition.current_value) - proceeds;
+        const newCurrentPrice = newAmount > 0 ? newCurrentValue / newAmount : sellPriceINR;
         const { error } = await supabase
           .from('portfolio_positions')
           .update({
             amount: newAmount,
-            current_price: sellPrice,
-            current_value: newAmount * sellPrice,
+            current_price: newCurrentPrice,
+            current_value: newCurrentValue,
             total_investment: newTotalInvestment,
-            pnl: (newAmount * sellPrice) - newTotalInvestment,
-            pnl_percentage: newTotalInvestment > 0 ? (((newAmount * sellPrice) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
+            pnl: newCurrentValue - newTotalInvestment,
+            pnl_percentage: newTotalInvestment > 0 ? ((newCurrentValue - newTotalInvestment) / newTotalInvestment) * 100 : 0,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingPosition.id);
@@ -367,7 +361,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       }
 
       await updateWallet(walletBalance + proceeds);
-      await recordTrade('sell', qty, sellPrice, proceeds);
+      await recordTrade('sell', qty, sellPriceINR, proceeds);
 
       toast({
         title: "Success",
@@ -432,8 +426,8 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
               <Input
                 id="buy-price"
                 type="number"
-                value={(parseFloat(price) * 84).toFixed(2)}
-                onChange={(e) => setPrice((parseFloat(e.target.value) / 84).toString())}
+                value={Number(priceInINR).toFixed(2)}
+                onChange={(e) => setPriceInINR(e.target.value)}
                 step="0.01"
               />
             </div>
@@ -473,7 +467,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
               </div>
             )}
             <div className="text-sm text-muted-foreground">
-              Total: ₹{(computed.total * 84).toFixed(2)}
+              Total: ₹{computed.total.toFixed(2)}
               {computed.qty > 0 && <span className="ml-2">(~{computed.qty.toFixed(6)} {symbolPure})</span>}
             </div>
             <Button 
@@ -491,8 +485,8 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
               <Input
                 id="sell-price"
                 type="number"
-                value={(parseFloat(price) * 84).toFixed(2)}
-                onChange={(e) => setPrice((parseFloat(e.target.value) / 84).toString())}
+                value={Number(priceInINR).toFixed(2)}
+                onChange={(e) => setPriceInINR(e.target.value)}
                 step="0.01"
               />
             </div>
@@ -532,7 +526,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
               </div>
             )}
             <div className="text-sm text-muted-foreground">
-              Total: ₹{(computed.total * 84).toFixed(2)}
+              Total: ₹{computed.total.toFixed(2)}
               {computed.qty > 0 && <span className="ml-2">(~{computed.qty.toFixed(6)} {symbolPure})</span>}
             </div>
             <Button 
