@@ -185,7 +185,10 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   };
 
   const handleBuy = async () => {
+    console.log('[TradingModal] handleBuy called', { user: !!user, priceInINR, quantity, amount, walletBalance });
+    
     if (!user || !priceInINR) {
+      console.log('[TradingModal] Missing user or price', { user: !!user, priceInINR });
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -196,8 +199,11 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
     const qty = Number(computed.qty);
     const totalCost = Number(computed.total);
+    
+    console.log('[TradingModal] Buy calculations', { qty, totalCost, computed, symbolPure });
 
     if (qty <= 0 || totalCost <= 0) {
+      console.log('[TradingModal] Invalid quantity or total', { qty, totalCost });
       toast({ title: 'Invalid input', description: 'Enter a valid quantity or amount', variant: 'destructive' });
       return;
     }
@@ -205,7 +211,10 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
     // Check minimum trade amounts based on coin type (in USD)
     const minimumAmountUSD = getMinimumTradeAmount(symbolPure);
     const totalCostUSD = totalCost / 84;
+    console.log('[TradingModal] Minimum check', { minimumAmountUSD, totalCostUSD, symbolPure });
+    
     if (totalCostUSD < minimumAmountUSD) {
+      console.log('[TradingModal] Below minimum amount', { totalCostUSD, minimumAmountUSD });
       toast({
         title: 'Minimum amount required',
         description: `Minimum trade amount for ${symbolPure} is $${minimumAmountUSD}`,
@@ -216,6 +225,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
 
     if (walletBalance < totalCost) {
+      console.log('[TradingModal] Insufficient balance', { walletBalance, totalCost });
       toast({
         title: 'Insufficient balance',
         description: `You need ₹${totalCost.toFixed(2)} but only have ₹${walletBalance.toFixed(2)}.`,
@@ -223,6 +233,8 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       });
       return;
     }
+
+    console.log('[TradingModal] All checks passed, proceeding with buy');
 
     setIsLoading(true);
     try {
