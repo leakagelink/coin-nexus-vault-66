@@ -20,16 +20,14 @@ interface TradingModalProps {
 type TradeMode = 'quantity' | 'amount';
 
 const getMinimumTradeAmount = (symbol: string): number => {
-  // XRP and DOGE: minimum $50
+  // Lower, user-friendly minimums (USD)
   if (['XRP', 'DOGE'].includes(symbol)) {
-    return 50;
+    return 5; // ~$5
   }
-  // BTC and ETH: minimum $350
   if (['BTC', 'ETH'].includes(symbol)) {
-    return 350;
+    return 25; // ~$25
   }
-  // All other coins: minimum $150
-  return 150;
+  return 10; // Default ~$10 for others
 };
 
 export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: TradingModalProps) {
