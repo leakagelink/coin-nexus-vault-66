@@ -91,22 +91,14 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         throw new Error('Position not found');
       }
 
-      // Increment admin adjustment and derived values
+      // Only update admin adjustment percentage - let the database trigger handle all derived calculations
       const newAdminAdjustment = (position.admin_adjustment_pct || 0) + percentageChange;
-      const newPnlPercentage = (Number(position.pnl_percentage) || 0) + percentageChange;
-      const newPnl = (newPnlPercentage / 100) * Number(position.total_investment);
-      const newCurrentValue = Number(position.total_investment) + newPnl;
-      const newCurrentPrice = newCurrentValue / Number(position.amount || 1);
 
-      // Update the position with admin adjustment and derived fields
+      // Update only the admin adjustment - the trigger will recalculate everything else
       const { error } = await supabase
         .from('portfolio_positions')
         .update({
           admin_adjustment_pct: newAdminAdjustment,
-          current_price: newCurrentPrice,
-          current_value: newCurrentValue,
-          pnl: newPnl,
-          pnl_percentage: newPnlPercentage,
           updated_at: new Date().toISOString(),
         })
         .eq('id', positionId);
@@ -123,7 +115,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
           trade_type: 'adjustment',
           quantity: position.amount,
           price: position.current_price,
-          total_amount: position.total_investment + newPnl,
+          total_amount: position.total_investment,
           status: 'completed',
         });
 
