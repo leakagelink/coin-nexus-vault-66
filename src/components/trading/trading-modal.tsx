@@ -19,15 +19,8 @@ interface TradingModalProps {
 
 type TradeMode = 'quantity' | 'amount';
 
-const getMinimumTradeAmount = (symbol: string): number => {
-  // Lower, user-friendly minimums (USD)
-  if (['XRP', 'DOGE'].includes(symbol)) {
-    return 5; // ~$5
-  }
-  if (['BTC', 'ETH'].includes(symbol)) {
-    return 25; // ~$25
-  }
-  return 10; // Default ~$10 for others
+const getMinimumTradeAmount = (_symbol: string): number => {
+  return 1; // Flat $1 minimum to ensure buys work easily
 };
 
 export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: TradingModalProps) {
@@ -38,7 +31,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   const [priceInINR, setPriceInINR] = useState((currentPrice * 84).toString());
   const [isLoading, setIsLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
-  const [mode, setMode] = useState<TradeMode>('quantity');
+  const [mode, setMode] = useState<TradeMode>('amount');
   const [existingPosition, setExistingPosition] = useState<any>(null);
 
   // Fetch wallet balance and existing position when modal opens
@@ -111,8 +104,13 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   useEffect(() => {
     if (isOpen) {
       setPriceInINR((currentPrice * 84).toString());
+      const sp = symbol.replace('USDT', '');
+      const minInr = getMinimumTradeAmount(sp) * 84;
+      setMode('amount');
+      setAmount(minInr.toFixed(2));
+      setQuantity('');
     }
-  }, [isOpen, currentPrice]);
+  }, [isOpen, currentPrice, symbol]);
 
   const parsedPriceINR = parseFloat(priceInINR || '0');
   const parsedQty = parseFloat(quantity || '0');
