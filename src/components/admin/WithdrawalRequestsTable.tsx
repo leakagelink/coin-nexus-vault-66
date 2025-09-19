@@ -27,6 +27,19 @@ interface WithdrawalRequest {
   updated_at: string;
   processed_at: string | null;
   wallet_updated: boolean | null;
+  payment_method: string | null;
+  upi_id: string | null;
+  usdt_address: string | null;
+  profiles?: {
+    email?: string;
+    display_name?: string;
+  } | null;
+  bank_accounts?: {
+    account_holder_name?: string;
+    bank_name?: string;
+    account_number?: string;
+    ifsc_code?: string;
+  } | null;
 }
 
 export function WithdrawalRequestsTable() {
@@ -39,13 +52,62 @@ export function WithdrawalRequestsTable() {
     queryKey: ["admin-withdrawal-requests", user?.id],
     queryFn: async () => {
       console.log("Fetching withdrawal requests for admin...");
-      const { data, error } = await supabase
+      
+      // Fetch withdrawal requests
+      const { data: withdrawalData, error: withdrawalError } = await supabase
         .from("withdrawal_requests")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw error;
-      console.log(`Loaded ${data?.length || 0} withdrawal requests`);
-      return data as WithdrawalRequest[];
+      
+      if (withdrawalError) throw withdrawalError;
+      
+      if (!withdrawalData || withdrawalData.length === 0) {
+        return [];
+      }
+      
+      // Get unique user IDs
+      const userIds = [...new Set(withdrawalData.map(req => req.user_id))];
+      
+      // Fetch user profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email, display_name")
+        .in("id", userIds);
+      
+      if (profilesError) {
+        console.warn("Could not fetch profiles:", profilesError);
+      }
+      
+      // Get unique bank account IDs
+      const bankIds = withdrawalData
+        .map(req => req.bank_account_id)
+        .filter(id => id !== null);
+      
+      let bankAccountsData = [];
+      if (bankIds.length > 0) {
+        const { data: banksData, error: banksError } = await supabase
+          .from("bank_accounts")
+          .select("id, account_holder_name, bank_name, account_number, ifsc_code")
+          .in("id", bankIds);
+        
+        if (banksError) {
+          console.warn("Could not fetch bank accounts:", banksError);
+        } else {
+          bankAccountsData = banksData || [];
+        }
+      }
+      
+      // Combine the data
+      const combinedData = withdrawalData.map(req => ({
+        ...req,
+        profiles: profilesData?.find(p => p.id === req.user_id) || null,
+        bank_accounts: req.bank_account_id 
+          ? bankAccountsData.find(b => b.id === req.bank_account_id) || null 
+          : null
+      }));
+      
+      console.log(`Loaded ${combinedData.length} withdrawal requests with user data`);
+      return combinedData;
     },
     enabled: !!user, // ensure we query after auth so RLS allows admin
     staleTime: 0,
@@ -114,8 +176,10 @@ export function WithdrawalRequestsTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Created</TableHead>
-                  <TableHead>User</TableHead>
+                  <TableHead>User Email</TableHead>
                   <TableHead>Amount</TableHead>
+                  <TableHead>Payment Method</TableHead>
+                  <TableHead>Payment Details</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -126,9 +190,31 @@ export function WithdrawalRequestsTable() {
                     <TableCell className="whitespace-nowrap text-sm">
                       {new Date(req.created_at).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-xs break-all">{req.user_id}</TableCell>
+                    <TableCell className="text-sm">
+                      {req.profiles?.email || req.profiles?.display_name || req.user_id}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
                       ₹{Number(req.amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap capitalize">
+                      {req.payment_method || 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {req.payment_method === 'UPI' && req.upi_id && (
+                        <div>UPI: {req.upi_id}</div>
+                      )}
+                      {req.payment_method === 'Bank Account' && req.bank_accounts && (
+                        <div className="space-y-1">
+                          <div>Bank: {req.bank_accounts.bank_name}</div>
+                          <div>A/C: {req.bank_accounts.account_number}</div>
+                          <div>IFSC: {req.bank_accounts.ifsc_code}</div>
+                          <div>Holder: {req.bank_accounts.account_holder_name}</div>
+                        </div>
+                      )}
+                      {req.payment_method === 'USDT' && req.usdt_address && (
+                        <div>USDT: {req.usdt_address}</div>
+                      )}
+                      {!req.payment_method && 'No details available'}
                     </TableCell>
                     <TableCell className="whitespace-nowrap capitalize">
                       {req.status}
