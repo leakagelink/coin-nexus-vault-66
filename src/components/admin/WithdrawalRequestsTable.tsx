@@ -83,6 +83,8 @@ export function WithdrawalRequestsTable() {
         .map(req => req.bank_account_id)
         .filter(id => id !== null);
       
+      console.log("Bank account IDs found:", bankIds);
+      
       let bankAccountsData = [];
       if (bankIds.length > 0) {
         const { data: banksData, error: banksError } = await supabase
@@ -91,9 +93,10 @@ export function WithdrawalRequestsTable() {
           .in("id", bankIds);
         
         if (banksError) {
-          console.warn("Could not fetch bank accounts:", banksError);
+          console.error("Could not fetch bank accounts:", banksError);
         } else {
           bankAccountsData = banksData || [];
+          console.log("Fetched bank accounts:", bankAccountsData);
         }
       }
       
@@ -205,11 +208,14 @@ export function WithdrawalRequestsTable() {
                       )}
                       {req.payment_method === 'Bank Account' && req.bank_accounts && (
                         <div className="space-y-1">
-                          <div>Bank: {req.bank_accounts.bank_name}</div>
-                          <div>A/C: {req.bank_accounts.account_number}</div>
-                          <div>IFSC: {req.bank_accounts.ifsc_code}</div>
-                          <div>Holder: {req.bank_accounts.account_holder_name}</div>
+                          <div><strong>Bank:</strong> {req.bank_accounts.bank_name}</div>
+                          <div><strong>A/C:</strong> {req.bank_accounts.account_number}</div>
+                          <div><strong>IFSC:</strong> {req.bank_accounts.ifsc_code}</div>
+                          <div><strong>Holder:</strong> {req.bank_accounts.account_holder_name}</div>
                         </div>
+                      )}
+                      {req.payment_method === 'Bank Account' && !req.bank_accounts && req.bank_account_id && (
+                        <div className="text-red-500 text-xs">Bank details not found</div>
                       )}
                       {req.payment_method === 'USDT' && req.usdt_address && (
                         <div>USDT: {req.usdt_address}</div>
