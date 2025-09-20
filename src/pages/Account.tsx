@@ -7,6 +7,7 @@ import { ProfileSection } from "@/components/account/profile-section";
 import { BankAccountsSection } from "@/components/account/bank-accounts-section";
 import { PrivacyPolicy } from "@/components/account/privacy-policy";
 import { TermsConditions } from "@/components/account/terms-conditions";
+import { PasswordChangeModal } from "@/components/account/password-change-modal";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 const Account = () => {
   const { user, signOut } = useAuth();
   const [activeSection, setActiveSection] = useState<string>('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const { data: orders } = useQuery({
     queryKey: ['user-orders', user?.id],
@@ -46,8 +48,7 @@ const Account = () => {
   };
 
   const handlePasswordChange = () => {
-    // Redirect to password change
-    alert('Password change functionality will be implemented');
+    setShowPasswordModal(true);
   };
 
   const handleAppDownload = async () => {
@@ -338,6 +339,11 @@ const Account = () => {
             <TermsConditions />
           </div>
         )}
+        
+        <PasswordChangeModal 
+          isOpen={showPasswordModal} 
+          onClose={() => setShowPasswordModal(false)} 
+        />
       </div>
     </Layout>
   );
