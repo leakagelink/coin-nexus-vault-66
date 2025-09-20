@@ -27,6 +27,10 @@ interface DepositRequest {
   updated_at: string;
   processed_at: string | null;
   wallet_updated: boolean | null;
+  profiles?: {
+    email?: string;
+    display_name?: string;
+  } | null;
 }
 
 export function DepositRequestsTable() {
@@ -36,13 +40,41 @@ export function DepositRequestsTable() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-deposit-requests", user?.id],
     queryFn: async () => {
-      // Admin can view all, per RLS policy
-      const { data, error } = await supabase
+      console.log("Fetching deposit requests for admin...");
+      
+      // Fetch deposit requests
+      const { data: depositData, error: depositError } = await supabase
         .from("deposit_requests")
         .select("*")
         .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as DepositRequest[];
+      
+      if (depositError) throw depositError;
+      
+      if (!depositData || depositData.length === 0) {
+        return [];
+      }
+      
+      // Get unique user IDs
+      const userIds = [...new Set(depositData.map(req => req.user_id))];
+      
+      // Fetch user profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email, display_name")
+        .in("id", userIds);
+      
+      if (profilesError) {
+        console.warn("Could not fetch profiles:", profilesError);
+      }
+      
+      // Combine the data
+      const combinedData = depositData.map(req => ({
+        ...req,
+        profiles: profilesData?.find(p => p.id === req.user_id) || null
+      }));
+      
+      console.log(`Loaded ${combinedData.length} deposit requests with user data`);
+      return combinedData;
     },
     enabled: !!user,
     staleTime: 0,
@@ -133,7 +165,7 @@ export function DepositRequestsTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Created</TableHead>
-                  <TableHead>User</TableHead>
+                  <TableHead>User Email</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
                   <TableHead>Status</TableHead>
@@ -146,7 +178,9 @@ export function DepositRequestsTable() {
                     <TableCell className="whitespace-nowrap text-sm">
                       {new Date(req.created_at).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-xs break-all">{req.user_id}</TableCell>
+                    <TableCell className="text-sm">
+                      {req.profiles?.email || req.profiles?.display_name || req.user_id}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
                       ₹{Number(req.amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                     </TableCell>
