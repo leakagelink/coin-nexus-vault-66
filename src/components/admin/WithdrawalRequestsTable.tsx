@@ -110,6 +110,7 @@ export function WithdrawalRequestsTable() {
       }));
       
       console.log(`Loaded ${combinedData.length} withdrawal requests with user data`);
+      console.log("Sample combined data:", combinedData.slice(0, 2));
       return combinedData;
     },
     enabled: !!user, // ensure we query after auth so RLS allows admin
