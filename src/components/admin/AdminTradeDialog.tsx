@@ -316,11 +316,16 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
         description: `${tradeType.toUpperCase()} ${positionType.toUpperCase()}: ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for ${userLabel}`,
       });
 
-      // Refresh all relevant queries
+      // Refresh all relevant queries to update portfolio dashboard
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] }),
         queryClient.invalidateQueries({ queryKey: ['portfolio'] }),
+        queryClient.invalidateQueries({ queryKey: ['portfolio-positions'] }),
+        queryClient.invalidateQueries({ queryKey: ['portfolio-positions', userId] }),
         queryClient.invalidateQueries({ queryKey: ['trades'] }),
+        queryClient.invalidateQueries({ queryKey: ['trades', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['wallet', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['my-trades'] }),
       ]);
       
       // Reset form and close dialog
