@@ -80,30 +80,6 @@ export function PortfolioSummary() {
       change: 0,
       changeType: "neutral" as const,
     },
-    {
-      title: "Total Investment",
-      value: totalInvestment,
-      usdtValue: totalInvestment / 84,
-      icon: Activity,
-      change: 0,
-      changeType: "neutral" as const,
-    },
-    {
-      title: "Current Value",
-      value: totalCurrentValue,
-      usdtValue: totalCurrentValue / 84,
-      icon: totalPnL >= 0 ? TrendingUp : TrendingDown,
-      change: totalPnLPercent,
-      changeType: totalPnL >= 0 ? "positive" : "negative" as const,
-    },
-    {
-      title: "Total P&L",
-      value: totalPnL,
-      usdtValue: totalPnL / 84,
-      icon: totalPnL >= 0 ? TrendingUp : TrendingDown,
-      change: totalPnLPercent,
-      changeType: totalPnL >= 0 ? "positive" : "negative" as const,
-    },
   ];
 
   return (
@@ -128,12 +104,7 @@ export function PortfolioSummary() {
                     ₹{stat.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   </div>
                   {stat.change !== 0 && (
-                    <p className={`text-xs flex items-center gap-1 ${
-                      stat.changeType === 'positive' ? 'text-green-600' : 
-                      stat.changeType === 'negative' ? 'text-red-600' : 
-                      'text-muted-foreground'
-                    }`}>
-                      {stat.changeType === 'positive' ? '↗' : stat.changeType === 'negative' ? '↘' : ''}
+                    <p className="text-xs flex items-center gap-1 text-muted-foreground">
                       {Math.abs(stat.change).toFixed(2)}%
                     </p>
                   )}

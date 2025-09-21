@@ -182,69 +182,6 @@ const Portfolio = () => {
           <h1 className="text-2xl font-bold gradient-text">Portfolio</h1>
         </div>
 
-        {/* Portfolio Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="glass">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Investment</p>
-                  <p className="text-xl font-bold">${(totalInvestment / 84).toFixed(2)} USDT</p>
-                  <p className="text-xs text-muted-foreground">₹{totalInvestment.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
-                </div>
-                <DollarSign className="h-8 w-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Current Value</p>
-                  <p className="text-xl font-bold">${(totalCurrentValue / 84).toFixed(2)} USDT</p>
-                  <p className="text-xs text-muted-foreground">₹{totalCurrentValue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
-                </div>
-                <TrendingUpIcon className="h-8 w-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total P&L</p>
-                  <p className={`text-xl font-bold ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {totalPnL >= 0 ? '+' : ''}${(totalPnL / 84).toFixed(2)} USDT
-                  </p>
-                  <p className={`text-xs text-muted-foreground ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {totalPnL >= 0 ? '+' : ''}₹{totalPnL.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-                  </p>
-                </div>
-                {totalPnL >= 0 ? (
-                  <TrendingUp className="h-8 w-8 text-green-500" />
-                ) : (
-                  <TrendingDown className="h-8 w-8 text-red-500" />
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">P&L %</p>
-                  <p className={`text-xl font-bold ${totalPnLPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {totalPnLPercentage >= 0 ? '+' : ''}{totalPnLPercentage.toFixed(2)}%
-                  </p>
-                </div>
-                <Percent className={`h-8 w-8 ${totalPnLPercentage >= 0 ? 'text-green-500' : 'text-red-500'}`} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Holdings */}
         <Card className="glass">
