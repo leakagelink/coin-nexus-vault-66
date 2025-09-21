@@ -161,6 +161,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
               pnl_percentage: pnlPercentage,
               updated_at: new Date().toISOString(),
               status: 'open',
+              admin_price_override: true, // Mark as admin-edited
             })
             .eq('id', existingPosition.id);
           
@@ -191,6 +192,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             position_type: positionType,
             status: 'open',
             trade_type: 'buy',
+            admin_price_override: true, // Mark as admin-edited
           };
 
           console.log('Creating new position with data:', positionData);
@@ -263,7 +265,8 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
               total_investment: newTotalInvestment,
               pnl: (newAmount * parsedPrice) - newTotalInvestment,
               pnl_percentage: newTotalInvestment > 0 ? (((newAmount * parsedPrice) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+              admin_price_override: true, // Mark as admin-edited
             })
             .eq('id', existingPosition.id);
           

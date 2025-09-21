@@ -99,6 +99,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         .from('portfolio_positions')
         .update({
           admin_adjustment_pct: newAdminAdjustment,
+          admin_price_override: true, // Mark as admin-edited
           updated_at: new Date().toISOString(),
         })
         .eq('id', positionId);

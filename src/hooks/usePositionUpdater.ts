@@ -23,6 +23,9 @@ export const usePositionUpdater = (userId?: string) => {
 
         // Update each position with live prices
         const updates = positions.map(async (position) => {
+          // Skip if this position has admin price override
+          if (position.admin_price_override) return;
+          
           const livePrice = prices[position.symbol]?.price;
           if (!livePrice) return;
 

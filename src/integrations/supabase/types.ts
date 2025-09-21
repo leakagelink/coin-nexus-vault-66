@@ -188,6 +188,7 @@ export type Database = {
       portfolio_positions: {
         Row: {
           admin_adjustment_pct: number
+          admin_price_override: boolean | null
           amount: number
           buy_price: number
           coin_name: string
@@ -209,6 +210,7 @@ export type Database = {
         }
         Insert: {
           admin_adjustment_pct?: number
+          admin_price_override?: boolean | null
           amount: number
           buy_price: number
           coin_name: string
@@ -230,6 +232,7 @@ export type Database = {
         }
         Update: {
           admin_adjustment_pct?: number
+          admin_price_override?: boolean | null
           amount?: number
           buy_price?: number
           coin_name?: string
