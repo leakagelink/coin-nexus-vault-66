@@ -112,7 +112,7 @@ const Portfolio = () => {
     if (!user) return;
 
     try {
-      // Use current_value which includes P&L (profit/loss)
+      // Calculate proceeds: return original investment + P&L
       const proceeds = position.current_value;
 
       // Delete the position
