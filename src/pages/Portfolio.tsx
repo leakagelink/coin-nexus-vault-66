@@ -180,22 +180,6 @@ const Portfolio = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold gradient-text">Portfolio</h1>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-muted-foreground">Live prices</span>
-              {isLive && (
-                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30 animate-pulse">
-                  LIVE
-                </Badge>
-              )}
-            </div>
-            {lastUpdate > 0 && (
-              <span className="text-xs text-primary/70">
-                Updated {Math.floor((Date.now() - lastUpdate) / 1000)}s ago
-              </span>
-            )}
-          </div>
         </div>
 
         {/* Portfolio Summary Cards */}
