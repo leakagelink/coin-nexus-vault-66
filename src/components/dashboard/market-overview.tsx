@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
-import { useBinancePrices } from "@/hooks/useBinancePrices";
+import { useRealTimePrices } from "@/hooks/useRealTimePrices";
 import { Loader2, TrendingUp, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -16,7 +16,7 @@ const cryptoMapping = {
 };
 
 export function MarketOverview() {
-  const { prices, isLoading, error, isLive, lastUpdate } = useBinancePrices();
+  const { prices, isLoading, error, isLive, lastUpdate } = useRealTimePrices();
   const navigate = useNavigate();
 
   const handleChartClick = (symbol: string, name: string) => {
@@ -161,7 +161,7 @@ export function MarketOverview() {
                   <CryptoCard
                     symbol={priceData.symbol}
                     name={crypto.name}
-                    price={priceData.price}
+                    price={priceData.price * 84}
                     change={priceData.change24h}
                     changePercent={priceData.changePercent}
                     isWatchlisted={false}
