@@ -13,6 +13,7 @@ import { useState, useEffect } from "react";
 import { TradingModal } from "@/components/trading/trading-modal";
 import { useToast } from "@/hooks/use-toast";
 import { usePositionUpdater } from "@/hooks/usePositionUpdater";
+import { useTaapiPrices } from "@/hooks/useTaapiPrices";
 
 type PortfolioPosition = {
   id: string;
@@ -86,6 +87,8 @@ const Portfolio = () => {
   // Use server-calculated fields; avoid double-applying admin adjustments
   const updatedPositions = positions;
 
+  const symbolsForTaapi = (positions || []).map(p => p.symbol);
+  const { prices: taapiPrices } = useTaapiPrices(symbolsForTaapi);
 
   const totalInvestment = updatedPositions?.reduce((sum, p) => sum + p.total_investment, 0) || 0;
   const totalCurrentValue = updatedPositions?.reduce((sum, p) => sum + p.current_value, 0) || 0;
@@ -93,7 +96,7 @@ const Portfolio = () => {
   const totalPnLPercentage = totalInvestment > 0 ? (totalPnL / totalInvestment) * 100 : 0;
 
   const handleTradeClick = (position: PortfolioPosition) => {
-    const livePriceUSD = prices[position.symbol]?.price ?? (Number(position.current_price) / 84);
+    const livePriceUSD = taapiPrices[position.symbol]?.priceUSD ?? (Number(position.current_price) / 84);
     setSelectedCrypto({
       symbol: position.symbol + 'USDT',
       name: position.coin_name,
@@ -227,12 +230,12 @@ const Portfolio = () => {
                               </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Current Price</p>
+                              <p className="text-muted-foreground">Current Price (Market)</p>
                               <p className="font-medium">
-                                ${(Number(position.current_price) / 84).toFixed(2)} USDT
+                                ${(taapiPrices[position.symbol]?.priceUSD ?? (Number(position.current_price) / 84)).toFixed(2)} USDT
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                ₹{Number(position.current_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                                ₹{(taapiPrices[position.symbol]?.priceINR ?? Number(position.current_price)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                               </p>
                             </div>
                             <div>

@@ -1,8 +1,10 @@
 
+
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
 import { useRealTimePrices } from "@/hooks/useRealTimePrices";
+import { useTaapiPrices } from "@/hooks/useTaapiPrices";
 import { Loader2, TrendingUp, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -16,7 +18,9 @@ const cryptoMapping = {
 };
 
 export function MarketOverview() {
-  const { prices, isLoading, error, isLive, lastUpdate } = useRealTimePrices();
+  const { prices: rtPrices, isLoading: rtLoading, error: rtError, isLive, lastUpdate } = useRealTimePrices();
+  const symbols = ['BTC','ETH','BNB','ADA','SOL']; // exclude USDT for TAAPI
+  const { prices: taapiPrices, isLoading, error } = useTaapiPrices(symbols);
   const navigate = useNavigate();
 
   const handleChartClick = (symbol: string, name: string) => {
@@ -30,14 +34,13 @@ export function MarketOverview() {
   };
 
   // Calculate market stats from real-time data
-  const marketStats = Object.values(prices).reduce((acc, priceData) => {
+  const marketStats = Object.values(rtPrices).reduce((acc, priceData) => {
     acc.totalMarketCap += priceData.marketCap || 0;
     acc.gainers += priceData.changePercent > 0 ? 1 : 0;
     acc.losers += priceData.changePercent < 0 ? 1 : 0;
     acc.totalVolume += priceData.volume24h || 0;
-    
     return acc;
-  }, { totalMarketCap: 0, gainers: 0, losers: 0, totalVolume: 0 });
+  }, { totalMarketCap: 0, gainers: 0, losers: 0, totalVolume: 0 } as any);
 
   if (isLoading) {
     return (
@@ -152,21 +155,23 @@ export function MarketOverview() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
-            {Object.values(prices).slice(0, 6).map((priceData) => {
-              const crypto = cryptoMapping[priceData.symbol as keyof typeof cryptoMapping];
-              if (!crypto) return null;
-
+            {symbols.map((sym) => {
+              const crypto = cryptoMapping[sym as keyof typeof cryptoMapping];
+              const usdPrice = taapiPrices[sym]?.priceUSD ?? rtPrices[sym]?.price ?? 0;
+              const change = rtPrices[sym]?.change24h ?? 0;
+              const changePercent = rtPrices[sym]?.changePercent ?? 0;
+              const momentum = rtPrices[sym]?.momentum;
               return (
-                <div key={priceData.symbol} onClick={() => handleCryptoCardClick(priceData.symbol, crypto.name)} className="cursor-pointer">
+                <div key={sym} onClick={() => handleCryptoCardClick(sym, crypto.name)} className="cursor-pointer">
                   <CryptoCard
-                    symbol={priceData.symbol}
+                    symbol={sym}
                     name={crypto.name}
-                    price={priceData.price * 84}
-                    change={priceData.change24h}
-                    changePercent={priceData.changePercent}
+                    price={usdPrice}
+                    change={change}
+                    changePercent={changePercent}
                     isWatchlisted={false}
-                    onChartClick={() => handleChartClick(priceData.symbol, crypto.name)}
-                    momentum={priceData.momentum}
+                    onChartClick={() => handleChartClick(sym, crypto.name)}
+                    momentum={momentum}
                     minimumAmount={crypto.minAmount}
                   />
                 </div>
