@@ -256,15 +256,21 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           );
           const newTotalInvestment = Math.max(0, oldInvestment - (parsedQty * Number(existingPosition.buy_price)));
           
+          // Use live price for current_price, not the sell price
+          const currentPrice = getCurrentLivePrice(selectedCoin);
+          const currentValue = newAmount * currentPrice;
+          const pnl = currentValue - newTotalInvestment;
+          const pnlPercentage = newTotalInvestment > 0 ? (pnl / newTotalInvestment) * 100 : 0;
+          
           const { error } = await supabase
             .from('portfolio_positions')
             .update({
               amount: newAmount,
-              current_price: parsedPrice,
-              current_value: newAmount * parsedPrice,
+              current_price: currentPrice,
+              current_value: currentValue,
               total_investment: newTotalInvestment,
-              pnl: (newAmount * parsedPrice) - newTotalInvestment,
-              pnl_percentage: newTotalInvestment > 0 ? (((newAmount * parsedPrice) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
+              pnl: pnl,
+              pnl_percentage: pnlPercentage,
               updated_at: new Date().toISOString(),
               admin_price_override: true, // Mark as admin-edited
             })
