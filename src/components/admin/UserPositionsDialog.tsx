@@ -91,14 +91,33 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         throw new Error('Position not found');
       }
 
-      // Only update admin adjustment percentage - let the database trigger handle all derived calculations
-      const newAdminAdjustment = (position.admin_adjustment_pct || 0) + percentageChange;
+      // Compute a new current_price so that final P&L% changes by the requested amount
+      const currentFinalPct = Number(position.pnl_percentage) || 0;
+      const targetFinalPct = currentFinalPct + percentageChange; // desired final P&L%
 
-      // Update only the admin adjustment - the trigger will recalculate everything else
+      const buyPrice = Number(position.buy_price) || 0;
+      const isShort = position.position_type === 'short';
+
+      // Guard against invalid prices
+      if (buyPrice <= 0) {
+        throw new Error('Invalid buy price for position');
+      }
+
+      // For long: pnl% = ((current_price - buy_price) / buy_price) * 100
+      // For short: pnl% = ((buy_price - current_price) / buy_price) * 100
+      const newCurrentPrice = isShort
+        ? buyPrice * (1 - targetFinalPct / 100)
+        : buyPrice * (1 + targetFinalPct / 100);
+
+      // Ensure price doesn't go below a minimal positive value
+      const safeCurrentPrice = Math.max(0.01, Number(newCurrentPrice.toFixed(2)));
+
+      // Update position: set the derived current_price directly and reset admin_adjustment_pct
       const { error } = await supabase
         .from('portfolio_positions')
         .update({
-          admin_adjustment_pct: newAdminAdjustment,
+          current_price: safeCurrentPrice,
+          admin_adjustment_pct: 0,
           admin_price_override: true, // Mark as admin-edited
           updated_at: new Date().toISOString(),
         })
@@ -115,7 +134,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
           coin_name: position.coin_name,
           trade_type: 'adjustment',
           quantity: position.amount,
-          price: position.current_price,
+          price: safeCurrentPrice,
           total_amount: position.total_investment,
           status: 'completed',
         });
