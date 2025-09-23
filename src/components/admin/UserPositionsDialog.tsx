@@ -125,14 +125,14 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
 
       if (error) throw error;
 
-      // Record a buy trade to reflect this adjustment in user's trade history
+      // Record an adjustment trade to reflect this change in user's trade history
       const { error: tradeError } = await supabase
         .from('trades')
         .insert({
           user_id: userId,
           symbol: position.symbol,
           coin_name: position.coin_name,
-          trade_type: 'buy',
+          trade_type: 'adjustment',
           quantity: position.amount,
           price: safeCurrentPrice,
           total_amount: position.total_investment,
