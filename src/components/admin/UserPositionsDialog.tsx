@@ -112,27 +112,27 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
       // Ensure price doesn't go below a minimal positive value
       const safeCurrentPrice = Math.max(0.01, Number(newCurrentPrice.toFixed(2)));
 
-      // Update position: set the derived current_price directly and reset admin_adjustment_pct
+      // Update position: set the derived current_price directly
+      // The database trigger will automatically calculate current_value, pnl, and pnl_percentage
       const { error } = await supabase
         .from('portfolio_positions')
         .update({
           current_price: safeCurrentPrice,
-          admin_adjustment_pct: 0,
-          admin_price_override: true, // Mark as admin-edited
+          admin_price_override: true, // Mark as admin-edited to prevent live updates
           updated_at: new Date().toISOString(),
         })
         .eq('id', positionId);
 
       if (error) throw error;
 
-      // Record an adjustment trade to reflect this change in user's trade history
+      // Record a buy trade to reflect this adjustment in user's trade history
       const { error: tradeError } = await supabase
         .from('trades')
         .insert({
           user_id: userId,
           symbol: position.symbol,
           coin_name: position.coin_name,
-          trade_type: 'adjustment',
+          trade_type: 'buy',
           quantity: position.amount,
           price: safeCurrentPrice,
           total_amount: position.total_investment,
@@ -190,9 +190,11 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         .single();
 
       const currentBalance = Number(walletData?.balance || 0);
-      const proceeds = position.current_value;
+      
+      // Calculate proceeds using current price and amount to get the correct value after admin edits
+      const proceeds = position.amount * position.current_price;
 
-      console.log(`Closing position with current value: ₹${proceeds}`);
+      console.log(`Closing position with calculated proceeds: ₹${proceeds}`);
 
       // Delete the position (close it)
       const { error: deleteError } = await supabase

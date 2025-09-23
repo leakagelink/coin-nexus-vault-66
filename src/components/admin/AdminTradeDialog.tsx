@@ -142,23 +142,13 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           );
           const newTotalInvestment = oldInvestment + totalCost;
           const newAvgPrice = newQty > 0 ? newTotalInvestment / newQty : parsedPrice;
-          
-          // Use live price for current calculations
-          const currentPrice = getCurrentLivePrice(selectedCoin);
-          const currentValue = newQty * currentPrice;
-          const pnl = currentValue - newTotalInvestment;
-          const pnlPercentage = newTotalInvestment > 0 ? (pnl / newTotalInvestment) * 100 : 0;
 
           const { error } = await supabase
             .from('portfolio_positions')
             .update({
               amount: newQty,
               buy_price: newAvgPrice,
-              current_price: currentPrice,
-              total_investment: newTotalInvestment,
-              current_value: currentValue,
-              pnl: pnl,
-              pnl_percentage: pnlPercentage,
+              current_price: parsedPrice, // Use entered price for admin trades
               updated_at: new Date().toISOString(),
               status: 'open',
               admin_price_override: true, // Mark as admin-edited
@@ -172,23 +162,14 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           
           console.log(`Updated existing ${positionType} position for ${selectedCoin}`);
         } else {
-          // Create new position with live price
-          const currentPrice = getCurrentLivePrice(selectedCoin);
-          const currentValue = parsedQty * currentPrice;
-          const pnl = currentValue - totalCost;
-          const pnlPercentage = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
-          
+          // Create new position - let database trigger calculate derived fields
           const positionData = {
             user_id: userId,
             symbol: selectedCoin,
             coin_name: selectedCoinData?.name || selectedCoin,
             amount: parsedQty,
             buy_price: parsedPrice,
-            current_price: currentPrice,
-            total_investment: totalCost,
-            current_value: currentValue,
-            pnl: pnl,
-            pnl_percentage: pnlPercentage,
+            current_price: parsedPrice, // Use entered price for admin trades
             position_type: positionType,
             status: 'open',
             trade_type: 'buy',
@@ -235,9 +216,8 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
         }
 
         const newAmount = Number(existingPosition.amount) - parsedQty;
-        // Calculate proportional proceeds based on current_value (includes P&L)
-        const sellRatio = parsedQty / Number(existingPosition.amount);
-        const proceeds = Number(existingPosition.current_value) * sellRatio;
+        // Calculate proceeds based on current price and quantity sold
+        const proceeds = parsedQty * Number(existingPosition.current_price);
 
         if (newAmount === 0) {
           // Close position completely
@@ -256,21 +236,12 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           );
           const newTotalInvestment = Math.max(0, oldInvestment - (parsedQty * Number(existingPosition.buy_price)));
           
-          // Use live price for current_price, not the sell price
-          const currentPrice = getCurrentLivePrice(selectedCoin);
-          const currentValue = newAmount * currentPrice;
-          const pnl = currentValue - newTotalInvestment;
-          const pnlPercentage = newTotalInvestment > 0 ? (pnl / newTotalInvestment) * 100 : 0;
-          
           const { error } = await supabase
             .from('portfolio_positions')
             .update({
               amount: newAmount,
-              current_price: currentPrice,
-              current_value: currentValue,
+              current_price: Number(existingPosition.current_price), // Keep current admin-edited price
               total_investment: newTotalInvestment,
-              pnl: pnl,
-              pnl_percentage: pnlPercentage,
               updated_at: new Date().toISOString(),
               admin_price_override: true, // Mark as admin-edited
             })
