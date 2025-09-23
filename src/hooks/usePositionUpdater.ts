@@ -23,8 +23,11 @@ export const usePositionUpdater = (userId?: string) => {
 
         // Update each position with live prices
         const updates = positions.map(async (position) => {
-          // Skip if this position has admin price override
-          if (position.admin_price_override) return;
+          // Skip if this position has admin price override - don't update with live prices
+          if (position.admin_price_override) {
+            console.log(`Skipping position ${position.id} - admin price override active`);
+            return;
+          }
           
           const livePrice = prices[position.symbol]?.price;
           if (!livePrice) return;
@@ -36,28 +39,15 @@ export const usePositionUpdater = (userId?: string) => {
           const priceDiff = Math.abs(position.current_price - livePriceINR);
           if (priceDiff < livePriceINR * 0.001) return;
 
-          const currentValue = position.amount * livePriceINR;
-          let pnl = currentValue - position.total_investment;
-          let pnlPercentage = position.total_investment > 0 
-            ? (pnl / position.total_investment) * 100 
-            : 0;
-
-          // Apply admin adjustment if present
-          if (position.admin_adjustment_pct) {
-            pnlPercentage += position.admin_adjustment_pct;
-            pnl = (pnlPercentage / 100) * position.total_investment;
-          }
-
+          // Only update current_price - let database triggers handle derived fields
           return supabase
             .from('portfolio_positions')
             .update({
               current_price: livePriceINR,
-              current_value: currentValue,
-              pnl: pnl,
-              pnl_percentage: pnlPercentage,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', position.id);
+            .eq('id', position.id)
+            .eq('admin_price_override', false); // Double check admin override hasn't been set
         });
 
         await Promise.all(updates.filter(Boolean));
