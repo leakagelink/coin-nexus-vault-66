@@ -55,18 +55,18 @@ export const usePositionUpdater = (userId?: string) => {
           const livePriceData = prices[position.symbol];
           if (!livePriceData) return;
 
-          // Use INR price directly from TAAPI
-          const livePriceINR = livePriceData.priceINR;
+          // Use USD price from TAAPI to match stored buy_price currency
+          const livePriceUSD = livePriceData.priceUSD;
           
           // Only update if price has changed significantly (more than 0.1%)
-          const priceDiff = Math.abs(position.current_price - livePriceINR);
-          if (priceDiff < livePriceINR * 0.001) return;
+          const priceDiff = Math.abs(position.current_price - livePriceUSD);
+          if (priceDiff < livePriceUSD * 0.001) return;
 
           // Only update current_price - let database triggers handle derived fields
           return supabase
             .from('portfolio_positions')
             .update({
-              current_price: livePriceINR,
+              current_price: livePriceUSD,
               updated_at: new Date().toISOString(),
             })
             .eq('id', position.id)
