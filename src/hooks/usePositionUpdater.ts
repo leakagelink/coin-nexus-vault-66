@@ -1,11 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useRealTimePrices } from './useRealTimePrices';
+import { useTaapiPrices } from './useTaapiPrices';
 
 export const usePositionUpdater = (userId?: string) => {
-  const { prices } = useRealTimePrices();
   const queryClient = useQueryClient();
+
+  // Get symbols from positions first
+  const [symbolsToUpdate, setSymbolsToUpdate] = useState<string[]>([]);
+  
+  // Get symbols from positions
+  useEffect(() => {
+    if (!userId) return;
+    
+    const fetchSymbols = async () => {
+      const { data: positions } = await supabase
+        .from('portfolio_positions')
+        .select('symbol')
+        .eq('user_id', userId)
+        .eq('status', 'open');
+      
+      if (positions) {
+        setSymbolsToUpdate(positions.map(p => p.symbol));
+      }
+    };
+    
+    fetchSymbols();
+  }, [userId]);
+
+  const { prices } = useTaapiPrices(symbolsToUpdate);
 
   useEffect(() => {
     if (!userId || !prices || Object.keys(prices).length === 0) return;
@@ -29,11 +52,11 @@ export const usePositionUpdater = (userId?: string) => {
             return;
           }
           
-          const livePrice = prices[position.symbol]?.price;
-          if (!livePrice) return;
+          const livePriceData = prices[position.symbol];
+          if (!livePriceData) return;
 
-          // Convert to INR (multiply by exchange rate)
-          const livePriceINR = livePrice * 84;
+          // Use INR price directly from TAAPI
+          const livePriceINR = livePriceData.priceINR;
           
           // Only update if price has changed significantly (more than 0.1%)
           const priceDiff = Math.abs(position.current_price - livePriceINR);

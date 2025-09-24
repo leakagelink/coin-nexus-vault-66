@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, X, TrendingUp, TrendingDown, Plus, Minus } from "lucide-react";
+import { Eye, X, TrendingUp, TrendingDown, Plus, Minus, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePositionUpdater } from "@/hooks/usePositionUpdater";
@@ -309,9 +309,21 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
       </DialogTrigger>
       <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
-          <DialogTitle>
-            Open Positions {userLabel ? `for ${userLabel}` : ""} ({positions.length})
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>
+              Open Positions {userLabel ? `for ${userLabel}` : ""} ({positions.length})
+            </DialogTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={fetchPositions}
+              disabled={loading}
+              className="ml-4"
+            >
+              <Activity className="h-4 w-4 mr-1" />
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
         </DialogHeader>
         
         {loading ? (
