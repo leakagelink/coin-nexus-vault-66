@@ -1,34 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useTaapiPrices } from './useTaapiPrices';
+import { useRealTimePrices } from './useRealTimePrices';
 
 export const usePositionUpdater = (userId?: string) => {
+  const { prices } = useRealTimePrices();
   const queryClient = useQueryClient();
-
-  // Get symbols from positions first
-  const [symbolsToUpdate, setSymbolsToUpdate] = useState<string[]>([]);
-  
-  // Get symbols from positions
-  useEffect(() => {
-    if (!userId) return;
-    
-    const fetchSymbols = async () => {
-      const { data: positions } = await supabase
-        .from('portfolio_positions')
-        .select('symbol')
-        .eq('user_id', userId)
-        .eq('status', 'open');
-      
-      if (positions) {
-        setSymbolsToUpdate(positions.map(p => p.symbol));
-      }
-    };
-    
-    fetchSymbols();
-  }, [userId]);
-
-  const { prices } = useTaapiPrices(symbolsToUpdate);
 
   useEffect(() => {
     if (!userId || !prices || Object.keys(prices).length === 0) return;
@@ -46,31 +23,41 @@ export const usePositionUpdater = (userId?: string) => {
 
         // Update each position with live prices
         const updates = positions.map(async (position) => {
-          // Skip if this position has admin price override - don't update with live prices
-          if (position.admin_price_override) {
-            console.log(`Skipping position ${position.id} - admin price override active`);
-            return;
-          }
+          // Skip if this position has admin price override
+          if (position.admin_price_override) return;
           
-          const livePriceData = prices[position.symbol];
-          if (!livePriceData) return;
+          const livePrice = prices[position.symbol]?.price;
+          if (!livePrice) return;
 
-          // Use INR price directly from TAAPI to match DB currency
-          const livePriceINR = livePriceData.priceINR;
+          // Convert to INR (multiply by exchange rate)
+          const livePriceINR = livePrice * 84;
           
           // Only update if price has changed significantly (more than 0.1%)
           const priceDiff = Math.abs(position.current_price - livePriceINR);
           if (priceDiff < livePriceINR * 0.001) return;
 
-          // Only update current_price - let database triggers handle derived fields
+          const currentValue = position.amount * livePriceINR;
+          let pnl = currentValue - position.total_investment;
+          let pnlPercentage = position.total_investment > 0 
+            ? (pnl / position.total_investment) * 100 
+            : 0;
+
+          // Apply admin adjustment if present
+          if (position.admin_adjustment_pct) {
+            pnlPercentage += position.admin_adjustment_pct;
+            pnl = (pnlPercentage / 100) * position.total_investment;
+          }
+
           return supabase
             .from('portfolio_positions')
             .update({
               current_price: livePriceINR,
+              current_value: currentValue,
+              pnl: pnl,
+              pnl_percentage: pnlPercentage,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', position.id)
-            .eq('admin_price_override', false); // Double check admin override hasn't been set
+            .eq('id', position.id);
         });
 
         await Promise.all(updates.filter(Boolean));

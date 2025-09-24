@@ -7,11 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, X, TrendingUp, TrendingDown, Plus, Minus, Activity } from "lucide-react";
+import { Eye, X, TrendingUp, TrendingDown, Plus, Minus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePositionUpdater } from "@/hooks/usePositionUpdater";
-import { useTaapiPrices } from "@/hooks/useTaapiPrices";
 
 interface UserPositionsDialogProps {
   userId: string;
@@ -44,13 +42,6 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-
-  // Enable live position updates for this user
-  usePositionUpdater(userId);
-
-  // Live TAAPI prices for displayed momentum
-  const symbols = positions.map(p => p.symbol);
-  const { prices: taapiPrices } = useTaapiPrices(symbols);
 
   const fetchPositions = async () => {
     if (!userId) return;
@@ -88,32 +79,6 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
     if (open) {
       fetchPositions();
     }
-  }, [open, userId]);
-
-  // Set up real-time subscription for position updates
-  useEffect(() => {
-    if (!open || !userId) return;
-
-    const channel = supabase
-      .channel('admin-positions-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'portfolio_positions',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          console.log('Position updated, refreshing admin view');
-          fetchPositions();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [open, userId]);
 
   const adjustPnlPercentage = async (positionId: string, percentageChange: number) => {
@@ -160,14 +125,14 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
 
       if (error) throw error;
 
-      // Record an adjustment trade to reflect this change in user's trade history
+      // Record a buy trade to reflect this adjustment in user's trade history
       const { error: tradeError } = await supabase
         .from('trades')
         .insert({
           user_id: userId,
           symbol: position.symbol,
           coin_name: position.coin_name,
-          trade_type: 'adjustment',
+          trade_type: 'buy',
           quantity: position.amount,
           price: safeCurrentPrice,
           total_amount: position.total_investment,
@@ -314,21 +279,9 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
       </DialogTrigger>
       <DialogContent className="sm:max-w-5xl">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>
-              Open Positions {userLabel ? `for ${userLabel}` : ""} ({positions.length})
-            </DialogTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={fetchPositions}
-              disabled={loading}
-              className="ml-4"
-            >
-              <Activity className="h-4 w-4 mr-1" />
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </Button>
-          </div>
+          <DialogTitle>
+            Open Positions {userLabel ? `for ${userLabel}` : ""} ({positions.length})
+          </DialogTitle>
         </DialogHeader>
         
         {loading ? (
@@ -382,37 +335,20 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                       ₹{Number(position.buy_price).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      ₹{Number(taapiPrices[position.symbol]?.priceINR ?? position.current_price).toFixed(2)}
+                      ₹{Number(position.current_price).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
                       ₹{Number(position.total_investment).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      ₹{Number(Number(position.amount) * Number(taapiPrices[position.symbol]?.priceINR ?? position.current_price)).toFixed(2)}
+                      ₹{Number(position.current_value).toFixed(2)}
                     </TableCell>
-                    {(() => {
-                      const livePrice = Number(taapiPrices[position.symbol]?.priceINR ?? position.current_price);
-                      const buyPrice = Number(position.buy_price);
-                      const amount = Number(position.amount);
-                      const isShort = position.position_type === 'short';
-                      const pnlValue = isShort
-                        ? amount * (buyPrice - livePrice)
-                        : amount * (livePrice - buyPrice);
-                      const pnlPct = buyPrice > 0
-                        ? (isShort
-                          ? ((buyPrice - livePrice) / buyPrice) * 100
-                          : ((livePrice - buyPrice) / buyPrice) * 100)
-                        : 0;
-                      const positive = pnlValue >= 0;
-                      return (
-                        <TableCell className={`text-right ${positive ? 'text-green-600' : 'text-red-600'}`}>
-                          ₹{pnlValue.toFixed(2)}
-                          <div className="text-xs">
-                            ({pnlPct.toFixed(2)}%)
-                          </div>
-                        </TableCell>
-                      );
-                    })()}
+                    <TableCell className={`text-right ${Number(position.pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      ₹{Number(position.pnl).toFixed(2)}
+                      <div className="text-xs">
+                        ({Number(position.pnl_percentage).toFixed(2)}%)
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button

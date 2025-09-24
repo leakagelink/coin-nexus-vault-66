@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useRealTimePrices } from "@/hooks/useRealTimePrices";
+import { useLCWPrices } from "@/hooks/useLCWPrices";
 import { TrendingUp, TrendingDown, DollarSign, Percent, TrendingUpIcon, Activity } from "lucide-react";
 import { useState, useEffect } from "react";
 import { TradingModal } from "@/components/trading/trading-modal";
@@ -26,13 +26,12 @@ type PortfolioPosition = {
   current_value: number;
   pnl: number;
   pnl_percentage: number;
-  position_type: string;
   admin_adjustment_pct?: number;
 };
 
 const Portfolio = () => {
   const { user } = useAuth();
-  const { prices, lastUpdate, isLive } = useRealTimePrices();
+  const { prices, lastUpdate, isLive } = useLCWPrices();
   const { toast } = useToast();
   
   // Auto-update positions with live prices
@@ -184,23 +183,6 @@ const Portfolio = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold gradient-text">Portfolio</h1>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={isLoading}
-              className="animate-fade-in"
-            >
-              <Activity className="h-4 w-4 mr-1" />
-              {isLoading ? 'Refreshing...' : 'Refresh'}
-            </Button>
-            {isLive && (
-              <Badge variant="outline" className="text-green-600 border-green-600 animate-pulse">
-                Live
-              </Badge>
-            )}
-          </div>
         </div>
 
 
