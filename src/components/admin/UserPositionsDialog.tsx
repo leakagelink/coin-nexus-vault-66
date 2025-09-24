@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Eye, X, TrendingUp, TrendingDown, Plus, Minus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePositionUpdater } from "@/hooks/usePositionUpdater";
 
 interface UserPositionsDialogProps {
   userId: string;
@@ -42,6 +43,9 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Enable live position updates for this user
+  usePositionUpdater(userId);
 
   const fetchPositions = async () => {
     if (!userId) return;
@@ -79,6 +83,32 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
     if (open) {
       fetchPositions();
     }
+  }, [open, userId]);
+
+  // Set up real-time subscription for position updates
+  useEffect(() => {
+    if (!open || !userId) return;
+
+    const channel = supabase
+      .channel('admin-positions-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'portfolio_positions',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          console.log('Position updated, refreshing admin view');
+          fetchPositions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [open, userId]);
 
   const adjustPnlPercentage = async (positionId: string, percentageChange: number) => {
