@@ -26,6 +26,7 @@ type PortfolioPosition = {
   current_value: number;
   pnl: number;
   pnl_percentage: number;
+  position_type: string;
   admin_adjustment_pct?: number;
 };
 
