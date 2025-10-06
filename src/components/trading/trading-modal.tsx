@@ -106,9 +106,10 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
     fetchData();
   }, [isOpen, user, symbol, toast]);
 
-  // Keep price in sync with currentPrice when modal opens/changes
+  // Keep price in sync with live TAAPI price - user cannot change it
   useEffect(() => {
     if (isOpen) {
+      // Always use live TAAPI price
       setPriceInINR(liveInr.toString());
       const sp = symbol.replace('USDT', '');
       const minInr = getMinimumTradeAmount(sp) * 84;
@@ -116,7 +117,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       setAmount(minInr.toFixed(2));
       setQuantity('');
     }
-  }, [isOpen, currentPrice, symbol]);
+  }, [isOpen, liveInr, symbol]);
 
   const parsedPriceINR = parseFloat(priceInINR || '0');
   const parsedQty = parseFloat(quantity || '0');
@@ -240,9 +241,8 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
     setIsLoading(true);
     try {
-      const buyPriceINR = parseFloat(priceInINR);
-      // At trade execution time, buy_price and current_price should be SAME
-      // This ensures P&L starts at 0 and changes only with live market movements
+      // Always use live TAAPI price for trade execution
+      const buyPriceINR = liveInr; // Live market price at execution time
       
       if (existingPosition) {
         const oldQty = Number(existingPosition.amount);
@@ -271,7 +271,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           .eq('id', existingPosition.id);
         if (error) throw error;
       } else {
-        // New position: buy_price and current_price are SAME at trade time
+        // New position: buy_price and current_price are SAME at trade time (live TAAPI price)
         // P&L will be 0 initially and will update as market moves
         
         const { error } = await supabase
@@ -281,7 +281,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
             symbol: symbolPure,
             coin_name: name,
             amount: qty,
-            buy_price: buyPriceINR,      // What user paid per unit
+            buy_price: buyPriceINR,      // Live TAAPI price at execution
             current_price: buyPriceINR,  // Same as buy price at creation
             total_investment: totalCost,
             current_value: totalCost,    // Same as investment at creation
@@ -448,14 +448,17 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           
           <TabsContent value="buy" className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="buy-price">Price (₹)</Label>
+              <Label htmlFor="buy-price">Live Market Price (₹) - Auto Updated</Label>
               <Input
                 id="buy-price"
-                type="number"
-                value={Number(priceInINR).toFixed(2)}
-                onChange={(e) => setPriceInINR(e.target.value)}
-                step="0.01"
+                type="text"
+                value={`₹${liveInr.toLocaleString('en-IN', { maximumFractionDigits: 2 })} (Live)`}
+                disabled
+                className="bg-muted/50 cursor-not-allowed font-mono"
               />
+              <p className="text-xs text-muted-foreground">
+                Trade will execute at live TAAPI market price
+              </p>
             </div>
             {mode === 'quantity' ? (
               <div className="space-y-2">
@@ -507,14 +510,17 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           
           <TabsContent value="sell" className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="sell-price">Price (₹)</Label>
+              <Label htmlFor="sell-price">Live Market Price (₹) - Auto Updated</Label>
               <Input
                 id="sell-price"
-                type="number"
-                value={Number(priceInINR).toFixed(2)}
-                onChange={(e) => setPriceInINR(e.target.value)}
-                step="0.01"
+                type="text"
+                value={`₹${liveInr.toLocaleString('en-IN', { maximumFractionDigits: 2 })} (Live)`}
+                disabled
+                className="bg-muted/50 cursor-not-allowed font-mono"
               />
+              <p className="text-xs text-muted-foreground">
+                Trade will execute at live TAAPI market price
+              </p>
             </div>
             {mode === 'quantity' ? (
               <div className="space-y-2">
