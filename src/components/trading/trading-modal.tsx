@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { usePriceData } from '@/hooks/usePriceData';
 
 interface TradingModalProps {
   isOpen: boolean;
@@ -33,6 +34,11 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [mode, setMode] = useState<TradeMode>('amount');
   const [existingPosition, setExistingPosition] = useState<any>(null);
+
+  // TAAPI live price via centralized hook
+  const { prices: taapiPrices } = usePriceData([symbol.replace('USDT', '')]);
+  const liveUsd = taapiPrices[symbol.replace('USDT', '')]?.priceUSD ?? currentPrice;
+  const liveInr = liveUsd * 84;
 
   // Fetch wallet balance and existing position when modal opens
   useEffect(() => {
@@ -103,7 +109,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   // Keep price in sync with currentPrice when modal opens/changes
   useEffect(() => {
     if (isOpen) {
-      setPriceInINR((currentPrice * 84).toString());
+      setPriceInINR(liveInr.toString());
       const sp = symbol.replace('USDT', '');
       const minInr = getMinimumTradeAmount(sp) * 84;
       setMode('amount');
@@ -237,7 +243,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       const buyPriceINR = parseFloat(priceInINR);
       // Use current live market price for current_price (this is the actual market price)
       // buy_price is the average buy price (cost basis)
-      const currentMarketPriceINR = currentPrice * 84;
+      const currentMarketPriceINR = liveInr;
 
       if (existingPosition) {
         const oldQty = Number(existingPosition.amount);
@@ -349,9 +355,9 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
     setIsLoading(true);
     try {
       const sellPriceINR = parseFloat(priceInINR);
+      const currentMarketPriceINR = liveInr;
       const newAmount = Number(existingPosition.amount) - qty;
-      const sellRatio = qty / Number(existingPosition.amount);
-      const proceeds = Number(existingPosition.current_value) * sellRatio;
+      const proceeds = qty * currentMarketPriceINR;
 
       if (newAmount === 0) {
         const { error } = await supabase
@@ -365,8 +371,8 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           Number(existingPosition.total_investment || (Number(existingPosition.amount) * Number(existingPosition.buy_price))) -
             (qty * Number(existingPosition.buy_price))
         );
-        const newCurrentValue = Number(existingPosition.current_value) - proceeds;
-        const newCurrentPrice = newAmount > 0 ? newCurrentValue / newAmount : sellPriceINR;
+        const newCurrentValue = newAmount * currentMarketPriceINR;
+        const newCurrentPrice = currentMarketPriceINR;
         const { error } = await supabase
           .from('portfolio_positions')
           .update({
@@ -413,8 +419,8 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           <DialogTitle className="flex items-center gap-2">
             Trade {symbol.replace('USDT', '')}
             <div className="flex items-center gap-1 text-sm">
-              {currentPrice > 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
-              <span className="font-mono">₹{(currentPrice * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              {liveUsd > 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+              <span className="font-mono">₹{liveInr.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
             </div>
           </DialogTitle>
         </DialogHeader>
