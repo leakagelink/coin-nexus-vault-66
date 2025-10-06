@@ -1,12 +1,12 @@
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Search } from "lucide-react";
-import { useRealTimePrices } from "@/hooks/useRealTimePrices";
+import { usePriceData } from "@/hooks/usePriceData";
 import { TradingModal } from "@/components/trading/trading-modal";
 
 const cryptoMapping = {
@@ -29,7 +29,9 @@ const cryptoMapping = {
 };
 
 export function LiveMomentum() {
-  const { prices, isLoading, error, refresh, isLive, lastUpdate } = useRealTimePrices();
+  // Use TAAPI for all prices
+  const symbols = Object.keys(cryptoMapping);
+  const { prices: taapiPrices, isLoading, error, refresh } = usePriceData(symbols);
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -49,15 +51,56 @@ export function LiveMomentum() {
     });
   };
 
-  // Get trading pairs based on search and momentum
-  const getTradingPairs = () => {
-    return Object.values(prices)
+  // Calculate momentum and format data from TAAPI prices
+  const tradingPairs = useMemo(() => {
+    const priceHistory: Record<string, number[]> = {};
+    
+    return symbols
+      .map(symbol => {
+        const priceData = taapiPrices[symbol];
+        if (!priceData) return null;
+        
+        const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
+        const priceUSD = priceData.priceUSD;
+        
+        // Track price history for momentum
+        if (!priceHistory[symbol]) priceHistory[symbol] = [];
+        priceHistory[symbol].push(priceUSD);
+        if (priceHistory[symbol].length > 10) priceHistory[symbol].shift();
+        
+        // Calculate momentum from price changes
+        let momentum = 0;
+        if (priceHistory[symbol].length >= 2) {
+          const changes = priceHistory[symbol].map((p, i, arr) => 
+            i > 0 ? ((p - arr[i-1]) / arr[i-1]) * 100 : 0
+          );
+          momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
+        }
+        
+        // Calculate 24h change (simulated from recent changes)
+        const changePercent = priceHistory[symbol].length >= 2 
+          ? ((priceUSD - priceHistory[symbol][0]) / priceHistory[symbol][0]) * 100 
+          : 0;
+        
+        return {
+          symbol,
+          name: crypto.name,
+          price: priceUSD,
+          priceINR: priceData.priceINR,
+          changePercent,
+          momentum,
+          trend: changePercent > 0.1 ? 'up' as const : changePercent < -0.1 ? 'down' as const : 'neutral' as const,
+          volume24h: 10000000 + Math.random() * 50000000, // Simulated volume
+          lastUpdate: priceData.lastUpdate
+        };
+      })
+      .filter((crypto): crypto is NonNullable<typeof crypto> => crypto !== null)
       .filter(crypto => 
         crypto.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => b.momentum - a.momentum);
-  };
+  }, [taapiPrices, searchTerm, symbols]);
 
   if (isLoading) {
     return (
@@ -87,7 +130,8 @@ export function LiveMomentum() {
     );
   }
 
-  const tradingPairs = getTradingPairs();
+  const lastUpdate = tradingPairs.length > 0 ? tradingPairs[0].lastUpdate : Date.now();
+  const isLive = tradingPairs.length > 0;
 
   return (
     <>
@@ -178,7 +222,7 @@ export function LiveMomentum() {
                         <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                           <div className="space-y-1">
                             <div className="text-lg md:text-xl font-bold gradient-text">
-                              ₹{(crypto.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                              ₹{crypto.priceINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                             </div>
                             <div className="text-xs md:text-sm text-muted-foreground">
                               ${crypto.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}

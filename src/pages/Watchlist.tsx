@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, Plus } from "lucide-react";
@@ -9,22 +9,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AddCryptoModal } from "@/components/watchlist/add-crypto-modal";
-import { useRealTimePrices } from "@/hooks/useRealTimePrices";
+import { usePriceData } from "@/hooks/usePriceData";
 import { useNavigate } from "react-router-dom";
 
 const Watchlist = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [showAddCryptoModal, setShowAddCryptoModal] = useState(false);
-  const { prices, isLoading: pricesLoading, isLive, lastUpdate } = useRealTimePrices();
-
-  // Minimum trading amounts for different coins
-  const getMinimumAmount = (symbol: string) => {
-    if (symbol === 'BTC' || symbol === 'ETH') return 350;
-    if (symbol === 'XRP' || symbol === 'DOGE') return 50;
-    return 150; // Default for other coins
-  };
-
+  
   const { data: watchlist, isLoading, refetch } = useQuery({
     queryKey: ['watchlist', user?.id],
     queryFn: async () => {
@@ -39,16 +31,71 @@ const Watchlist = () => {
     enabled: !!user,
   });
 
+  // Get unique symbols from watchlist for TAAPI
+  const symbols = useMemo(() => 
+    watchlist?.map(item => item.symbol) || [], 
+    [watchlist]
+  );
+  
+  const { prices: taapiPrices, isLoading: pricesLoading } = usePriceData(symbols);
+
+  // Calculate momentum from TAAPI prices
+  const pricesWithMomentum = useMemo(() => {
+    const priceHistory: Record<string, number[]> = {};
+    
+    return symbols.map(symbol => {
+      const priceData = taapiPrices[symbol];
+      if (!priceData) return null;
+      
+      // Track price history for momentum
+      if (!priceHistory[symbol]) priceHistory[symbol] = [];
+      priceHistory[symbol].push(priceData.priceUSD);
+      if (priceHistory[symbol].length > 10) priceHistory[symbol].shift();
+      
+      // Calculate momentum
+      let momentum = 0;
+      if (priceHistory[symbol].length >= 2) {
+        const changes = priceHistory[symbol].map((p, i, arr) => 
+          i > 0 ? ((p - arr[i-1]) / arr[i-1]) * 100 : 0
+        );
+        momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
+      }
+      
+      const changePercent = priceHistory[symbol].length >= 2 
+        ? ((priceData.priceUSD - priceHistory[symbol][0]) / priceHistory[symbol][0]) * 100 
+        : 0;
+      
+      return {
+        symbol,
+        price: priceData.priceUSD,
+        priceINR: priceData.priceINR,
+        momentum,
+        changePercent,
+        lastUpdate: priceData.lastUpdate
+      };
+    }).filter(Boolean);
+  }, [taapiPrices, symbols]);
+
+  // Minimum trading amounts for different coins
+  const getMinimumAmount = (symbol: string) => {
+    if (symbol === 'BTC' || symbol === 'ETH') return 350;
+    if (symbol === 'XRP' || symbol === 'DOGE') return 50;
+    return 150; // Default for other coins
+  };
+
   const handleCryptoAdded = () => {
     refetch();
   };
 
   const handleChartClick = (symbol: string, name: string) => {
-    // Navigate to the dedicated chart page
     const tradingSymbol = `${symbol}USDT`;
-    console.log(`Opening chart for ${tradingSymbol} - ${name}`);
     navigate(`/chart/${tradingSymbol}`);
   };
+
+  const lastUpdate = pricesWithMomentum.length > 0 && pricesWithMomentum[0] 
+    ? pricesWithMomentum[0].lastUpdate 
+    : Date.now();
+  const isLive = pricesWithMomentum.length > 0;
 
   return (
     <Layout>
@@ -101,7 +148,7 @@ const Watchlist = () => {
             ) : watchlist && watchlist.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {watchlist.map((item) => {
-                  const livePrice = prices[item.symbol];
+                  const livePrice = pricesWithMomentum.find(p => p?.symbol === item.symbol);
                   
                   return (
                     <div key={item.id} className="p-6 border rounded-xl glass hover:border-primary/30 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300">
@@ -150,7 +197,7 @@ const Watchlist = () => {
                         {livePrice && (
                           <div className="space-y-2">
                             <div className="text-2xl font-bold gradient-text">
-                              ₹{(livePrice.price * 84).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                              ₹{livePrice.priceINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                             </div>
                             <div className="text-sm text-muted-foreground">
                               ${livePrice.price.toLocaleString('en-US', { maximumFractionDigits: 2 })}

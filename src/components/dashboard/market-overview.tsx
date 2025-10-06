@@ -1,10 +1,10 @@
 
 
 import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
-import { useRealTimePrices } from "@/hooks/useRealTimePrices";
-import { useTaapiPrices } from "@/hooks/useTaapiPrices";
+import { usePriceData } from "@/hooks/usePriceData";
 import { Loader2, TrendingUp, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -18,9 +18,8 @@ const cryptoMapping = {
 };
 
 export function MarketOverview() {
-  const { prices: rtPrices, isLoading: rtLoading, error: rtError, isLive, lastUpdate } = useRealTimePrices();
-  const symbols = ['BTC','ETH','BNB','ADA','SOL']; // exclude USDT for TAAPI
-  const { prices: taapiPrices, isLoading, error } = useTaapiPrices(symbols);
+  const symbols = ['BTC','ETH','BNB','ADA','SOL','USDT'];
+  const { prices: taapiPrices, isLoading, error } = usePriceData(symbols);
   const navigate = useNavigate();
 
   const handleChartClick = (symbol: string, name: string) => {
@@ -33,14 +32,60 @@ export function MarketOverview() {
     handleChartClick(symbol, name);
   };
 
-  // Calculate market stats from real-time data
-  const marketStats = Object.values(rtPrices).reduce((acc, priceData) => {
+  // Calculate momentum and stats from TAAPI prices
+  const pricesWithMomentum = useMemo(() => {
+    const priceHistory: Record<string, number[]> = {};
+    
+    return symbols.map(symbol => {
+      const priceData = taapiPrices[symbol];
+      if (!priceData) return null;
+      
+      // Track price history for momentum
+      if (!priceHistory[symbol]) priceHistory[symbol] = [];
+      priceHistory[symbol].push(priceData.priceUSD);
+      if (priceHistory[symbol].length > 10) priceHistory[symbol].shift();
+      
+      // Calculate momentum
+      let momentum = 0;
+      if (priceHistory[symbol].length >= 2) {
+        const changes = priceHistory[symbol].map((p, i, arr) => 
+          i > 0 ? ((p - arr[i-1]) / arr[i-1]) * 100 : 0
+        );
+        momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
+      }
+      
+      const changePercent = priceHistory[symbol].length >= 2 
+        ? ((priceData.priceUSD - priceHistory[symbol][0]) / priceHistory[symbol][0]) * 100 
+        : 0;
+      
+      return {
+        symbol,
+        price: priceData.priceUSD,
+        priceINR: priceData.priceINR,
+        momentum,
+        changePercent,
+        change24h: (priceData.priceUSD * changePercent) / 100,
+        marketCap: priceData.priceUSD * 1000000000, // Simulated
+        volume24h: 10000000 + Math.random() * 50000000,
+        lastUpdate: priceData.lastUpdate
+      };
+    }).filter(Boolean);
+  }, [taapiPrices, symbols]);
+
+  // Calculate market stats
+  const marketStats = pricesWithMomentum.reduce((acc, priceData) => {
+    if (!priceData) return acc;
     acc.totalMarketCap += priceData.marketCap || 0;
     acc.gainers += priceData.changePercent > 0 ? 1 : 0;
     acc.losers += priceData.changePercent < 0 ? 1 : 0;
     acc.totalVolume += priceData.volume24h || 0;
     return acc;
-  }, { totalMarketCap: 0, gainers: 0, losers: 0, totalVolume: 0 } as any);
+  }, { totalMarketCap: 0, gainers: 0, losers: 0, totalVolume: 0 });
+
+  const lastUpdate = pricesWithMomentum.length > 0 && pricesWithMomentum[0] 
+    ? pricesWithMomentum[0].lastUpdate 
+    : Date.now();
+  const isLive = pricesWithMomentum.length > 0;
 
   if (isLoading) {
     return (
@@ -155,23 +200,23 @@ export function MarketOverview() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
-            {symbols.map((sym) => {
+            {symbols.filter(sym => sym !== 'USDT').map((sym) => {
               const crypto = cryptoMapping[sym as keyof typeof cryptoMapping];
-              const usdPrice = taapiPrices[sym]?.priceUSD ?? rtPrices[sym]?.price ?? 0;
-              const change = rtPrices[sym]?.change24h ?? 0;
-              const changePercent = rtPrices[sym]?.changePercent ?? 0;
-              const momentum = rtPrices[sym]?.momentum;
+              const priceData = pricesWithMomentum.find(p => p?.symbol === sym);
+              
+              if (!priceData) return null;
+              
               return (
                 <div key={sym} onClick={() => handleCryptoCardClick(sym, crypto.name)} className="cursor-pointer">
                   <CryptoCard
                     symbol={sym}
                     name={crypto.name}
-                    price={usdPrice}
-                    change={change}
-                    changePercent={changePercent}
+                    price={priceData.price}
+                    change={priceData.change24h}
+                    changePercent={priceData.changePercent}
                     isWatchlisted={false}
                     onChartClick={() => handleChartClick(sym, crypto.name)}
-                    momentum={momentum}
+                    momentum={priceData.momentum}
                     minimumAmount={crypto.minAmount}
                   />
                 </div>
