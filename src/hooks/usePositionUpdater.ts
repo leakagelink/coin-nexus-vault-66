@@ -1,14 +1,17 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useRealTimePrices } from './useRealTimePrices';
+import { usePriceData } from './usePriceData';
 
+/**
+ * Background updater that syncs database positions with live prices
+ * This runs independently and doesn't affect UI display
+ */
 export const usePositionUpdater = (userId?: string) => {
-  const { prices } = useRealTimePrices();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!userId || !prices || Object.keys(prices).length === 0) return;
+    if (!userId) return;
 
     const updatePositions = async () => {
       try {
@@ -19,20 +22,38 @@ export const usePositionUpdater = (userId?: string) => {
           .eq('user_id', userId)
           .eq('status', 'open');
 
-        if (error || !positions) return;
+        if (error || !positions || positions.length === 0) return;
 
-        // Update each position with live prices
+        // Get unique symbols
+        const symbols = Array.from(new Set(positions.map(p => p.symbol)));
+        
+        // Fetch prices for all symbols
+        const pricePromises = symbols.map(async (symbol) => {
+          try {
+            const { getLatestTaapiPriceUSD } = await import('@/services/taapiProxy');
+            const priceUSD = await getLatestTaapiPriceUSD(symbol, '1m');
+            return { symbol, priceINR: priceUSD * 84 };
+          } catch (e) {
+            console.error(`Failed to fetch price for ${symbol}:`, e);
+            return null;
+          }
+        });
+
+        const priceResults = await Promise.all(pricePromises);
+        const priceMap: Record<string, number> = {};
+        priceResults.forEach(result => {
+          if (result) priceMap[result.symbol] = result.priceINR;
+        });
+
+        // Update positions in database
         const updates = positions.map(async (position) => {
-          // Skip if this position has admin price override
+          // Skip if admin has overridden the price
           if (position.admin_price_override) return;
           
-          const livePrice = prices[position.symbol]?.price;
-          if (!livePrice) return;
+          const livePriceINR = priceMap[position.symbol];
+          if (!livePriceINR) return;
 
-          // Convert to INR (multiply by exchange rate)
-          const livePriceINR = livePrice * 84;
-          
-          // Only update if price has changed significantly (more than 0.1%)
+          // Only update if price changed significantly (>0.1%)
           const priceDiff = Math.abs(position.current_price - livePriceINR);
           if (priceDiff < livePriceINR * 0.001) return;
 
@@ -62,18 +83,19 @@ export const usePositionUpdater = (userId?: string) => {
 
         await Promise.all(updates.filter(Boolean));
         
-        // Invalidate queries to refresh UI across clients
-        queryClient.invalidateQueries({ queryKey: ['portfolio-positions'] });
-        queryClient.invalidateQueries({ queryKey: ['my-trades'] });
+        // Only invalidate queries if we actually updated something
+        if (updates.some(u => u !== undefined)) {
+          queryClient.invalidateQueries({ queryKey: ['portfolio-positions'] });
+        }
       } catch (error) {
         console.error('Error updating positions:', error);
       }
     };
 
-    // Update immediately and then every 30 seconds
-    updatePositions();
-    const interval = setInterval(updatePositions, 5000);
+    // Update every 10 seconds (less aggressive to prevent conflicts)
+    const interval = setInterval(updatePositions, 10000);
+    updatePositions(); // Initial update
 
     return () => clearInterval(interval);
-  }, [userId, prices, queryClient]);
+  }, [userId, queryClient]);
 };

@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, X, TrendingUp, TrendingDown, Plus, Minus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePriceData } from "@/hooks/usePriceData";
+import { usePositionCalculations } from "@/hooks/usePositionCalculations";
 
 interface UserPositionsDialogProps {
   userId: string;
@@ -80,6 +81,13 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
       fetchPositions();
     }
   }, [open, userId]);
+
+  // Get symbols for live prices
+  const symbolsForPrices = positions.map(p => p.symbol);
+  const { prices: livePrices } = usePriceData(symbolsForPrices);
+  
+  // Calculate live P&L for display
+  const displayPositions = usePositionCalculations(positions, livePrices);
 
   const adjustPnlPercentage = async (positionId: string, percentageChange: number) => {
     if (!user) return;
@@ -304,7 +312,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {positions.map((position) => (
+                {displayPositions.map((position) => (
                   <TableRow key={position.id}>
                     <TableCell className="font-medium">
                       <div>

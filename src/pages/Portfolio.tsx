@@ -2,18 +2,17 @@
 import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useLCWPrices } from "@/hooks/useLCWPrices";
-import { TrendingUp, TrendingDown, DollarSign, Percent, TrendingUpIcon, Activity } from "lucide-react";
+import { TrendingUpIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { TradingModal } from "@/components/trading/trading-modal";
 import { useToast } from "@/hooks/use-toast";
 import { usePositionUpdater } from "@/hooks/usePositionUpdater";
-import { useTaapiPrices } from "@/hooks/useTaapiPrices";
+import { usePriceData } from "@/hooks/usePriceData";
+import { usePositionCalculations } from "@/hooks/usePositionCalculations";
 
 type PortfolioPosition = {
   id: string;
@@ -31,11 +30,8 @@ type PortfolioPosition = {
 
 const Portfolio = () => {
   const { user } = useAuth();
-  const { prices, lastUpdate, isLive } = useLCWPrices();
   const { toast } = useToast();
   
-  // Auto-update positions with live prices
-  usePositionUpdater(user?.id);
   const [selectedCrypto, setSelectedCrypto] = useState<{
     symbol: string;
     name: string;
@@ -50,6 +46,7 @@ const Portfolio = () => {
     return 150; // Default for other coins
   };
 
+  // Fetch positions from database
   const { data: positions, isLoading, refetch } = useQuery({
     queryKey: ["portfolio-positions", user?.id],
     queryFn: async () => {
@@ -67,7 +64,19 @@ const Portfolio = () => {
     refetchOnWindowFocus: true,
   });
 
-  // Realtime: auto-refresh when positions change for this user
+  // Get symbols for price fetching
+  const symbolsForPrices = (positions || []).map(p => p.symbol);
+  
+  // Fetch live prices (separate from database updates)
+  const { prices: livePrices } = usePriceData(symbolsForPrices);
+  
+  // Calculate live P&L for display (doesn't affect database)
+  const updatedPositions = usePositionCalculations(positions, livePrices);
+  
+  // Background updater (syncs DB with live prices)
+  usePositionUpdater(user?.id);
+
+  // Realtime: auto-refresh when positions change
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -84,19 +93,13 @@ const Portfolio = () => {
     };
   }, [user, refetch]);
 
-  // Use server-calculated fields; avoid double-applying admin adjustments
-  const updatedPositions = positions;
-
-  const symbolsForTaapi = (positions || []).map(p => p.symbol);
-  const { prices: taapiPrices } = useTaapiPrices(symbolsForTaapi);
-
   const totalInvestment = updatedPositions?.reduce((sum, p) => sum + p.total_investment, 0) || 0;
   const totalCurrentValue = updatedPositions?.reduce((sum, p) => sum + p.current_value, 0) || 0;
   const totalPnL = totalCurrentValue - totalInvestment;
   const totalPnLPercentage = totalInvestment > 0 ? (totalPnL / totalInvestment) * 100 : 0;
 
   const handleTradeClick = (position: PortfolioPosition) => {
-    const livePriceUSD = taapiPrices[position.symbol]?.priceUSD ?? (Number(position.current_price) / 84);
+    const livePriceUSD = livePrices[position.symbol]?.priceUSD ?? (Number(position.current_price) / 84);
     setSelectedCrypto({
       symbol: position.symbol + 'USDT',
       name: position.coin_name,
@@ -232,10 +235,10 @@ const Portfolio = () => {
                             <div>
                               <p className="text-muted-foreground">Current Price (Market)</p>
                               <p className="font-medium">
-                                ${(taapiPrices[position.symbol]?.priceUSD ?? (Number(position.current_price) / 84)).toFixed(2)} USDT
+                                ${(livePrices[position.symbol]?.priceUSD ?? (Number(position.current_price) / 84)).toFixed(2)} USDT
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                ₹{(taapiPrices[position.symbol]?.priceINR ?? Number(position.current_price)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                                ₹{(livePrices[position.symbol]?.priceINR ?? Number(position.current_price)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                               </p>
                             </div>
                             <div>
