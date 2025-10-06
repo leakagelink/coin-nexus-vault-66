@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,9 @@ export function LiveMomentum() {
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Persist price history across renders for accurate momentum
+  const priceHistoryRef = useRef<Record<string, number[]>>({});
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -53,8 +56,6 @@ export function LiveMomentum() {
 
   // Calculate momentum and format data from TAAPI prices
   const tradingPairs = useMemo(() => {
-    const priceHistory: Record<string, number[]> = {};
-    
     return symbols
       .map(symbol => {
         const priceData = taapiPrices[symbol];
@@ -63,23 +64,23 @@ export function LiveMomentum() {
         const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
         const priceUSD = priceData.priceUSD;
         
-        // Track price history for momentum
-        if (!priceHistory[symbol]) priceHistory[symbol] = [];
-        priceHistory[symbol].push(priceUSD);
-        if (priceHistory[symbol].length > 10) priceHistory[symbol].shift();
+        // Track price history for momentum using ref
+        if (!priceHistoryRef.current[symbol]) priceHistoryRef.current[symbol] = [];
+        priceHistoryRef.current[symbol].push(priceUSD);
+        if (priceHistoryRef.current[symbol].length > 10) priceHistoryRef.current[symbol].shift();
         
         // Calculate momentum from price changes
         let momentum = 0;
-        if (priceHistory[symbol].length >= 2) {
-          const changes = priceHistory[symbol].map((p, i, arr) => 
+        if (priceHistoryRef.current[symbol].length >= 2) {
+          const changes = priceHistoryRef.current[symbol].map((p, i, arr) => 
             i > 0 ? ((p - arr[i-1]) / arr[i-1]) * 100 : 0
           );
           momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
         }
         
         // Calculate 24h change (simulated from recent changes)
-        const changePercent = priceHistory[symbol].length >= 2 
-          ? ((priceUSD - priceHistory[symbol][0]) / priceHistory[symbol][0]) * 100 
+        const changePercent = priceHistoryRef.current[symbol].length >= 2 
+          ? ((priceUSD - priceHistoryRef.current[symbol][0]) / priceHistoryRef.current[symbol][0]) * 100 
           : 0;
         
         return {
@@ -100,7 +101,7 @@ export function LiveMomentum() {
         crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => b.momentum - a.momentum);
-  }, [taapiPrices, searchTerm, symbols]);
+  }, [taapiPrices, searchTerm]);
 
   if (isLoading) {
     return (
