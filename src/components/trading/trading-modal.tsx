@@ -235,28 +235,42 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
     setIsLoading(true);
     try {
       const buyPriceINR = parseFloat(priceInINR);
+      // Use current live market price for current_price (this is the actual market price)
+      // buy_price is the average buy price (cost basis)
+      const currentMarketPriceINR = currentPrice * 84;
 
       if (existingPosition) {
         const oldQty = Number(existingPosition.amount);
         const newQty = oldQty + qty;
         const newTotalInvestment = Number(existingPosition.total_investment || (oldQty * Number(existingPosition.buy_price))) + totalCost;
         const newAvgPriceINR = newQty > 0 ? newTotalInvestment / newQty : buyPriceINR;
+        
+        // Calculate P&L using live market price vs average cost
+        const currentValue = newQty * currentMarketPriceINR;
+        const pnl = currentValue - newTotalInvestment;
+        const pnlPercentage = newTotalInvestment > 0 ? (pnl / newTotalInvestment) * 100 : 0;
 
         const { error } = await supabase
           .from('portfolio_positions')
           .update({
             amount: newQty,
-            buy_price: newAvgPriceINR,
-            current_price: buyPriceINR,
+            buy_price: newAvgPriceINR,  // Average cost basis
+            current_price: currentMarketPriceINR,  // Live market price
             total_investment: newTotalInvestment,
-            current_value: newQty * buyPriceINR,
-            pnl: (newQty * buyPriceINR) - newTotalInvestment,
-            pnl_percentage: newTotalInvestment > 0 ? (((newQty * buyPriceINR) - newTotalInvestment) / newTotalInvestment) * 100 : 0,
+            current_value: currentValue,
+            pnl: pnl,
+            pnl_percentage: pnlPercentage,
+            admin_price_override: false, // Reset admin override on new buy
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingPosition.id);
         if (error) throw error;
       } else {
+        // New position: use live market price for current_price
+        const currentValue = qty * currentMarketPriceINR;
+        const pnl = currentValue - totalCost;
+        const pnlPercentage = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+        
         const { error } = await supabase
           .from('portfolio_positions')
           .insert({
@@ -264,12 +278,13 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
             symbol: symbolPure,
             coin_name: name,
             amount: qty,
-            buy_price: buyPriceINR,
-            current_price: buyPriceINR,
+            buy_price: buyPriceINR,  // Cost basis (what user paid)
+            current_price: currentMarketPriceINR,  // Live market price
             total_investment: totalCost,
-            current_value: qty * buyPriceINR,
-            pnl: 0,
-            pnl_percentage: 0,
+            current_value: currentValue,
+            pnl: pnl,
+            pnl_percentage: pnlPercentage,
+            admin_price_override: false,
           });
         if (error) throw error;
       }
