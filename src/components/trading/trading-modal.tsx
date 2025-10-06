@@ -241,18 +241,18 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
     setIsLoading(true);
     try {
       const buyPriceINR = parseFloat(priceInINR);
-      // Use current live market price for current_price (this is the actual market price)
-      // buy_price is the average buy price (cost basis)
-      const currentMarketPriceINR = liveInr;
-
+      // At trade execution time, buy_price and current_price should be SAME
+      // This ensures P&L starts at 0 and changes only with live market movements
+      
       if (existingPosition) {
         const oldQty = Number(existingPosition.amount);
         const newQty = oldQty + qty;
         const newTotalInvestment = Number(existingPosition.total_investment || (oldQty * Number(existingPosition.buy_price))) + totalCost;
         const newAvgPriceINR = newQty > 0 ? newTotalInvestment / newQty : buyPriceINR;
         
-        // Calculate P&L using live market price vs average cost
-        const currentValue = newQty * currentMarketPriceINR;
+        // For updated positions, keep existing current_price (will be updated by usePositionUpdater)
+        // Calculate initial P&L based on existing current price
+        const currentValue = newQty * Number(existingPosition.current_price);
         const pnl = currentValue - newTotalInvestment;
         const pnlPercentage = newTotalInvestment > 0 ? (pnl / newTotalInvestment) * 100 : 0;
 
@@ -261,7 +261,6 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           .update({
             amount: newQty,
             buy_price: newAvgPriceINR,  // Average cost basis
-            current_price: currentMarketPriceINR,  // Live market price
             total_investment: newTotalInvestment,
             current_value: currentValue,
             pnl: pnl,
@@ -272,10 +271,8 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           .eq('id', existingPosition.id);
         if (error) throw error;
       } else {
-        // New position: use live market price for current_price
-        const currentValue = qty * currentMarketPriceINR;
-        const pnl = currentValue - totalCost;
-        const pnlPercentage = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+        // New position: buy_price and current_price are SAME at trade time
+        // P&L will be 0 initially and will update as market moves
         
         const { error } = await supabase
           .from('portfolio_positions')
@@ -284,12 +281,12 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
             symbol: symbolPure,
             coin_name: name,
             amount: qty,
-            buy_price: buyPriceINR,  // Cost basis (what user paid)
-            current_price: currentMarketPriceINR,  // Live market price
+            buy_price: buyPriceINR,      // What user paid per unit
+            current_price: buyPriceINR,  // Same as buy price at creation
             total_investment: totalCost,
-            current_value: currentValue,
-            pnl: pnl,
-            pnl_percentage: pnlPercentage,
+            current_value: totalCost,    // Same as investment at creation
+            pnl: 0,                      // Zero P&L at creation
+            pnl_percentage: 0,           // Zero P&L% at creation
             admin_price_override: false,
           });
         if (error) throw error;

@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUpIcon } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { TradingModal } from "@/components/trading/trading-modal";
 import { useToast } from "@/hooks/use-toast";
 import { usePositionUpdater } from "@/hooks/usePositionUpdater";
@@ -70,8 +70,37 @@ const Portfolio = () => {
   // Fetch live prices (separate from database updates)
   const { prices: livePrices } = usePriceData(symbolsForPrices);
   
+  // Calculate momentum for each position
+  const priceHistoryRef = useRef<Record<string, number[]>>({});
+  
+  const positionsWithMomentum = useMemo(() => {
+    if (!positions || !livePrices) return positions || [];
+    
+    return positions.map(position => {
+      const priceData = livePrices[position.symbol];
+      if (!priceData) return { ...position, momentum: 0 };
+      
+      // Track price history for momentum
+      const symbol = position.symbol;
+      if (!priceHistoryRef.current[symbol]) priceHistoryRef.current[symbol] = [];
+      priceHistoryRef.current[symbol].push(priceData.priceUSD);
+      if (priceHistoryRef.current[symbol].length > 10) priceHistoryRef.current[symbol].shift();
+      
+      // Calculate momentum
+      let momentum = 0;
+      if (priceHistoryRef.current[symbol].length >= 2) {
+        const changes = priceHistoryRef.current[symbol].map((p, i, arr) => 
+          i > 0 ? ((p - arr[i-1]) / arr[i-1]) * 100 : 0
+        );
+        momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
+      }
+      
+      return { ...position, momentum };
+    });
+  }, [positions, livePrices]);
+  
   // Calculate live P&L for display (doesn't affect database)
-  const updatedPositions = usePositionCalculations(positions, livePrices);
+  const updatedPositions = usePositionCalculations(positionsWithMomentum, livePrices);
   
   // Background updater (syncs DB with live prices)
   usePositionUpdater(user?.id);
@@ -204,13 +233,28 @@ const Portfolio = () => {
               <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-1">
                 {updatedPositions.map((position) => {
                   const isPositive = position.pnl >= 0;
+                  const momentum = (position as any).momentum || 0;
+                  
                   return (
                     <div key={position.id} className="p-4 border rounded-lg bg-card/50 hover:bg-card/80 transition-colors">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-3">
-                            <div>
-                              <span className="font-semibold text-lg">{position.symbol}</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-lg">{position.symbol}</span>
+                                {/* Live Momentum Badge */}
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs font-medium px-2 py-1 animate-pulse ${
+                                    momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+                                    momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
+                                    'bg-green-500/15 text-green-400 border-green-500/30'
+                                  }`}
+                                >
+                                  🔥 {momentum.toFixed(1)}
+                                </Badge>
+                              </div>
                               <p className="text-sm text-muted-foreground">{position.coin_name}</p>
                               <div className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded mt-1">
                                 Min Trade: ${getMinimumAmount(position.symbol)} USDT
