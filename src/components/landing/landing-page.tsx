@@ -1,12 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, TrendingUp, Shield, Zap, Users, Star, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, TrendingUp, Shield, Zap, Users, Star, Menu, X, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 export function LandingPage() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleAuthClick = (isLogin: boolean) => {
     // Navigate to a route that will trigger the AuthScreen
@@ -78,9 +86,26 @@ export function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-        <div className="text-center space-y-6 max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold gradient-text animate-fade-in">
+      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div 
+            className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-pulse"
+            style={{ transform: `translateY(${scrollY * 0.3}px)` }}
+          />
+          <div 
+            className="absolute bottom-20 right-10 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-pulse"
+            style={{ animationDelay: '1s', transform: `translateY(${scrollY * 0.2}px)` }}
+          />
+        </div>
+
+        <div className="text-center space-y-6 max-w-4xl mx-auto relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 animate-fade-in">
+            <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+            <span className="text-sm font-medium">Trade Smarter, Not Harder</span>
+          </div>
+          
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold gradient-text animate-fade-in animate-slide-up">
             Trade Cryptocurrency with Confidence
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground animate-fade-in" style={{ animationDelay: '0.1s' }}>
@@ -90,7 +115,7 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
             <Button 
               size="lg" 
-              className="bg-gradient-primary text-lg px-8"
+              className="bg-gradient-primary text-lg px-8 hover-scale shadow-lg hover:shadow-xl transition-all"
               onClick={() => handleAuthClick(false)}
             >
               Get Started <ArrowRight className="ml-2 h-5 w-5" />
@@ -98,7 +123,7 @@ export function LandingPage() {
             <Button 
               size="lg" 
               variant="outline"
-              className="text-lg px-8"
+              className="text-lg px-8 hover-scale hover:border-primary/50 transition-all"
               onClick={() => handleAuthClick(true)}
             >
               Login Now
@@ -110,10 +135,10 @@ export function LandingPage() {
       {/* Features Section */}
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale group cursor-pointer animate-fade-in">
             <CardContent className="p-6 space-y-4">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-primary" />
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-all group-hover:scale-110">
+                <TrendingUp className="h-6 w-6 text-primary group-hover:rotate-12 transition-transform" />
               </div>
               <h3 className="text-xl font-semibold">Real-Time Trading</h3>
               <p className="text-muted-foreground">
@@ -122,10 +147,10 @@ export function LandingPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale group cursor-pointer animate-fade-in" style={{ animationDelay: '0.1s' }}>
             <CardContent className="p-6 space-y-4">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Shield className="h-6 w-6 text-primary" />
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-all group-hover:scale-110">
+                <Shield className="h-6 w-6 text-primary group-hover:rotate-12 transition-transform" />
               </div>
               <h3 className="text-xl font-semibold">Secure & Safe</h3>
               <p className="text-muted-foreground">
@@ -134,10 +159,10 @@ export function LandingPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale group cursor-pointer animate-fade-in" style={{ animationDelay: '0.2s' }}>
             <CardContent className="p-6 space-y-4">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Zap className="h-6 w-6 text-primary" />
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-all group-hover:scale-110">
+                <Zap className="h-6 w-6 text-primary group-hover:rotate-12 transition-transform" />
               </div>
               <h3 className="text-xl font-semibold">Lightning Fast</h3>
               <p className="text-muted-foreground">
@@ -176,10 +201,10 @@ export function LandingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="glass border-primary/20">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale group animate-fade-in">
             <CardContent className="p-6 text-center space-y-3">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                <Users className="h-8 w-8 text-primary" />
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-primary/20 transition-all group-hover:scale-110">
+                <Users className="h-8 w-8 text-primary group-hover:animate-pulse" />
               </div>
               <h3 className="text-lg font-semibold">10,000+ Users</h3>
               <p className="text-sm text-muted-foreground">
@@ -188,10 +213,10 @@ export function LandingPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass border-primary/20">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale group animate-fade-in" style={{ animationDelay: '0.1s' }}>
             <CardContent className="p-6 text-center space-y-3">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                <Shield className="h-8 w-8 text-primary" />
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-primary/20 transition-all group-hover:scale-110">
+                <Shield className="h-8 w-8 text-primary group-hover:animate-pulse" />
               </div>
               <h3 className="text-lg font-semibold">Bank-Level Security</h3>
               <p className="text-sm text-muted-foreground">
@@ -200,10 +225,10 @@ export function LandingPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass border-primary/20">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale group animate-fade-in" style={{ animationDelay: '0.2s' }}>
             <CardContent className="p-6 text-center space-y-3">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                <Zap className="h-8 w-8 text-primary" />
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-primary/20 transition-all group-hover:scale-110">
+                <Zap className="h-8 w-8 text-primary group-hover:animate-pulse" />
               </div>
               <h3 className="text-lg font-semibold">Instant Execution</h3>
               <p className="text-sm text-muted-foreground">
@@ -212,10 +237,10 @@ export function LandingPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass border-primary/20">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale group animate-fade-in" style={{ animationDelay: '0.3s' }}>
             <CardContent className="p-6 text-center space-y-3">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                <Star className="h-8 w-8 text-primary" />
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto group-hover:bg-primary/20 transition-all group-hover:scale-110">
+                <Star className="h-8 w-8 text-primary group-hover:animate-pulse" />
               </div>
               <h3 className="text-lg font-semibold">24/7 Support</h3>
               <p className="text-sm text-muted-foreground">
@@ -236,11 +261,11 @@ export function LandingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-          <Card className="glass border-primary/20">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale animate-fade-in">
             <CardContent className="p-6 space-y-4">
               <div className="flex gap-1">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-primary text-primary" />
+                  <Star key={i} className="h-5 w-5 fill-primary text-primary hover:scale-125 transition-transform" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
               </div>
               <p className="text-muted-foreground">
@@ -259,11 +284,11 @@ export function LandingPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass border-primary/20">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale animate-fade-in" style={{ animationDelay: '0.1s' }}>
             <CardContent className="p-6 space-y-4">
               <div className="flex gap-1">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-primary text-primary" />
+                  <Star key={i} className="h-5 w-5 fill-primary text-primary hover:scale-125 transition-transform" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
               </div>
               <p className="text-muted-foreground">
@@ -282,11 +307,11 @@ export function LandingPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass border-primary/20">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale animate-fade-in" style={{ animationDelay: '0.2s' }}>
             <CardContent className="p-6 space-y-4">
               <div className="flex gap-1">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-primary text-primary" />
+                  <Star key={i} className="h-5 w-5 fill-primary text-primary hover:scale-125 transition-transform" style={{ animationDelay: `${i * 0.1}s` }} />
                 ))}
               </div>
               <p className="text-muted-foreground">
@@ -309,18 +334,22 @@ export function LandingPage() {
 
       {/* CTA Section */}
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-        <Card className="glass border-primary/20 bg-gradient-primary/5">
-          <CardContent className="p-8 md:p-12 text-center space-y-6">
-            <h2 className="text-3xl md:text-4xl font-bold gradient-text">
+        <Card className="glass border-primary/20 bg-gradient-primary/5 hover:border-primary/40 transition-all animate-fade-in overflow-hidden relative">
+          {/* Animated background gradient */}
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 animate-pulse" />
+          
+          <CardContent className="p-8 md:p-12 text-center space-y-6 relative z-10">
+            <h2 className="text-3xl md:text-4xl font-bold gradient-text animate-fade-in">
               Ready to Start Trading?
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
               Join Nadex today and experience the future of cryptocurrency trading. 
               Create your account in minutes and start trading instantly.
             </p>
             <Button 
               size="lg" 
-              className="bg-gradient-primary text-lg px-8"
+              className="bg-gradient-primary text-lg px-8 hover-scale shadow-lg hover:shadow-xl transition-all animate-fade-in"
+              style={{ animationDelay: '0.2s' }}
               onClick={() => handleAuthClick(false)}
             >
               Create Free Account <ArrowRight className="ml-2 h-5 w-5" />
