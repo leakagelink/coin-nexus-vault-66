@@ -893,11 +893,11 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border/50 bg-background/50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-6 mb-8">
             {/* Brand */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
+            <div className="space-y-4 text-center sm:text-left">
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
                 <img 
                   src="/lovable-uploads/b0ad78d4-aa9f-4535-a7ec-d2f52a914912.png" 
                   alt="Nadex" 
@@ -911,56 +911,56 @@ export function LandingPage() {
             </div>
 
             {/* Quick Links */}
-            <div>
-              <h3 className="font-semibold mb-4">Quick Links</h3>
+            <div className="text-center sm:text-left">
+              <h3 className="font-semibold mb-4 text-base">Quick Links</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">How It Works</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors inline-block">About Us</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors inline-block">How It Works</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors inline-block">Pricing</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors inline-block">Blog</a></li>
               </ul>
             </div>
 
             {/* Support */}
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
+            <div className="text-center sm:text-left">
+              <h3 className="font-semibold mb-4 text-base">Support</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Security</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors inline-block">Help Center</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors inline-block">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors inline-block">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors inline-block">Security</a></li>
               </ul>
             </div>
 
             {/* Contact */}
-            <div>
-              <h3 className="font-semibold mb-4">Contact Us</h3>
+            <div className="text-center sm:text-left">
+              <h3 className="font-semibold mb-4 text-base">Contact Us</h3>
               <ul className="space-y-3 text-sm text-muted-foreground">
-                <li className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-primary" />
-                  <span>+91 1800-123-4567</span>
+                <li className="flex items-center gap-2 justify-center sm:justify-start">
+                  <Phone className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span className="break-all">+91 1800-123-4567</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-primary" />
-                  <span>support@nadex.com</span>
+                <li className="flex items-center gap-2 justify-center sm:justify-start">
+                  <Mail className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span className="break-all">support@nadex.com</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-primary" />
+                <li className="flex items-center gap-2 justify-center sm:justify-start">
+                  <MessageCircle className="h-4 w-4 text-primary flex-shrink-0" />
                   <span>Live Chat 24/7</span>
                 </li>
               </ul>
             </div>
           </div>
 
-          <div className="border-t border-border/50 pt-8">
+          <div className="border-t border-border/50 pt-6 md:pt-8">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-center md:text-left">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   Licensed & Regulated Trading Platform
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-xs sm:text-sm text-muted-foreground text-center">
                 © 2025 Nadex. All rights reserved. Trade responsibly.
               </p>
             </div>
