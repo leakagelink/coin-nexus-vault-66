@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { binanceAPI } from '@/services/binanceApi';
 
+
 interface TradingModalProps {
   isOpen: boolean;
   onClose: () => void;
