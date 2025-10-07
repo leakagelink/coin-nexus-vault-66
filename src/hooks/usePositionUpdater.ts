@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { usePriceData } from './usePriceData';
+import { binanceAPI } from '@/services/binanceApi';
 
 /**
  * Background updater that syncs database positions with live prices
@@ -24,17 +24,19 @@ export const usePositionUpdater = (userId?: string) => {
 
         if (error || !positions || positions.length === 0) return;
 
-        // Get unique symbols
-        const symbols = Array.from(new Set(positions.map(p => p.symbol)));
+        // Get unique symbols and convert to Binance format (add USDT)
+        const symbols = Array.from(new Set(positions.map(p => `${p.symbol}USDT`)));
         
-        // Fetch prices for all symbols
+        // Fetch prices from Binance for all symbols in parallel
         const pricePromises = symbols.map(async (symbol) => {
           try {
-            const { getLatestTaapiPriceUSD } = await import('@/services/taapiProxy');
-            const priceUSD = await getLatestTaapiPriceUSD(symbol, '1m');
-            return { symbol, priceINR: priceUSD * 84 };
+            const priceData = await binanceAPI.getPrice(symbol);
+            const priceUSD = parseFloat(priceData.price);
+            const priceINR = priceUSD * 84;
+            const cleanSymbol = symbol.replace('USDT', '');
+            return { symbol: cleanSymbol, priceINR };
           } catch (e) {
-            console.error(`Failed to fetch price for ${symbol}:`, e);
+            console.error(`Failed to fetch Binance price for ${symbol}:`, e);
             return null;
           }
         });
