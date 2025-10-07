@@ -133,7 +133,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
     fetchData();
   }, [isOpen, user, symbol, toast]);
 
-  // Keep price in sync with live TAAPI price - user cannot change it
+  // Initialize defaults when modal opens - run only once when opening
   useEffect(() => {
     if (isOpen) {
       // Always use live TAAPI price
@@ -144,7 +144,14 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       setAmount(minInr.toFixed(2));
       setQuantity('');
     }
-  }, [isOpen, liveInr, symbol]);
+  }, [isOpen, symbol]);
+
+  // Update price separately without resetting user inputs
+  useEffect(() => {
+    if (isOpen) {
+      setPriceInINR(liveInr.toString());
+    }
+  }, [liveInr, isOpen]);
 
   const parsedPriceINR = parseFloat(priceInINR || '0');
   const parsedQty = parseFloat(quantity || '0');
