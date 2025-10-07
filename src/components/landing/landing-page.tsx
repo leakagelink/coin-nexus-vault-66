@@ -22,6 +22,23 @@ export function LandingPage() {
     ETH: false,
     BNB: false
   });
+  const [showDepositAlert, setShowDepositAlert] = useState(false);
+  const [currentDepositAlert, setCurrentDepositAlert] = useState({
+    name: '',
+    amount: '',
+    time: ''
+  });
+
+  const depositAlerts = [
+    { name: 'Rajesh K.', amount: '₹25,000', location: 'Mumbai' },
+    { name: 'Priya S.', amount: '₹50,000', location: 'Delhi' },
+    { name: 'Amit P.', amount: '₹15,000', location: 'Bangalore' },
+    { name: 'Sneha M.', amount: '₹75,000', location: 'Pune' },
+    { name: 'Vikram R.', amount: '₹30,000', location: 'Hyderabad' },
+    { name: 'Anjali T.', amount: '₹45,000', location: 'Chennai' },
+    { name: 'Karan G.', amount: '₹60,000', location: 'Kolkata' },
+    { name: 'Neha D.', amount: '₹20,000', location: 'Ahmedabad' }
+  ];
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -89,6 +106,38 @@ export function LandingPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Deposit alert cycle
+  useEffect(() => {
+    const showAlert = () => {
+      const randomAlert = depositAlerts[Math.floor(Math.random() * depositAlerts.length)];
+      const now = new Date();
+      const timeAgo = Math.floor(Math.random() * 5) + 1; // 1-5 minutes ago
+      
+      setCurrentDepositAlert({
+        name: randomAlert.name,
+        amount: randomAlert.amount,
+        time: `${timeAgo} min ago`
+      });
+      setShowDepositAlert(true);
+
+      // Hide after 5 seconds
+      setTimeout(() => {
+        setShowDepositAlert(false);
+      }, 5000);
+    };
+
+    // Show first alert after 3 seconds
+    const initialTimeout = setTimeout(showAlert, 3000);
+
+    // Then show every 15 seconds
+    const interval = setInterval(showAlert, 15000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, []);
+
   const handleAuthClick = (isLogin: boolean) => {
     // Navigate to a route that will trigger the AuthScreen
     navigate('/portfolio');
@@ -96,6 +145,34 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Deposit Alert Notification */}
+      <div className={cn(
+        "fixed bottom-6 right-6 z-50 transition-all duration-500 transform",
+        showDepositAlert ? "translate-x-0 opacity-100" : "translate-x-[120%] opacity-0"
+      )}>
+        <Card className="glass border-green-500/30 bg-green-500/5 backdrop-blur-lg shadow-2xl w-80 hover-scale">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0 animate-pulse">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold text-green-500 text-sm">New Deposit</p>
+                  <span className="text-xs text-muted-foreground">{currentDepositAlert.time}</span>
+                </div>
+                <p className="text-sm text-foreground mb-1">
+                  <span className="font-semibold">{currentDepositAlert.name}</span> just deposited
+                </p>
+                <p className="text-lg font-bold gradient-text">
+                  {currentDepositAlert.amount}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Header */}
       <header className="glass border-b border-border/50 sticky top-0 z-50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
