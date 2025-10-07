@@ -11,9 +11,14 @@ export function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [cryptoPrices, setCryptoPrices] = useState({
-    BTC: { price: 0, change: 0 },
-    ETH: { price: 0, change: 0 },
-    BNB: { price: 0, change: 0 }
+    BTC: { price: 0, change: 0, momentum: 'neutral' as 'up' | 'down' | 'neutral', prevPrice: 0 },
+    ETH: { price: 0, change: 0, momentum: 'neutral' as 'up' | 'down' | 'neutral', prevPrice: 0 },
+    BNB: { price: 0, change: 0, momentum: 'neutral' as 'up' | 'down' | 'neutral', prevPrice: 0 }
+  });
+  const [priceFlash, setPriceFlash] = useState<{[key: string]: boolean}>({
+    BTC: false,
+    ETH: false,
+    BNB: false
   });
 
   useEffect(() => {
@@ -31,18 +36,53 @@ export function LandingPage() {
           getLatestTaapiPriceUSD('BNB', '1h')
         ]);
 
-        setCryptoPrices({
-          BTC: { price: btcPrice, change: Math.random() * 10 - 5 },
-          ETH: { price: ethPrice, change: Math.random() * 10 - 5 },
-          BNB: { price: bnbPrice, change: Math.random() * 10 - 5 }
+        setCryptoPrices(prev => {
+          const newPrices = {
+            BTC: {
+              price: btcPrice,
+              prevPrice: prev.BTC.price || btcPrice,
+              change: prev.BTC.price ? ((btcPrice - prev.BTC.price) / prev.BTC.price) * 100 : 0,
+              momentum: btcPrice > prev.BTC.price ? 'up' as const : btcPrice < prev.BTC.price ? 'down' as const : 'neutral' as const
+            },
+            ETH: {
+              price: ethPrice,
+              prevPrice: prev.ETH.price || ethPrice,
+              change: prev.ETH.price ? ((ethPrice - prev.ETH.price) / prev.ETH.price) * 100 : 0,
+              momentum: ethPrice > prev.ETH.price ? 'up' as const : ethPrice < prev.ETH.price ? 'down' as const : 'neutral' as const
+            },
+            BNB: {
+              price: bnbPrice,
+              prevPrice: prev.BNB.price || bnbPrice,
+              change: prev.BNB.price ? ((bnbPrice - prev.BNB.price) / prev.BNB.price) * 100 : 0,
+              momentum: bnbPrice > prev.BNB.price ? 'up' as const : bnbPrice < prev.BNB.price ? 'down' as const : 'neutral' as const
+            }
+          };
+
+          // Trigger flash animation for changed prices
+          const flash: {[key: string]: boolean} = {};
+          (Object.keys(newPrices) as Array<keyof typeof newPrices>).forEach(key => {
+            if (prev[key].price && newPrices[key].price !== prev[key].price) {
+              flash[key] = true;
+            }
+          });
+          
+          if (Object.keys(flash).length > 0) {
+            setPriceFlash(flash);
+            setTimeout(() => setPriceFlash({ BTC: false, ETH: false, BNB: false }), 1000);
+          }
+
+          return newPrices;
         });
       } catch (error) {
         console.error('Error fetching crypto prices:', error);
       }
     };
 
+    // Initial fetch
     fetchCryptoPrices();
-    const interval = setInterval(fetchCryptoPrices, 60000); // Update every minute
+    
+    // Update every 10 seconds for live momentum
+    const interval = setInterval(fetchCryptoPrices, 10000);
 
     return () => clearInterval(interval);
   }, []);
@@ -166,21 +206,45 @@ export function LandingPage() {
       {/* Live Crypto Prices Section */}
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="text-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold gradient-text mb-2">Live Market Prices</h2>
-          <p className="text-muted-foreground">Real-time cryptocurrency prices powered by TAAPI</p>
+          <h2 className="text-2xl md:text-3xl font-bold gradient-text mb-2">
+            Live Market Prices
+            <span className="ml-2 inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          </h2>
+          <p className="text-muted-foreground">Real-time cryptocurrency prices with live momentum</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 max-w-4xl mx-auto">
           {Object.entries(cryptoPrices).map(([symbol, data], index) => (
             <Card 
               key={symbol}
-              className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale group cursor-pointer animate-fade-in"
+              className={cn(
+                "glass border-primary/20 hover:border-primary/40 transition-all hover-scale group cursor-pointer animate-fade-in relative overflow-hidden",
+                priceFlash[symbol] && data.momentum === 'up' && "ring-2 ring-green-500/50",
+                priceFlash[symbol] && data.momentum === 'down' && "ring-2 ring-red-500/50"
+              )}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <CardContent className="p-6">
+              {/* Momentum indicator background */}
+              {data.momentum !== 'neutral' && (
+                <div className={cn(
+                  "absolute inset-0 opacity-5 transition-opacity",
+                  data.momentum === 'up' ? "bg-green-500" : "bg-red-500",
+                  priceFlash[symbol] && "opacity-20"
+                )} />
+              )}
+
+              <CardContent className="p-6 relative z-10">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="text-xl font-bold mb-1">{symbol}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xl font-bold">{symbol}</h3>
+                      {data.momentum === 'up' && (
+                        <TrendingUp className="h-5 w-5 text-green-500 animate-bounce" />
+                      )}
+                      {data.momentum === 'down' && (
+                        <TrendingUp className="h-5 w-5 text-red-500 rotate-180 animate-bounce" />
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground">
                       {symbol === 'BTC' && 'Bitcoin'}
                       {symbol === 'ETH' && 'Ethereum'}
@@ -188,15 +252,19 @@ export function LandingPage() {
                     </p>
                   </div>
                   <div className={cn(
-                    "px-2 py-1 rounded text-xs font-semibold",
-                    data.change >= 0 ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                    "px-2 py-1 rounded text-xs font-semibold transition-all",
+                    data.change >= 0 ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500",
+                    priceFlash[symbol] && "scale-110"
                   )}>
                     {data.change >= 0 ? '+' : ''}{data.change.toFixed(2)}%
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="text-3xl font-bold gradient-text">
+                  <div className={cn(
+                    "text-3xl font-bold gradient-text transition-all",
+                    priceFlash[symbol] && "scale-105"
+                  )}>
                     ${data.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -206,8 +274,16 @@ export function LandingPage() {
 
                 <div className="mt-4 pt-4 border-t border-border/50">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">24h Volume</span>
-                    <span className="font-semibold">High</span>
+                    <span className="text-muted-foreground">Live Momentum</span>
+                    <span className={cn(
+                      "font-semibold flex items-center gap-1",
+                      data.momentum === 'up' && "text-green-500",
+                      data.momentum === 'down' && "text-red-500"
+                    )}>
+                      {data.momentum === 'up' && '↑ Bullish'}
+                      {data.momentum === 'down' && '↓ Bearish'}
+                      {data.momentum === 'neutral' && '→ Stable'}
+                    </span>
                   </div>
                 </div>
               </CardContent>
