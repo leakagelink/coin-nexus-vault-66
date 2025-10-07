@@ -922,27 +922,29 @@ export function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16 lg:py-24">
         <Card className="glass border-primary/20 bg-gradient-primary/5 hover:border-primary/40 transition-all animate-fade-in overflow-hidden relative">
           {/* Animated background gradient */}
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 animate-pulse" />
           
-          <CardContent className="p-8 md:p-12 text-center space-y-6 relative z-10">
-            <h2 className="text-3xl md:text-4xl font-bold gradient-text animate-fade-in">
+          <CardContent className="p-6 sm:p-8 md:p-12 text-center space-y-4 md:space-y-6 relative z-10">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold gradient-text animate-fade-in px-2">
               Ready to Start Trading?
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto animate-fade-in px-4" style={{ animationDelay: '0.1s' }}>
               Join Nadex today and experience the future of cryptocurrency trading. 
               Create your account in minutes and start trading instantly.
             </p>
-            <Button 
-              size="lg" 
-              className="bg-gradient-primary text-lg px-8 hover-scale shadow-lg hover:shadow-xl transition-all animate-fade-in"
-              style={{ animationDelay: '0.2s' }}
-              onClick={() => handleAuthClick(false)}
-            >
-              Create Free Account <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+            <div className="pt-2">
+              <Button 
+                size="lg" 
+                className="bg-gradient-primary text-base sm:text-lg px-6 sm:px-8 md:px-10 py-5 sm:py-6 w-full sm:w-auto hover-scale shadow-lg hover:shadow-xl transition-all animate-fade-in"
+                style={{ animationDelay: '0.2s' }}
+                onClick={() => handleAuthClick(false)}
+              >
+                Create Free Account <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </section>
