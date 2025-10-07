@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,33 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   const { prices: taapiPrices } = usePriceData([symbol.replace('USDT', '')]);
   const liveUsd = taapiPrices[symbol.replace('USDT', '')]?.priceUSD ?? currentPrice;
   const liveInr = liveUsd * 84;
+
+  // Track live momentum locally for this trade
+  const priceHistoryRef = useRef<number[]>([]);
+  const prevPriceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const p = liveUsd;
+    if (!p || !Number.isFinite(p)) return;
+    const arr = priceHistoryRef.current;
+    arr.push(p);
+    if (arr.length > 10) arr.shift();
+    prevPriceRef.current = arr.length >= 2 ? arr[arr.length - 2] : prevPriceRef.current;
+  }, [isOpen, liveUsd]);
+
+  const momentum = useMemo(() => {
+    const arr = priceHistoryRef.current;
+    if (arr.length < 2) return 0;
+    const changes = arr.map((v, i, a) => (i > 0 ? ((v - a[i - 1]) / a[i - 1]) * 100 : 0));
+    return Math.abs(changes.reduce((s, c) => s + c, 0));
+  }, [taapiPrices, symbol]);
+
+  const isUp = useMemo(() => {
+    const arr = priceHistoryRef.current;
+    if (arr.length < 2) return true;
+    return arr[arr.length - 1] >= arr[arr.length - 2];
+  }, [taapiPrices, symbol]);
 
   // Fetch wallet balance and existing position when modal opens
   useEffect(() => {
@@ -416,9 +443,10 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Trade {symbol.replace('USDT', '')}
-            <div className="flex items-center gap-1 text-sm">
-              {liveUsd > 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+            <div className="flex items-center gap-2 text-sm">
+              {isUp ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-danger" />}
               <span className="font-mono">₹{liveInr.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              <span className={`text-xs ${isUp ? 'text-success' : 'text-danger'}`}>🔥 {momentum.toFixed(1)}</span>
             </div>
           </DialogTitle>
         </DialogHeader>

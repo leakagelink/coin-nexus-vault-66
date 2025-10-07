@@ -191,8 +191,8 @@ export function LiveMomentum() {
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="hidden sm:inline">Live updates every 4s</span>
-              <span className="sm:hidden">Live 4s</span>
+              <span className="hidden sm:inline">Live updates every 5s</span>
+              <span className="sm:hidden">Live 5s</span>
             </div>
             {lastUpdate > 0 && (
               <span className="text-primary/70">
