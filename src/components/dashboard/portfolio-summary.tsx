@@ -124,19 +124,19 @@ export function PortfolioSummary() {
           {trades && trades.length > 0 ? (
             <div className="space-y-3">
               {trades.slice(0, 5).map((trade) => (
-                <div key={trade.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${
+                <div key={trade.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 border rounded-lg">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${
                       trade.trade_type === 'buy' ? 'bg-green-500' : 'bg-red-500'
                     }`} />
-                    <div>
-                      <p className="font-medium">{trade.coin_name}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{trade.coin_name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {trade.trade_type.toUpperCase()} • {trade.quantity} {trade.symbol}
+                        {trade.trade_type.toUpperCase()} • {Number(trade.quantity).toFixed(6)} {trade.symbol}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-left sm:text-right pl-5 sm:pl-0 shrink-0">
                     <div className="font-semibold">
                       ${(Number(trade.total_amount) / 84).toFixed(2)} USDT
                     </div>
