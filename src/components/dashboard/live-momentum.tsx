@@ -101,7 +101,7 @@ export function LiveMomentum() {
         crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => b.momentum - a.momentum);
-  }, [taapiPrices, searchTerm]);
+  }, [symbols, taapiPrices, searchTerm]);
 
   if (isLoading) {
     return (
