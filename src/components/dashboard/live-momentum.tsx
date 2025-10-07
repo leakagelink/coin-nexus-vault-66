@@ -38,6 +38,8 @@ export function LiveMomentum() {
   
   // Persist price history across renders for accurate momentum
   const priceHistoryRef = useRef<Record<string, number[]>>({});
+  // Cache last known prices to prevent flicker during live updates/search
+  const lastPriceRef = useRef<Record<string, { priceUSD: number; priceINR: number; lastUpdate: number }>>({});
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -56,10 +58,23 @@ export function LiveMomentum() {
 
   // Calculate momentum and format data from TAAPI prices
   const tradingPairs = useMemo(() => {
+    // When the user is searching, freeze to last known prices to avoid flicker
+    const sourcePrices = searchTerm ? lastPriceRef.current : taapiPrices;
+
     return symbols
       .map(symbol => {
-        const priceData = taapiPrices[symbol];
-        if (!priceData) return null;
+        // Update last known price cache whenever live data is available
+        const live = taapiPrices[symbol];
+        if (live) {
+          lastPriceRef.current[symbol] = {
+            priceUSD: live.priceUSD,
+            priceINR: live.priceINR,
+            lastUpdate: live.lastUpdate,
+          };
+        }
+
+        const priceData = sourcePrices[symbol];
+        if (!priceData) return null; // Nothing to show yet
         
         const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
         const priceUSD = priceData.priceUSD;
