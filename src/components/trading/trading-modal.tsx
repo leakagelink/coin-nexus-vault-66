@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
-import { usePriceData } from '@/hooks/usePriceData';
+import { binanceAPI } from '@/services/binanceApi';
 
 interface TradingModalProps {
   isOpen: boolean;
@@ -34,38 +34,58 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [mode, setMode] = useState<TradeMode>('amount');
   const [existingPosition, setExistingPosition] = useState<any>(null);
-
-  // TAAPI live price via centralized hook
-  const { prices: taapiPrices } = usePriceData([symbol.replace('USDT', '')]);
-  const liveUsd = taapiPrices[symbol.replace('USDT', '')]?.priceUSD ?? currentPrice;
-  const liveInr = liveUsd * 84;
+  const [livePrice, setLivePrice] = useState<number>(currentPrice);
 
   // Track live momentum locally for this trade
   const priceHistoryRef = useRef<number[]>([]);
   const prevPriceRef = useRef<number | null>(null);
 
+  // Fetch live Binance price every 2 seconds
   useEffect(() => {
     if (!isOpen) return;
-    const p = liveUsd;
-    if (!p || !Number.isFinite(p)) return;
-    const arr = priceHistoryRef.current;
-    arr.push(p);
-    if (arr.length > 10) arr.shift();
-    prevPriceRef.current = arr.length >= 2 ? arr[arr.length - 2] : prevPriceRef.current;
-  }, [isOpen, liveUsd]);
+
+    const fetchPrice = async () => {
+      try {
+        const binanceSymbol = symbol; // Already in format like "BTCUSDT"
+        const priceData = await binanceAPI.getPrice(binanceSymbol);
+        const price = parseFloat(priceData.price);
+        
+        if (price && price > 0) {
+          setLivePrice(price);
+          
+          // Update price history for momentum
+          const arr = priceHistoryRef.current;
+          arr.push(price);
+          if (arr.length > 10) arr.shift();
+          prevPriceRef.current = arr.length >= 2 ? arr[arr.length - 2] : prevPriceRef.current;
+        }
+      } catch (error) {
+        console.error('Error fetching Binance price:', error);
+        // Fallback to currentPrice if Binance fails
+        setLivePrice(currentPrice);
+      }
+    };
+
+    fetchPrice(); // Initial fetch
+    const interval = setInterval(fetchPrice, 2000); // Update every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [isOpen, symbol, currentPrice]);
+
+  const liveInr = livePrice * 84;
 
   const momentum = useMemo(() => {
     const arr = priceHistoryRef.current;
     if (arr.length < 2) return 0;
     const changes = arr.map((v, i, a) => (i > 0 ? ((v - a[i - 1]) / a[i - 1]) * 100 : 0));
     return Math.abs(changes.reduce((s, c) => s + c, 0));
-  }, [taapiPrices, symbol]);
+  }, [livePrice]);
 
   const isUp = useMemo(() => {
     const arr = priceHistoryRef.current;
     if (arr.length < 2) return true;
     return arr[arr.length - 1] >= arr[arr.length - 2];
-  }, [taapiPrices, symbol]);
+  }, [livePrice]);
 
   // Fetch wallet balance and existing position when modal opens
   useEffect(() => {
@@ -275,9 +295,10 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
 
     setIsLoading(true);
     try {
-      // Always use live TAAPI price for trade execution
+      // Always use live Binance price for trade execution
       const buyPriceINR = liveInr; // Live market price at execution time
       
+      console.log('[TradingModal] Executing buy with live price:', buyPriceINR);
       if (existingPosition) {
         const oldQty = Number(existingPosition.amount);
         const newQty = oldQty + qty;
@@ -493,7 +514,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
                 className="bg-muted/50 cursor-not-allowed font-mono"
               />
               <p className="text-xs text-muted-foreground">
-                Trade will execute at live TAAPI market price
+                Trade will execute at live Binance market price
               </p>
             </div>
             {mode === 'quantity' ? (
@@ -555,7 +576,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
                 className="bg-muted/50 cursor-not-allowed font-mono"
               />
               <p className="text-xs text-muted-foreground">
-                Trade will execute at live TAAPI market price
+                Trade will execute at live Binance market price
               </p>
             </div>
             {mode === 'quantity' ? (
