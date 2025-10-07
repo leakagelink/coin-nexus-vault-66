@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { AuthScreen } from '@/components/auth/auth-screen';
 import { AuthComingSoon } from '@/components/auth-coming-soon';
 import { useIsWebBrowser } from '@/hooks/useIsWebBrowser';
+import { LandingPage } from '@/components/landing/landing-page';
 import { Loader2 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
@@ -31,6 +32,11 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
   // Protected routes that require authentication
   const protectedRoutes = ['/portfolio', '/trades', '/wallet', '/watchlist', '/account', '/admin'];
   const requiresAuth = protectedRoutes.some(route => location.pathname.startsWith(route));
+
+  // Show landing page for non-authenticated users on home page
+  if (!user && location.pathname === '/') {
+    return <LandingPage />;
+  }
 
   // If user is not logged in and trying to access protected routes
   if (!user && requiresAuth) {
