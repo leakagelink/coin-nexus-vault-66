@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLCWPrices } from "@/hooks/useLCWPrices";
+import { useTaapiPrices } from "@/hooks/useTaapiPrices";
 
 interface AdminTradeDialogProps {
   userId: string;
@@ -41,7 +41,10 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { prices } = useLCWPrices();
+  
+  // Use TAAPI for live prices
+  const symbols = selectedCoin ? [selectedCoin] : [];
+  const { prices } = useTaapiPrices(symbols);
 
   // Fetch user balance when dialog opens
   useEffect(() => {
@@ -70,18 +73,19 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
   const parsedPrice = parseFloat(price || '0');
   const totalCost = parsedQty * parsedPrice;
 
-  // Auto-populate price when coin is selected
+  // Auto-populate price with live TAAPI price when coin is selected
   useEffect(() => {
-    if (selectedCoin && prices[selectedCoin]?.price) {
-      const livePrice = prices[selectedCoin].price * 84; // Convert to INR
-      setPrice(livePrice.toFixed(2));
+    if (selectedCoin && prices[selectedCoin]) {
+      const livePriceINR = prices[selectedCoin].priceINR;
+      if (livePriceINR) {
+        setPrice(livePriceINR.toFixed(2));
+      }
     }
   }, [selectedCoin, prices]);
 
-  // Get current live price for calculations
+  // Get current live price from TAAPI for calculations
   const getCurrentLivePrice = (symbol: string): number => {
-    const livePrice = prices[symbol]?.price;
-    return livePrice ? livePrice * 84 : parseFloat(price || '0');
+    return prices[symbol]?.priceINR || parseFloat(price || '0');
   };
 
   const handleSubmit = async () => {
