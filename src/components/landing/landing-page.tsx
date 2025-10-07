@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, TrendingUp, Shield, Zap, Users, Star, Menu, X, Sparkles, Lock, Award, Headphones, CheckCircle, Phone, Mail, MessageCircle, BarChart3, Wallet, UserPlus, PlayCircle } from "lucide-react";
+import { ArrowRight, TrendingUp, Shield, Zap, Users, Star, Menu, X, Sparkles, Lock, Award, Headphones, CheckCircle, Phone, Mail, MessageCircle, BarChart3, Wallet, UserPlus, PlayCircle, Eye, Activity } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,8 @@ export function LandingPage() {
     { name: 'Karan G.', amount: '₹60,000', location: 'Kolkata' },
     { name: 'Neha D.', amount: '₹20,000', location: 'Ahmedabad' }
   ];
+  const [activeTraders, setActiveTraders] = useState(847);
+  const [liveViewers, setLiveViewers] = useState(1234);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -138,6 +140,29 @@ export function LandingPage() {
     };
   }, []);
 
+  // Active traders and viewers counter
+  useEffect(() => {
+    const updateCounts = () => {
+      // Randomly update active traders (800-900)
+      setActiveTraders(prev => {
+        const change = Math.floor(Math.random() * 11) - 5; // -5 to +5
+        const newValue = prev + change;
+        return Math.max(800, Math.min(900, newValue));
+      });
+
+      // Randomly update live viewers (1200-1500)
+      setLiveViewers(prev => {
+        const change = Math.floor(Math.random() * 21) - 10; // -10 to +10
+        const newValue = prev + change;
+        return Math.max(1200, Math.min(1500, newValue));
+      });
+    };
+
+    const interval = setInterval(updateCounts, 3000); // Update every 3 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleAuthClick = (isLogin: boolean) => {
     // Navigate to a route that will trigger the AuthScreen
     navigate('/portfolio');
@@ -173,8 +198,39 @@ export function LandingPage() {
         </Card>
       </div>
 
+      {/* Live Activity Bar - Top Banner */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border-b border-primary/20 backdrop-blur-md">
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex items-center justify-center gap-6 md:gap-8 text-sm">
+            <div className="flex items-center gap-2 animate-fade-in">
+              <div className="relative">
+                <Activity className="h-4 w-4 text-green-500 animate-pulse" />
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-ping" />
+              </div>
+              <span className="text-muted-foreground hidden sm:inline">Active Traders:</span>
+              <span className="font-bold text-primary">{activeTraders}</span>
+            </div>
+            
+            <div className="w-px h-4 bg-border" />
+            
+            <div className="flex items-center gap-2 animate-fade-in">
+              <Eye className="h-4 w-4 text-blue-500" />
+              <span className="text-muted-foreground hidden sm:inline">Watching Now:</span>
+              <span className="font-bold text-primary">{liveViewers}</span>
+            </div>
+
+            <div className="w-px h-4 bg-border hidden md:block" />
+            
+            <div className="hidden md:flex items-center gap-2 animate-fade-in">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-xs text-muted-foreground">Live Market Updates</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
-      <header className="glass border-b border-border/50 sticky top-0 z-50">
+      <header className="glass border-b border-border/50 sticky top-10 z-30 mt-10">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
