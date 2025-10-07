@@ -47,8 +47,21 @@ export const usePositionUpdater = (userId?: string) => {
 
         // Update positions in database
         const updates = positions.map(async (position) => {
-          // Skip if admin has overridden the price
-          if (position.admin_price_override) return;
+          // For admin-overridden positions, add small fluctuation to simulate live movement
+          if (position.admin_price_override) {
+            const basePrice = position.current_price;
+            // Add random fluctuation between -0.5% to +0.5% to keep it feeling live
+            const fluctuation = (Math.random() - 0.5) * 0.01; // -0.5% to +0.5%
+            const newPrice = basePrice * (1 + fluctuation);
+            
+            return supabase
+              .from('portfolio_positions')
+              .update({
+                current_price: newPrice,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', position.id);
+          }
           
           const livePriceINR = priceMap[position.symbol];
           if (!livePriceINR) return;
