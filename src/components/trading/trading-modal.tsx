@@ -250,9 +250,9 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
         const newTotalInvestment = Number(existingPosition.total_investment || (oldQty * Number(existingPosition.buy_price))) + totalCost;
         const newAvgPriceINR = newQty > 0 ? newTotalInvestment / newQty : buyPriceINR;
         
-        // For updated positions, keep existing current_price (will be updated by usePositionUpdater)
-        // Calculate initial P&L based on existing current price
-        const currentValue = newQty * Number(existingPosition.current_price);
+        // Use LIVE price for immediate sync so P&L reflects market, not stale DB price
+        const currentPrice = buyPriceINR;
+        const currentValue = newQty * currentPrice;
         const pnl = currentValue - newTotalInvestment;
         const pnlPercentage = newTotalInvestment > 0 ? (pnl / newTotalInvestment) * 100 : 0;
 
@@ -261,6 +261,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
           .update({
             amount: newQty,
             buy_price: newAvgPriceINR,  // Average cost basis
+            current_price: currentPrice, // sync to live
             total_investment: newTotalInvestment,
             current_value: currentValue,
             pnl: pnl,
@@ -387,7 +388,7 @@ export function TradingModal({ isOpen, onClose, symbol, name, currentPrice }: Tr
       }
 
       await updateWallet(walletBalance + proceeds);
-      await recordTrade('sell', qty, sellPriceINR, proceeds);
+      await recordTrade('sell', qty, currentMarketPriceINR, proceeds);
 
       toast({
         title: "Success",
