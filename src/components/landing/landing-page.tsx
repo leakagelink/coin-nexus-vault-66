@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, TrendingUp, Shield, Zap, Users, Star, Menu, X, Sparkles } from "lucide-react";
+import { ArrowRight, TrendingUp, Shield, Zap, Users, Star, Menu, X, Sparkles, Lock, Award, Headphones, CheckCircle, Phone, Mail, MessageCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { getLatestTaapiPriceUSD } from "@/services/taapiProxy";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -302,6 +303,91 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Trust Badges Section */}
+      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale animate-fade-in">
+            <CardContent className="p-6 text-center space-y-3">
+              <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
+                <Shield className="h-6 w-6 text-green-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">SSL Secured</p>
+                <p className="text-xs text-muted-foreground">256-bit Encryption</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale animate-fade-in" style={{ animationDelay: '0.1s' }}>
+            <CardContent className="p-6 text-center space-y-3">
+              <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto">
+                <Lock className="h-6 w-6 text-blue-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Licensed</p>
+                <p className="text-xs text-muted-foreground">Regulated Platform</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <CardContent className="p-6 text-center space-y-3">
+              <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto">
+                <Award className="h-6 w-6 text-purple-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Insured</p>
+                <p className="text-xs text-muted-foreground">Asset Protection</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass border-primary/20 hover:border-primary/40 transition-all hover-scale animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <CardContent className="p-6 text-center space-y-3">
+              <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto">
+                <Headphones className="h-6 w-6 text-orange-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">24/7 Support</p>
+                <p className="text-xs text-muted-foreground">Always Available</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 bg-primary/5 rounded-3xl">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold gradient-text mb-4">Trusted by Traders Worldwide</h2>
+          <p className="text-lg text-muted-foreground">Join our growing community of successful traders</p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
+          <div className="text-center animate-fade-in">
+            <div className="text-4xl md:text-5xl font-bold gradient-text mb-2">10,000+</div>
+            <p className="text-muted-foreground">Active Users</p>
+          </div>
+
+          <div className="text-center animate-fade-in" style={{ animationDelay: '0.1s' }}>
+            <div className="text-4xl md:text-5xl font-bold gradient-text mb-2">$50M+</div>
+            <p className="text-muted-foreground">Trading Volume</p>
+          </div>
+
+          <div className="text-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <div className="text-4xl md:text-5xl font-bold gradient-text mb-2">25+</div>
+            <p className="text-muted-foreground">Countries</p>
+          </div>
+
+          <div className="text-center animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <div className="text-4xl md:text-5xl font-bold gradient-text mb-2">99.9%</div>
+            <p className="text-muted-foreground">Uptime</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+
       {/* Features Section */}
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
@@ -421,6 +507,68 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* FAQ Section */}
+      <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold gradient-text mb-4">Frequently Asked Questions</h2>
+            <p className="text-lg text-muted-foreground">Everything you need to know about trading on Nadex</p>
+          </div>
+
+          <Accordion type="single" collapsible className="space-y-4">
+            <AccordionItem value="item-1" className="glass border border-primary/20 rounded-lg px-6">
+              <AccordionTrigger className="text-left font-semibold hover:text-primary">
+                Is Nadex platform secure?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Yes, absolutely. We use bank-level 256-bit SSL encryption, two-factor authentication, and cold storage 
+                for the majority of digital assets. Your funds are insured and protected at all times.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-2" className="glass border border-primary/20 rounded-lg px-6">
+              <AccordionTrigger className="text-left font-semibold hover:text-primary">
+                How do I start trading?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Simply sign up for a free account, complete the quick verification process, deposit funds using your 
+                preferred payment method, and start trading. The entire process takes less than 5 minutes.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-3" className="glass border border-primary/20 rounded-lg px-6">
+              <AccordionTrigger className="text-left font-semibold hover:text-primary">
+                What are the trading fees?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                We offer competitive trading fees starting from 0.1% per transaction. There are no hidden charges, 
+                and you only pay when you trade. Deposits and withdrawals have minimal fees.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-4" className="glass border border-primary/20 rounded-lg px-6">
+              <AccordionTrigger className="text-left font-semibold hover:text-primary">
+                How long do withdrawals take?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Crypto withdrawals are typically processed within 15-30 minutes. Bank transfers may take 1-3 business 
+                days depending on your bank and location.
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-5" className="glass border border-primary/20 rounded-lg px-6">
+              <AccordionTrigger className="text-left font-semibold hover:text-primary">
+                Do you provide customer support?
+              </AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Yes! Our dedicated support team is available 24/7 via live chat, email, and phone. We're here to help 
+                you with any questions or issues you may encounter.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+      </section>
+
       {/* Testimonials Section */}
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <div className="text-center mb-12">
@@ -530,19 +678,77 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border/50 bg-background/50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <img 
-                src="/lovable-uploads/b0ad78d4-aa9f-4535-a7ec-d2f52a914912.png" 
-                alt="Nadex" 
-                className="w-6 h-6"
-              />
-              <span className="font-semibold">Nadex</span>
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            {/* Brand */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <img 
+                  src="/lovable-uploads/b0ad78d4-aa9f-4535-a7ec-d2f52a914912.png" 
+                  alt="Nadex" 
+                  className="w-8 h-8"
+                />
+                <span className="text-xl font-bold gradient-text">Nadex</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Your trusted platform for cryptocurrency trading with real-time data and secure transactions.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground text-center">
-              © 2025 Nadex. All rights reserved. Trade responsibly.
-            </p>
+
+            {/* Quick Links */}
+            <div>
+              <h3 className="font-semibold mb-4">Quick Links</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors">How It Works</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors">Pricing</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
+              </ul>
+            </div>
+
+            {/* Support */}
+            <div>
+              <h3 className="font-semibold mb-4">Support</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><a href="#" className="hover:text-primary transition-colors">Help Center</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-primary transition-colors">Security</a></li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h3 className="font-semibold mb-4">Contact Us</h3>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-primary" />
+                  <span>+91 1800-123-4567</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-primary" />
+                  <span>support@nadex.com</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-primary" />
+                  <span>Live Chat 24/7</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-border/50 pt-8">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="text-sm text-muted-foreground">
+                  Licensed & Regulated Trading Platform
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                © 2025 Nadex. All rights reserved. Trade responsibly.
+              </p>
+            </div>
           </div>
         </div>
       </footer>
