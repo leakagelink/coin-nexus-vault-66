@@ -27,6 +27,17 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
 
   const { settings, isLoading: settingsLoading } = useAdminSettings();
 
+  // Convert Google Drive link to direct image URL
+  const convertDriveLink = (url: string) => {
+    if (!url) return '';
+    // Check if it's a Google Drive link
+    const driveMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch) {
+      return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    }
+    return url;
+  };
+
   const getPaymentDetails = (method: string, amount: string) => {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) return null;
@@ -38,7 +49,7 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
         method: 'UPI',
         upiId: s.upi_id,
         amount: amt,
-        qrCode: s.qr_code || '',
+        qrCode: convertDriveLink(s.qr_code || ''),
         instructions: (s.instructions && Array.isArray(s.instructions)) ? s.instructions : [
           'Open your UPI app (PhonePe, Google Pay, Paytm, etc.)',
           `Pay to UPI ID: ${s.upi_id}`,
@@ -236,17 +247,24 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
                   </div>
                   {paymentDetails.qrCode && (
                     <div className="mt-4">
-                      <span className="text-sm text-muted-foreground">QR Code:</span>
-                      <div className="mt-2">
+                      <span className="text-sm font-medium">Scan QR Code:</span>
+                      <div className="mt-2 p-3 bg-background rounded-lg border">
                         <img 
                           src={paymentDetails.qrCode} 
                           alt="Payment QR Code" 
-                          className="max-w-48 max-h-48 mx-auto border rounded"
+                          className="w-48 h-48 mx-auto object-contain"
                           onError={(e) => {
-                            e.currentTarget.style.display = 'none';
+                            console.error('QR Code failed to load:', paymentDetails.qrCode);
+                            const target = e.currentTarget;
+                            target.src = '';
+                            target.alt = 'QR Code not available';
+                            target.className = 'w-48 h-48 mx-auto flex items-center justify-center text-muted-foreground text-sm';
                           }}
                         />
                       </div>
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        Scan this QR code with your UPI app
+                      </p>
                     </div>
                   )}
                 </div>
