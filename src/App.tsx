@@ -3,8 +3,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AuthWrapper } from "./components/layout/auth-wrapper";
+import { PasswordResetModal } from "./components/auth/password-reset-modal";
 import Index from "./pages/Index";
 import Chart from "./pages/Chart";
 import Portfolio from "./pages/Portfolio";
@@ -18,6 +19,32 @@ import "./App.css";
 
 const queryClient = new QueryClient();
 
+function AppContent() {
+  const { showPasswordReset, setShowPasswordReset } = useAuth();
+
+  return (
+    <>
+      <AuthWrapper>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/chart/:symbol" element={<Chart />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/trades" element={<Trades />} />
+          <Route path="/wallet" element={<Wallet />} />
+          <Route path="/watchlist" element={<Watchlist />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthWrapper>
+      <PasswordResetModal 
+        isOpen={showPasswordReset} 
+        onClose={() => setShowPasswordReset(false)} 
+      />
+    </>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -25,19 +52,7 @@ function App() {
         <Toaster />
         <BrowserRouter>
           <AuthProvider>
-            <AuthWrapper>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/chart/:symbol" element={<Chart />} />
-                <Route path="/portfolio" element={<Portfolio />} />
-                <Route path="/trades" element={<Trades />} />
-                <Route path="/wallet" element={<Wallet />} />
-                <Route path="/watchlist" element={<Watchlist />} />
-                <Route path="/account" element={<Account />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AuthWrapper>
+            <AppContent />
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

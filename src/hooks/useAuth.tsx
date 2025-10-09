@@ -8,6 +8,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  showPasswordReset: boolean;
+  setShowPasswordReset: (show: boolean) => void;
   signUp: (email: string, password: string, fullName: string, mobileNumber: string) => Promise<{ error: any }>;
   verifyEmailOtp: (email: string, otp: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -21,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   useEffect(() => {
     // Set up auth state listener first
@@ -28,6 +31,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
+      
+      // Handle password recovery
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowPasswordReset(true);
+      }
+      
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -178,6 +187,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     session,
     loading,
+    showPasswordReset,
+    setShowPasswordReset,
     signUp,
     verifyEmailOtp,
     signIn,
