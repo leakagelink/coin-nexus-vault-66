@@ -14,19 +14,15 @@ interface PasswordChangeModalProps {
 
 export function PasswordChangeModal({ isOpen, onClose }: PasswordChangeModalProps) {
   const { toast } = useToast();
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const resetForm = () => {
-    setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setShowCurrentPassword(false);
     setShowNewPassword(false);
     setShowConfirmPassword(false);
   };
@@ -37,15 +33,6 @@ export function PasswordChangeModal({ isOpen, onClose }: PasswordChangeModalProp
   };
 
   const validateForm = () => {
-    if (!currentPassword.trim()) {
-      toast({
-        title: "Current Password Required",
-        description: "Please enter your current password",
-        variant: "destructive"
-      });
-      return false;
-    }
-
     if (newPassword.length < 6) {
       toast({
         title: "Password Too Short",
@@ -64,15 +51,6 @@ export function PasswordChangeModal({ isOpen, onClose }: PasswordChangeModalProp
       return false;
     }
 
-    if (currentPassword === newPassword) {
-      toast({
-        title: "Same Password",
-        description: "New password must be different from current password",
-        variant: "destructive"
-      });
-      return false;
-    }
-
     return true;
   };
 
@@ -84,27 +62,6 @@ export function PasswordChangeModal({ isOpen, onClose }: PasswordChangeModalProp
     setIsLoading(true);
 
     try {
-      // First verify current password by trying to sign in with it
-      const { data: currentUser } = await supabase.auth.getUser();
-      if (!currentUser.user?.email) {
-        throw new Error("User email not found");
-      }
-
-      // Verify current password
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: currentUser.user.email,
-        password: currentPassword
-      });
-
-      if (signInError) {
-        toast({
-          title: "Current Password Incorrect",
-          description: "The current password you entered is incorrect",
-          variant: "destructive"
-        });
-        return;
-      }
-
       // Update password
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
@@ -148,34 +105,6 @@ export function PasswordChangeModal({ isOpen, onClose }: PasswordChangeModalProp
         </DialogHeader>
         
         <form onSubmit={handlePasswordChange} className="space-y-4">
-          <div>
-            <Label htmlFor="current-password">Current Password</Label>
-            <div className="relative">
-              <Input
-                id="current-password"
-                type={showCurrentPassword ? "text" : "password"}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Enter current password"
-                required
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-              >
-                {showCurrentPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-          </div>
-
           <div>
             <Label htmlFor="new-password">New Password</Label>
             <div className="relative">
