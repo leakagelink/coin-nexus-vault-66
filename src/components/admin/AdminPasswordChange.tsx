@@ -63,12 +63,12 @@ export function AdminPasswordChange() {
       }
 
       // Verify current password by attempting to sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPassword,
       });
 
-      if (signInError) {
+      if (verifyError) {
         toast.error("Current password is incorrect");
         return;
       }
@@ -80,10 +80,21 @@ export function AdminPasswordChange() {
 
       if (error) throw error;
 
-      // Sign out all other sessions/devices
-      await supabase.auth.signOut({ scope: 'others' });
+      // Sign out from all devices including current one, then re-authenticate
+      await supabase.auth.signOut({ scope: 'global' });
+      
+      // Automatically sign in with new password
+      const { error: reSignInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: newPassword,
+      });
 
-      toast.success("Password changed successfully. All other devices have been logged out.");
+      if (reSignInError) {
+        toast.error("Password changed but auto re-login failed. Please login manually.");
+        return;
+      }
+
+      toast.success("Password changed successfully. All devices have been logged out and you've been logged back in.");
       resetForm();
     } catch (error: any) {
       console.error("Error changing password:", error);

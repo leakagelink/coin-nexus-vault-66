@@ -168,6 +168,7 @@ export function DepositRequestsTable() {
                   <TableHead>User Email</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Method</TableHead>
+                  <TableHead>Transaction ID</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -185,6 +186,9 @@ export function DepositRequestsTable() {
                       ₹{Number(req.amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{req.payment_method}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {req.transaction_reference || 'N/A'}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap capitalize">
                       {req.status}
                     </TableCell>
