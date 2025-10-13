@@ -80,7 +80,10 @@ export function AdminPasswordChange() {
 
       if (error) throw error;
 
-      toast.success("Password changed successfully");
+      // Sign out all other sessions/devices
+      await supabase.auth.signOut({ scope: 'others' });
+
+      toast.success("Password changed successfully. All other devices have been logged out.");
       resetForm();
     } catch (error: any) {
       console.error("Error changing password:", error);
