@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminUsersTable } from "@/components/admin/AdminUsersTable";
 import { AdminPaymentSettings } from "@/components/admin/AdminPaymentSettings";
 import { AppManagement } from "@/components/admin/AppManagement";
+import { AdminPasswordChange } from "@/components/admin/AdminPasswordChange";
 
 const Admin = () => {
   const { isAdmin, isLoading } = useIsAdmin();
@@ -52,6 +53,7 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-4">
+              <AdminPasswordChange />
               <AdminPaymentSettings />
             </TabsContent>
 
