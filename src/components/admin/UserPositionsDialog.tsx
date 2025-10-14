@@ -129,6 +129,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         .update({
           current_price: safeCurrentPrice,
           admin_price_override: true, // Mark as admin-edited to prevent live updates
+          admin_adjustment_pct: 0, // Clear old percentage adjustments
           updated_at: new Date().toISOString(),
         })
         .eq('id', positionId);
