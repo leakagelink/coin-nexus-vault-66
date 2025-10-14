@@ -112,7 +112,9 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
       }
 
       // For long: pnl% = ((current_price - buy_price) / buy_price) * 100
+      // Solving for current_price: current_price = buy_price * (1 + targetFinalPct / 100)
       // For short: pnl% = ((buy_price - current_price) / buy_price) * 100
+      // Solving for current_price: current_price = buy_price * (1 - targetFinalPct / 100)
       const newCurrentPrice = isShort
         ? buyPrice * (1 - targetFinalPct / 100)
         : buyPrice * (1 + targetFinalPct / 100);
@@ -362,7 +364,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => adjustPnlPercentage(position.id, 5)}
+                          onClick={() => adjustPnlPercentage(position.id, -5)}
                           disabled={adjustingPosition === position.id}
                           className="text-green-600 hover:text-green-700"
                           title="Increase P&L by 5%"
@@ -372,7 +374,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => adjustPnlPercentage(position.id, -5)}
+                          onClick={() => adjustPnlPercentage(position.id, 5)}
                           disabled={adjustingPosition === position.id}
                           className="text-red-600 hover:text-red-700"
                           title="Decrease P&L by 5%"
