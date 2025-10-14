@@ -364,7 +364,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => adjustPnlPercentage(position.id, -5)}
+                          onClick={() => adjustPnlPercentage(position.id, 5)}
                           disabled={adjustingPosition === position.id}
                           className="text-green-600 hover:text-green-700"
                           title="Increase P&L by 5%"
@@ -374,7 +374,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => adjustPnlPercentage(position.id, 5)}
+                           onClick={() => adjustPnlPercentage(position.id, -5)}
                           disabled={adjustingPosition === position.id}
                           className="text-red-600 hover:text-red-700"
                           title="Decrease P&L by 5%"
