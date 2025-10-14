@@ -99,25 +99,18 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         throw new Error('Position not found');
       }
 
-      // Compute a new current_price so that final P&L% changes by the requested amount
+      // Base on current stored P&L% to ensure exact ±5% steps per click
       const currentFinalPct = Number(position.pnl_percentage) || 0;
       const targetFinalPct = currentFinalPct + percentageChange; // desired final P&L%
 
       const buyPrice = Number(position.buy_price) || 0;
-      const isShort = position.position_type === 'short';
-
-      // Guard against invalid prices
       if (buyPrice <= 0) {
         throw new Error('Invalid buy price for position');
       }
 
-      // For long: pnl% = ((current_price - buy_price) / buy_price) * 100
-      // Solving for current_price: current_price = buy_price * (1 + targetFinalPct / 100)
-      // For short: pnl% = ((buy_price - current_price) / buy_price) * 100
-      // Solving for current_price: current_price = buy_price * (1 - targetFinalPct / 100)
-      const newCurrentPrice = isShort
-        ? buyPrice * (1 - targetFinalPct / 100)
-        : buyPrice * (1 + targetFinalPct / 100);
+      // IMPORTANT: Always use long-style formula to match DB trigger logic
+      // DB trigger computes: pnl% = ((current_price - buy_price) / buy_price) * 100
+      const newCurrentPrice = buyPrice * (1 + targetFinalPct / 100);
 
       // Ensure price doesn't go below a minimal positive value
       const safeCurrentPrice = Math.max(0.01, Number(newCurrentPrice.toFixed(2)));
@@ -128,42 +121,23 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         .from('portfolio_positions')
         .update({
           current_price: safeCurrentPrice,
-          admin_price_override: true, // Mark as admin-edited to prevent live updates
-          admin_adjustment_pct: 0, // Clear old percentage adjustments
+          admin_price_override: true, // Prevent live updates from overriding admin edits
+          admin_adjustment_pct: 0, // Use price override only for exact ±5% steps
           updated_at: new Date().toISOString(),
         })
         .eq('id', positionId);
 
       if (error) throw error;
 
-      // Record a buy trade to reflect this adjustment in user's trade history
-      const { error: tradeError } = await supabase
-        .from('trades')
-        .insert({
-          user_id: userId,
-          symbol: position.symbol,
-          coin_name: position.coin_name,
-          trade_type: 'buy',
-          quantity: position.amount,
-          price: safeCurrentPrice,
-          total_amount: position.total_investment,
-          status: 'completed',
-        });
-
-      if (tradeError) {
-        console.warn('Failed to record adjustment trade:', tradeError);
-      }
-
       toast({
-        title: "P&L adjusted successfully",
-        description: `${percentageChange > 0 ? 'Increased' : 'Decreased'} P&L by ${Math.abs(percentageChange)}%`,
+        title: "P&L updated",
+        description: `${percentageChange > 0 ? 'Increased' : 'Decreased'} by ${Math.abs(percentageChange)}%`,
       });
 
       // Refresh data
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-users-overview'] }),
         queryClient.invalidateQueries({ queryKey: ['portfolio-positions'] }),
-        queryClient.invalidateQueries({ queryKey: ['my-trades'] }),
         queryClient.invalidateQueries({ queryKey: ['trades'] }),
       ]);
       
