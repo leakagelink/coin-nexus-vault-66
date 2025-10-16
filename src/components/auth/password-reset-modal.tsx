@@ -85,10 +85,15 @@ export function PasswordResetModal({ isOpen, onClose }: PasswordResetModalProps)
 
       toast({
         title: "Success",
-        description: "Your password has been reset successfully",
+        description: "Your password has been reset successfully. Redirecting...",
       });
 
       handleClose();
+      
+      // User is already logged in after password recovery, redirect to home
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
     } catch (error: any) {
       toast({
         title: "Error",
