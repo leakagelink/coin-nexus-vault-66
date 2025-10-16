@@ -26,17 +26,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   useEffect(() => {
+    // If the URL contains tokens (recovery/magic link), ensure we exchange them for a session
+    const urlHasTokens =
+      typeof window !== 'undefined' && (
+        window.location.hash.includes('access_token') ||
+        window.location.search.includes('code=') ||
+        window.location.search.includes('type=recovery')
+      );
+
+    if (urlHasTokens) {
+      // Fallback in case automatic URL detection fails
+      supabase.auth.exchangeCodeForSession(window.location.href).catch(() => {
+        // no-op, Supabase may have already processed the URL
+      });
+    }
+
     // Set up auth state listener first
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, session?.user?.email);
-      
+
       // Handle password recovery
       if (event === 'PASSWORD_RECOVERY') {
         setShowPasswordReset(true);
       }
-      
+
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -158,7 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const siteUrl = window.location.origin;
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/`,
+        redirectTo: `${siteUrl}/auth/callback`,
       });
       
       if (error) {

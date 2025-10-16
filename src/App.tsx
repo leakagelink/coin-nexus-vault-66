@@ -15,6 +15,7 @@ import Watchlist from "./pages/Watchlist";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import AuthCallback from "./pages/AuthCallback";
 import "./App.css";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ function AppContent() {
       <AuthWrapper>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/chart/:symbol" element={<Chart />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/trades" element={<Trades />} />
