@@ -57,8 +57,8 @@ export function useTaapiPrices(symbols: string[]) {
 
   useEffect(() => {
     fetchAll();
-    // refresh every 5s
-    intervalRef.current = window.setInterval(fetchAll, 5000);
+    // refresh every 30s to avoid hitting provider rate limits
+    intervalRef.current = window.setInterval(fetchAll, 30000);
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
     };

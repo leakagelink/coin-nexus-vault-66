@@ -17,7 +17,7 @@ interface TaapiRequest {
 
 // Cache to store recent requests and avoid rate limiting
 const requestCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 60000; // 1 minute cache
+const CACHE_DURATION = 300000; // 5 minutes cache (reduce API pressure)
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -55,6 +55,15 @@ serve(async (req) => {
     
     if (!candleResponse.ok) {
       if (candleResponse.status === 429) {
+        // Serve last cached data if available to avoid breaking the UI
+        const last = requestCache.get(cacheKey);
+        if (last) {
+          console.warn(`Rate limited by TaapiAPI for ${symbol}. Serving stale cached data.`);
+          const stale = { ...last.data, stale: true, rateLimited: true, timestamp: now };
+          return new Response(JSON.stringify(stale), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         throw new Error('Rate limit exceeded. Please wait and try again.');
       }
       throw new Error(`TaapiAPI error: ${candleResponse.status} ${candleResponse.statusText}`);
