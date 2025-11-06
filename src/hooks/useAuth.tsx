@@ -94,15 +94,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Signup error:', error);
-        toast({
-          title: "Signup Error",
-          description: error.message,
-          variant: "destructive"
-        });
+        
+        // Handle rate limit error specifically
+        if (error.message?.includes('rate limit') || error.status === 429) {
+          toast({
+            title: "बहुत सारे प्रयास",
+            description: "कृपया 10-15 मिनट बाद फिर से साइनअप करने की कोशिश करें। अभी बहुत सारे ईमेल भेजे जा चुके हैं।",
+            variant: "destructive",
+            duration: 8000,
+          });
+        } else if (error.message?.includes('already registered')) {
+          toast({
+            title: "Account Already Exists",
+            description: "यह ईमेल पहले से रजिस्टर है। कृपया लॉगिन करें या अलग ईमेल का उपयोग करें।",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Signup Error",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
       } else {
         toast({
-          title: "Account Created",
-          description: "Please check your email and click the confirmation link to verify your account.",
+          title: "Account Created Successfully! ✅",
+          description: "कृपया अपना ईमेल चेक करें और confirmation link पर क्लिक करके अपना account verify करें।",
+          duration: 10000,
         });
       }
 
@@ -127,15 +145,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Signin error:', error);
-        toast({
-          title: "Login Error",
-          description: error.message,
-          variant: "destructive"
-        });
+        
+        // Handle email not confirmed error
+        if (error.message?.includes('Email not confirmed')) {
+          toast({
+            title: "Email Not Verified",
+            description: "कृपया पहले अपना ईमेल verify करें। अपने inbox में confirmation link चेक करें।",
+            variant: "destructive",
+            duration: 8000,
+          });
+        } else if (error.message?.includes('Invalid login credentials')) {
+          toast({
+            title: "Login Failed",
+            description: "गलत ईमेल या पासवर्ड। कृपया फिर से कोशिश करें।",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Login Error",
+            description: error.message,
+            variant: "destructive"
+          });
+        }
       } else {
         toast({
-          title: "Welcome Back",
-          description: "You have been successfully logged in.",
+          title: "Welcome Back! 👋",
+          description: "आप सफलतापूर्वक लॉगिन हो गए हैं।",
         });
       }
 
