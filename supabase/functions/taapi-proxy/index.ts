@@ -19,6 +19,27 @@ interface TaapiRequest {
 const requestCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 300000; // 5 minutes cache (reduce API pressure)
 
+// Binance fallback (no secret required) when TAAPI is rate-limited/unavailable
+async function fetchBinanceCandles(symbol: string, interval: string, limit: number) {
+  const binanceSymbol = symbol.replace('/', ''); // e.g., BTC/USDT -> BTCUSDT
+  const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=${limit}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Binance fallback error: ${res.status} ${res.statusText}`);
+  }
+  const data = await res.json();
+  if (!Array.isArray(data)) throw new Error('Invalid Binance kline data');
+  const candles = data.map((k: any[]) => ({
+    open: Number(k[1]),
+    high: Number(k[2]),
+    low: Number(k[3]),
+    close: Number(k[4]),
+    volume: Number(k[5]),
+    timestamp: Number(k[0]),
+  }));
+  return candles;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -64,7 +85,33 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+        // Try Binance fallback when TAAPI is rate-limited
+        if (exchange === 'binance') {
+          try {
+            const candles = await fetchBinanceCandles(symbol, interval, period);
+            const result = { candles, indicators: {}, symbol, exchange, interval, timestamp: now, source: 'binance', fallback: true, rateLimited: true };
+            requestCache.set(cacheKey, { data: result, timestamp: now });
+            return new Response(JSON.stringify(result), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          } catch (e) {
+            console.error('Binance fallback failed (429):', e);
+          }
+        }
         throw new Error('Rate limit exceeded. Please wait and try again.');
+      }
+      // For other errors, attempt Binance fallback as well
+      if (exchange === 'binance') {
+        try {
+          const candles = await fetchBinanceCandles(symbol, interval, period);
+          const result = { candles, indicators: {}, symbol, exchange, interval, timestamp: now, source: 'binance', fallback: true };
+          requestCache.set(cacheKey, { data: result, timestamp: now });
+          return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } catch (e) {
+          console.error('Binance fallback failed (non-429):', e);
+        }
       }
       throw new Error(`TaapiAPI error: ${candleResponse.status} ${candleResponse.statusText}`);
     }

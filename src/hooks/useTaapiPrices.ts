@@ -23,21 +23,22 @@ export function useTaapiPrices(symbols: string[]) {
     if (uniqueSymbols.length === 0) return;
     try {
       const now = Date.now();
-      const results = await Promise.all(
-        uniqueSymbols.map(async (sym) => {
-          try {
-            const usd = await getLatestTaapiPriceUSD(sym, "1m");
-            return {
-              symbol: sym,
-              priceUSD: usd,
-              priceINR: usd * USD_TO_INR,
-              lastUpdate: now,
-            } as TaapiPrice;
-          } catch (e) {
-            return null;
-          }
-        })
-      );
+      const results: (TaapiPrice | null)[] = [];
+      for (const sym of uniqueSymbols) {
+        try {
+          const usd = await getLatestTaapiPriceUSD(sym, "1m");
+          results.push({
+            symbol: sym,
+            priceUSD: usd,
+            priceINR: usd * USD_TO_INR,
+            lastUpdate: now,
+          } as TaapiPrice);
+        } catch (e) {
+          results.push(null);
+        }
+        // Stagger requests to avoid rate limits
+        await new Promise((r) => setTimeout(r, 200));
+      }
 
       const map: Record<string, TaapiPrice> = {};
       results.forEach((r) => {
