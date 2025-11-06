@@ -98,7 +98,7 @@ serve(async (req) => {
             console.error('Binance fallback failed (429):', e);
           }
         }
-        throw new Error('Rate limit exceeded. Please wait and try again.');
+        return new Response(JSON.stringify({ candles: [], indicators: {}, symbol, exchange, interval, timestamp: now, fallback: true, degraded: true, rateLimited: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       // For other errors, attempt Binance fallback as well
       if (exchange === 'binance') {
@@ -113,7 +113,7 @@ serve(async (req) => {
           console.error('Binance fallback failed (non-429):', e);
         }
       }
-      throw new Error(`TaapiAPI error: ${candleResponse.status} ${candleResponse.statusText}`);
+      return new Response(JSON.stringify({ candles: [], indicators: {}, symbol, exchange, interval, timestamp: now, fallback: true, degraded: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const candleData = await candleResponse.json();
@@ -181,16 +181,16 @@ serve(async (req) => {
   } catch (error) {
     console.error('TaapiAPI proxy error:', error);
     
-    // Return a more user-friendly error response
     const errorResponse = {
-      error: error.message,
+      error: (error as Error)?.message ?? 'unknown',
       candles: [],
       indicators: {},
-      fallback: true
+      fallback: true,
+      degraded: true,
     };
     
+    // Always respond 200 to avoid client hard errors; client can read fallback/degraded flags
     return new Response(JSON.stringify(errorResponse), {
-      status: error.message.includes('Rate limit') ? 429 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
