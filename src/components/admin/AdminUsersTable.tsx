@@ -7,6 +7,7 @@ import { AddFundsDialog } from "./AddFundsDialog";
 import { EditBalanceDialog } from "./EditBalanceDialog";
 import { AdminTradeDialog } from "./AdminTradeDialog";
 import { UserPositionsDialog } from "./UserPositionsDialog";
+import { DeleteUserDialog } from "./DeleteUserDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 
@@ -152,6 +153,11 @@ export function AdminUsersTable() {
                         <UserPositionsDialog
                           userId={u.id}
                           userLabel={u.display_name || u.email || u.id}
+                        />
+                        <DeleteUserDialog
+                          userId={u.id}
+                          userLabel={u.display_name || u.email || u.id}
+                          onSuccess={handleDataUpdate}
                         />
                       </div>
                     </TableCell>

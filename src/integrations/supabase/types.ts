@@ -533,6 +533,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      admin_delete_user: {
+        Args: { admin_id: string; target_user_id: string }
+        Returns: boolean
+      }
       approve_deposit_request: {
         Args: { admin_id: string; notes?: string; request_id: string }
         Returns: boolean
@@ -541,14 +545,8 @@ export type Database = {
         Args: { admin_id: string; notes?: string; request_id: string }
         Returns: boolean
       }
-      get_public_admin_settings: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
-      is_admin: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
+      get_public_admin_settings: { Args: never; Returns: Json }
+      is_admin: { Args: { user_id: string }; Returns: boolean }
       process_deposit_approval: {
         Args: { admin_id: string; deposit_id: string }
         Returns: boolean
