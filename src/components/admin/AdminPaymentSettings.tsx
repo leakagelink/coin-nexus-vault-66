@@ -102,8 +102,11 @@ export function AdminPaymentSettings() {
                   <Input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="company@upi" />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">QR Code URL (optional)</label>
-                  <Input value={upiQrCode} onChange={(e) => setUpiQrCode(e.target.value)} placeholder="https://..." />
+                  <label className="text-sm text-muted-foreground">QR Code URL</label>
+                  <Input value={upiQrCode} onChange={(e) => setUpiQrCode(e.target.value)} placeholder="/lovable-uploads/upi-qr-code.jpeg" />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Current QR: /lovable-uploads/upi-qr-code.jpeg (nadex@ptaxis)
+                  </p>
                 </div>
               </div>
               <div>
