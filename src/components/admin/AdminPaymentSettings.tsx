@@ -40,8 +40,14 @@ export function AdminPaymentSettings() {
 
     // UPI
     const upi = settings.upi_details || {};
-    setUpiId(upi.upi_id || "");
-    setUpiQrCode(upi.qr_code || "");
+    setUpiId(upi.upi_id || "nadex@ptaxis");
+    // Auto-update to new local QR code if external URL is detected
+    const qrCode = upi.qr_code || "";
+    if (qrCode.includes('karnatakagingerintr.in') || !qrCode) {
+      setUpiQrCode("/lovable-uploads/upi-qr-code.jpeg");
+    } else {
+      setUpiQrCode(qrCode);
+    }
     setUpiInstructions(Array.isArray(upi.instructions) ? upi.instructions.join("\n") : (upi.instructions || ""));
 
     // Bank
@@ -104,9 +110,23 @@ export function AdminPaymentSettings() {
                 <div>
                   <label className="text-sm text-muted-foreground">QR Code URL</label>
                   <Input value={upiQrCode} onChange={(e) => setUpiQrCode(e.target.value)} placeholder="/lovable-uploads/upi-qr-code.jpeg" />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Current QR: /lovable-uploads/upi-qr-code.jpeg (nadex@ptaxis)
+                  <p className="text-xs text-green-600 mt-1 font-medium">
+                    ✓ New QR uploaded: /lovable-uploads/upi-qr-code.jpeg (nadex@ptaxis)
                   </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ Click "Save UPI Settings" niche button ko press karke settings save karo
+                  </p>
+                  {upiQrCode && (
+                    <div className="mt-2 p-2 bg-muted rounded border">
+                      <img src={upiQrCode} alt="QR Preview" className="w-32 h-32 mx-auto object-contain" 
+                        onError={(e) => {
+                          e.currentTarget.src = '';
+                          e.currentTarget.alt = 'QR load nahi ho raha - path check karo';
+                        }}
+                      />
+                      <p className="text-xs text-center text-muted-foreground mt-1">Preview</p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
