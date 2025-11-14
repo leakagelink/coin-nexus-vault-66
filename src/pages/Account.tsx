@@ -2,7 +2,7 @@
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, DollarSign, FileText, Phone, Lock, ChevronRight, Download, Shield } from "lucide-react";
+import { User, DollarSign, FileText, Phone, Lock, ChevronRight, Shield } from "lucide-react";
 import { ProfileSection } from "@/components/account/profile-section";
 import { BankAccountsSection } from "@/components/account/bank-accounts-section";
 import { PrivacyPolicy } from "@/components/account/privacy-policy";
@@ -50,33 +50,6 @@ const Account = () => {
 
   const handlePasswordChange = () => {
     setShowPasswordModal(true);
-  };
-
-  const handleAppDownload = async () => {
-    try {
-      const { data, error } = await supabase
-        .storage
-        .from('app-downloads')
-        .download('nadex-app.apk');
-      
-      if (error) {
-        console.error('Download error:', error);
-        alert('App download is not available at the moment');
-        return;
-      }
-      
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Nadex-App.apk';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download error:', error);
-      alert('App download is not available at the moment');
-    }
   };
 
   return (
@@ -166,19 +139,7 @@ const Account = () => {
                 <ChevronRight className="h-4 w-4" />
               </Button>
 
-              <Button 
-                variant="outline" 
-                className="h-16 justify-between glass hover-glow"
-                onClick={handleAppDownload}
-              >
-                <div className="flex items-center gap-3">
-                  <Download className="h-5 w-5 text-primary" />
-                  <span>Download App</span>
-                </div>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-
-              <Button 
+              <Button
                 variant="outline" 
                 className="h-16 justify-between glass hover-glow"
                 onClick={() => setActiveSection('privacy')}
