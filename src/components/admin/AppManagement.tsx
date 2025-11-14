@@ -50,6 +50,42 @@ export function AppManagement() {
     }
   };
 
+  const handleUploadPreloadedAPK = async () => {
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Fetch the pre-loaded APK file
+      const response = await fetch('/lovable-uploads/app-release.apk');
+      const blob = await response.blob();
+      const file = new File([blob], 'nadex-app.apk', { type: 'application/vnd.android.package-archive' });
+
+      // Delete existing file first
+      await supabase.storage
+        .from('app-downloads')
+        .remove(['nadex-app.apk']);
+
+      // Upload new file
+      const { error } = await supabase.storage
+        .from('app-downloads')
+        .upload('nadex-app.apk', file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) throw error;
+
+      setUploadProgress(100);
+      toast.success('App uploaded successfully! Users can now download it.');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload app');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handleDownloadTest = async () => {
     try {
       const { data, error } = await supabase
@@ -85,27 +121,47 @@ export function AppManagement() {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
-          <Label htmlFor="apk-upload" className="text-sm font-medium">
-            Upload New APK File
-          </Label>
-          <div className="flex items-center gap-4">
+          <div className="p-4 border rounded-lg bg-green-500/10 border-green-500/20">
+            <h4 className="font-medium mb-2 flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Ready to Upload App
+            </h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              New app version is ready. Click the button below to make it available for users to download.
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleUploadPreloadedAPK}
+                disabled={uploading}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Upload App to Server
+              </Button>
+              <Button
+                onClick={handleDownloadTest}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Test Download
+              </Button>
+            </div>
+          </div>
+
+          <div className="border-t pt-4">
+            <Label htmlFor="apk-upload" className="text-sm font-medium">
+              Or Upload Different APK File
+            </Label>
             <Input
               id="apk-upload"
               type="file"
               accept=".apk"
               onChange={handleFileUpload}
               disabled={uploading}
-              className="flex-1"
+              className="mt-2"
             />
-            <Button
-              onClick={handleDownloadTest}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Test Download
-            </Button>
           </div>
           
           {uploading && (
