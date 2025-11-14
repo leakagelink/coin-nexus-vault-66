@@ -8,6 +8,7 @@ import { BankAccountsSection } from "@/components/account/bank-accounts-section"
 import { PrivacyPolicy } from "@/components/account/privacy-policy";
 import { TermsConditions } from "@/components/account/terms-conditions";
 import { PasswordChangeModal } from "@/components/account/password-change-modal";
+import { AppDownloadSection } from "@/components/account/app-download-section";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -89,6 +90,8 @@ const Account = () => {
         {activeSection === '' && (
           <>
             <ProfileSection />
+
+            <AppDownloadSection />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Button 
