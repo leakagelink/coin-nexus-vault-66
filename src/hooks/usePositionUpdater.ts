@@ -19,7 +19,8 @@ export const usePositionUpdater = (userId?: string) => {
         const { data: positions, error } = await supabase
           .from('portfolio_positions')
           .select('*')
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .eq('status', 'open');
 
         if (error || !positions || positions.length === 0) return;
 

@@ -32,29 +32,11 @@ export function useAdminSettings() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-settings-public"],
     queryFn: async (): Promise<PublicAdminSettings | null> => {
-      console.log("Fetching public admin settings...");
-      
-      // Fetch all admin settings
-      const { data: settings, error } = await supabase
-        .from('admin_settings')
-        .select('setting_key, setting_value');
-      
+      console.log("Fetching public admin settings via RPC...");
+      const { data, error } = await supabase.rpc("get_public_admin_settings");
       if (error) throw error;
-      
-      // Transform array to object
-      const result: PublicAdminSettings = {};
-      settings?.forEach((setting) => {
-        if (setting.setting_key === 'upi_details') {
-          result.upi_details = setting.setting_value as unknown as PublicUPI;
-        } else if (setting.setting_key === 'bank_details') {
-          result.bank_details = setting.setting_value as unknown as PublicBank;
-        } else if (setting.setting_key === 'usdt_details') {
-          result.usdt_details = setting.setting_value as unknown as PublicUSDT;
-        }
-      });
-      
-      console.log("Public admin settings:", result);
-      return result;
+      console.log("Public admin settings:", data);
+      return data as PublicAdminSettings;
     },
     staleTime: 0,
     refetchOnWindowFocus: true,

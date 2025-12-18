@@ -174,6 +174,8 @@ export type Database = {
           id: string
           pnl: number | null
           pnl_percentage: number | null
+          position_type: string | null
+          status: string | null
           symbol: string
           total_investment: number | null
           updated_at: string | null
@@ -191,6 +193,8 @@ export type Database = {
           id?: string
           pnl?: number | null
           pnl_percentage?: number | null
+          position_type?: string | null
+          status?: string | null
           symbol: string
           total_investment?: number | null
           updated_at?: string | null
@@ -208,6 +212,8 @@ export type Database = {
           id?: string
           pnl?: number | null
           pnl_percentage?: number | null
+          position_type?: string | null
+          status?: string | null
           symbol?: string
           total_investment?: number | null
           updated_at?: string | null
@@ -450,6 +456,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_delete_user: {
+        Args: { admin_id: string; target_user_id: string }
+        Returns: Json
+      }
+      get_public_admin_settings: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -464,6 +475,15 @@ export type Database = {
       }
       process_withdrawal_approval: {
         Args: { admin_id: string; withdrawal_id: string }
+        Returns: Json
+      }
+      reject_request: {
+        Args: {
+          admin_id: string
+          notes?: string
+          request_id: string
+          request_type: string
+        }
         Returns: Json
       }
     }
