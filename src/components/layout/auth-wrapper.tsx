@@ -43,11 +43,8 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
     return <AuthScreen />;
   }
 
-  // Show special coming soon message for authenticated users on web browsers (except admin)
-  if (user && isWebBrowser && !location.pathname.startsWith('/admin')) {
-    console.log('Showing AuthComingSoon component');
-    return <AuthComingSoon />;
-  }
+  // Previously restricted web users to coming soon page
+  // Now all authenticated users see the full dashboard
 
   return <>{children}</>;
 }
