@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getCryptoPrices, CMCPrice } from "@/services/cmcProxy";
 
 export type PriceData = {
@@ -10,7 +10,7 @@ export type PriceData = {
 };
 
 const USD_TO_INR = 84;
-const UPDATE_INTERVAL = 5000; // 5 seconds - faster updates for realtime feel
+const UPDATE_INTERVAL = 5000;
 
 /**
  * Centralized price data hook - uses CoinMarketCap API with key rotation
@@ -21,19 +21,19 @@ export function usePriceData(symbols: string[]) {
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<number | null>(null);
   const isFetchingRef = useRef<boolean>(false);
-
-  const uniqueSymbols = useMemo(() => 
-    Array.from(new Set(symbols)).filter(Boolean).map(s => s.toUpperCase()), 
-    [symbols]
-  );
+  const symbolsRef = useRef<string[]>([]);
+  
+  // Store symbols in ref to avoid dependency issues
+  symbolsRef.current = symbols.filter(Boolean).map(s => s.toUpperCase());
 
   const fetchAllPrices = useCallback(async () => {
+    const uniqueSymbols = [...new Set(symbolsRef.current)];
+    
     if (uniqueSymbols.length === 0) {
       setIsLoading(false);
       return;
     }
 
-    // Prevent concurrent fetches
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
 
@@ -64,18 +64,15 @@ export function usePriceData(symbols: string[]) {
       setIsLoading(false);
       isFetchingRef.current = false;
     }
-  }, [uniqueSymbols]);
+  }, []);
 
   useEffect(() => {
-    // Initial fetch
     fetchAllPrices();
     
-    // Clear existing interval
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
     }
     
-    // Set up polling for realtime updates
     intervalRef.current = window.setInterval(fetchAllPrices, UPDATE_INTERVAL);
     
     return () => {
