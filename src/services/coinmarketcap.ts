@@ -1,121 +1,67 @@
+// CoinMarketCap service - uses edge function for API calls
+// All API calls go through the cmc-proxy edge function which handles key rotation
 
-interface CoinMarketCapQuote {
-  USD: {
-    price: number;
-    percent_change_24h: number;
-    market_cap: number;
-    volume_24h: number;
-    last_updated: string;
-  };
-}
-
-interface CoinMarketCapCrypto {
-  id: number;
-  name: string;
-  symbol: string;
-  slug: string;
-  quote: CoinMarketCapQuote;
-}
-
-interface CoinMarketCapResponse {
-  data: CoinMarketCapCrypto[];
-  status: {
-    timestamp: string;
-    error_code: number;
-    error_message: string;
-    elapsed: number;
-    credit_count: number;
-  };
-}
+import { supabase } from "@/integrations/supabase/client";
 
 export interface CMCPrice {
   symbol: string;
   name: string;
   price: number;
-  change24h: number;
-  marketCap: number;
-  volume24h: number;
+  percent_change_24h: number;
+  change24h?: number; // Alias for compatibility
+  marketCap?: number;
+  market_cap?: number;
+  volume24h?: number;
 }
 
+export const DEFAULT_CRYPTO_SYMBOLS = [
+  "BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE", "TRX", "TON", "MATIC",
+  "LTC", "DOT", "BCH", "LINK", "AVAX",
+];
+
 class CoinMarketCapService {
-  private apiKey = '8bf7f0bd-1180-4bc4-9380-07b4d49bd233';
-  private baseUrl = 'https://pro-api.coinmarketcap.com/v1';
+  /**
+   * Fetches prices for multiple cryptocurrencies
+   * Uses edge function with automatic API key rotation
+   */
+  async getCryptoPrices(symbols: string[] = DEFAULT_CRYPTO_SYMBOLS): Promise<CMCPrice[]> {
+    console.log("Fetching CMC prices via edge function for:", symbols);
+    
+    const { data, error } = await supabase.functions.invoke("cmc-proxy", {
+      body: { symbols },
+    });
 
-  // Popular crypto symbols to fetch
-  private cryptoSymbols = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'USDT'];
-
-  async getCryptoPrices(): Promise<CMCPrice[]> {
-    try {
-      const symbolsParam = this.cryptoSymbols.join(',');
-      const response = await fetch(
-        `${this.baseUrl}/cryptocurrency/quotes/latest?symbol=${symbolsParam}`,
-        {
-          headers: {
-            'X-CMC_PRO_API_KEY': this.apiKey,
-            'Accept': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: CoinMarketCapResponse = await response.json();
-
-      if (data.status.error_code !== 0) {
-        throw new Error(data.status.error_message);
-      }
-
-      return Object.values(data.data).map((crypto) => ({
-        symbol: crypto.symbol,
-        name: crypto.name,
-        price: crypto.quote.USD.price,
-        change24h: crypto.quote.USD.percent_change_24h,
-        marketCap: crypto.quote.USD.market_cap,
-        volume24h: crypto.quote.USD.volume_24h,
-      }));
-    } catch (error) {
-      console.error('Error fetching data from CoinMarketCap:', error);
+    if (error) {
+      console.error("CMC proxy error:", error);
       throw error;
     }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    // Normalize the response to include both naming conventions
+    return (data as any[]).map((item) => ({
+      symbol: item.symbol,
+      name: item.name,
+      price: item.price,
+      percent_change_24h: item.percent_change_24h,
+      change24h: item.percent_change_24h, // Alias
+      marketCap: item.market_cap,
+      market_cap: item.market_cap,
+      volume24h: 0, // Not available in current API response
+    }));
   }
 
+  /**
+   * Fetches price for a single cryptocurrency
+   */
   async getCryptoPrice(symbol: string): Promise<CMCPrice> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/cryptocurrency/quotes/latest?symbol=${symbol}`,
-        {
-          headers: {
-            'X-CMC_PRO_API_KEY': this.apiKey,
-            'Accept': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: CoinMarketCapResponse = await response.json();
-
-      if (data.status.error_code !== 0) {
-        throw new Error(data.status.error_message);
-      }
-
-      const crypto = data.data[0];
-      return {
-        symbol: crypto.symbol,
-        name: crypto.name,
-        price: crypto.quote.USD.price,
-        change24h: crypto.quote.USD.percent_change_24h,
-        marketCap: crypto.quote.USD.market_cap,
-        volume24h: crypto.quote.USD.volume_24h,
-      };
-    } catch (error) {
-      console.error('Error fetching crypto price from CoinMarketCap:', error);
-      throw error;
+    const prices = await this.getCryptoPrices([symbol.toUpperCase()]);
+    if (prices.length === 0) {
+      throw new Error(`Price not found for ${symbol}`);
     }
+    return prices[0];
   }
 }
 
