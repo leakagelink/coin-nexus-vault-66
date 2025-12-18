@@ -31,12 +31,11 @@ const cryptoMapping: Record<string, { name: string; symbol: string }> = {
 const SYMBOLS = Object.keys(cryptoMapping);
 
 export function LiveMomentum() {
-  // All hooks called unconditionally at top
   const { prices, isLoading, error, refresh, updateCount } = usePriceData(SYMBOLS);
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const prevPricesRef = useRef<Record<string, number>>({});
 
   // Update time every second for "X seconds ago" display
