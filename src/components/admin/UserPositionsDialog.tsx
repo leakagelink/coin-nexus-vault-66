@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, X, TrendingUp, TrendingDown, Plus, Minus } from "lucide-react";
+import { Eye, X, TrendingUp, Plus, Minus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePriceData } from "@/hooks/usePriceData";
@@ -28,10 +28,9 @@ type Position = {
   current_value: number;
   pnl: number;
   pnl_percentage: number;
-  position_type: string;
-  status: string;
   created_at: string;
   admin_adjustment_pct?: number;
+  admin_price_override?: boolean;
 };
 
 export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogProps) {
@@ -54,7 +53,6 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         .from('portfolio_positions')
         .select('*')
         .eq('user_id', userId)
-        .eq('status', 'open')
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -155,12 +153,12 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
     }
   };
 
-  const closePosition = async (positionId: string, symbol: string, positionType: string) => {
+  const closePosition = async (positionId: string, symbol: string) => {
     if (!user) return;
     
     setClosingPosition(positionId);
     try {
-      console.log(`Admin closing position: ${positionId} for ${symbol} ${positionType}`);
+      console.log(`Admin closing position: ${positionId} for ${symbol}`);
       
       const position = positions.find(p => p.id === positionId);
       if (!position) {
@@ -227,7 +225,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
 
       toast({
         title: "Position closed successfully",
-        description: `Closed ${symbol} ${positionType} position and credited ₹${proceeds.toFixed(2)} to user`,
+        description: `Closed ${symbol} position and credited ₹${proceeds.toFixed(2)} to user`,
       });
 
       console.log(`Position closed successfully, credited ₹${proceeds} to user wallet`);
@@ -298,19 +296,8 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={position.position_type === 'long' ? 'default' : 'secondary'}
-                        className={`capitalize ${
-                          position.position_type === 'long' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {position.position_type === 'long' ? (
-                          <><TrendingUp className="h-3 w-3 mr-1" /> Long</>
-                        ) : (
-                          <><TrendingDown className="h-3 w-3 mr-1" /> Short</>
-                        )}
+                      <Badge variant="default" className="bg-green-100 text-green-800">
+                        <TrendingUp className="h-3 w-3 mr-1" /> Hold
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -362,7 +349,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => closePosition(position.id, position.symbol, position.position_type)}
+                        onClick={() => closePosition(position.id, position.symbol)}
                         disabled={closingPosition === position.id}
                       >
                         <X className="h-4 w-4 mr-1" />

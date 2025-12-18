@@ -33,7 +33,6 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
   const [open, setOpen] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState<string>("");
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
-  const [positionType, setPositionType] = useState<'long' | 'short'>('long');
   const [quantity, setQuantity] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
@@ -120,7 +119,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
     setSubmitting(true);
     
     try {
-      console.log(`Admin executing ${tradeType} ${positionType} position: ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for user ${userId}`);
+      console.log(`Admin executing ${tradeType}: ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for user ${userId}`);
 
       // IMPORTANT FIX: use maybeSingle() so that "no rows" doesn't throw an error
       const { data: existingPosition, error: existingErr } = await supabase
@@ -128,7 +127,6 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
         .select('*')
         .eq('user_id', userId)
         .eq('symbol', selectedCoin)
-        .eq('position_type', positionType)
         .maybeSingle();
 
       if (existingErr) {
@@ -154,7 +152,6 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
               buy_price: newAvgPrice,
               current_price: parsedPrice, // Use entered price for admin trades
               updated_at: new Date().toISOString(),
-              status: 'open',
               admin_price_override: true, // Mark as admin-edited
             })
             .eq('id', existingPosition.id);
@@ -164,7 +161,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             throw error;
           }
           
-          console.log(`Updated existing ${positionType} position for ${selectedCoin}`);
+          console.log(`Updated existing position for ${selectedCoin}`);
         } else {
           // Create new position - let database trigger calculate derived fields
           const positionData = {
@@ -174,9 +171,6 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             amount: parsedQty,
             buy_price: parsedPrice,
             current_price: parsedPrice, // Use entered price for admin trades
-            position_type: positionType,
-            status: 'open',
-            trade_type: 'buy',
             admin_price_override: true, // Mark as admin-edited
           };
 
@@ -191,7 +185,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             throw error;
           }
           
-          console.log(`Created new ${positionType} position for ${selectedCoin}`);
+          console.log(`Created new position for ${selectedCoin}`);
         }
 
         // Deduct money from user wallet for buy order
@@ -212,7 +206,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
       } else {
         // Handle sell (close position)
         if (!existingPosition) {
-          throw new Error(`No ${positionType} position found for ${selectedCoin} to sell`);
+          throw new Error(`No position found for ${selectedCoin} to sell`);
         }
 
         if (Number(existingPosition.amount) < parsedQty) {
@@ -231,7 +225,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             .eq('id', existingPosition.id);
           
           if (error) throw error;
-          console.log(`Completely closed ${positionType} position for ${selectedCoin}`);
+          console.log(`Completely closed position for ${selectedCoin}`);
         } else {
           // Partially close position
           const oldInvestment = Number(
@@ -252,7 +246,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             .eq('id', existingPosition.id);
           
           if (error) throw error;
-          console.log(`Partially closed ${positionType} position for ${selectedCoin}`);
+          console.log(`Partially closed position for ${selectedCoin}`);
         }
 
         // Add proceeds to user wallet for sell order
@@ -297,7 +291,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
 
       toast({
         title: "Trade executed successfully",
-        description: `${tradeType.toUpperCase()} ${positionType.toUpperCase()}: ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for ${userLabel}`,
+        description: `${tradeType.toUpperCase()}: ${parsedQty} ${selectedCoin} at ₹${parsedPrice} for ${userLabel}`,
       });
 
       // Refresh all relevant queries to update portfolio dashboard
@@ -318,7 +312,6 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
       setQuantity("");
       setPrice("");
       setTradeType('buy');
-      setPositionType('long');
       
       onSuccess?.();
 
@@ -368,42 +361,27 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="grid gap-2">
-              <Label>Trade Type</Label>
-              <Select value={tradeType} onValueChange={(value: 'buy' | 'sell') => setTradeType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="buy">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-green-500" />
-                      Buy/Open
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="sell">
-                    <div className="flex items-center gap-2">
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                      Sell/Close
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Position Type</Label>
-              <Select value={positionType} onValueChange={(value: 'long' | 'short') => setPositionType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="long">Long</SelectItem>
-                  <SelectItem value="short">Short</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-2">
+            <Label>Trade Type</Label>
+            <Select value={tradeType} onValueChange={(value: 'buy' | 'sell') => setTradeType(value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="buy">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-500" />
+                    Buy/Open
+                  </div>
+                </SelectItem>
+                <SelectItem value="sell">
+                  <div className="flex items-center gap-2">
+                    <TrendingDown className="h-4 w-4 text-red-500" />
+                    Sell/Close
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-2">
@@ -434,7 +412,7 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             <div className="text-sm text-muted-foreground">
               Total: ₹{totalCost.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
               <div className="text-xs mt-1">
-                Action: {tradeType === 'buy' ? 'Open' : 'Close'} {positionType} position
+                Action: {tradeType === 'buy' ? 'Open/Add to' : 'Close/Reduce'} position
               </div>
             </div>
           )}

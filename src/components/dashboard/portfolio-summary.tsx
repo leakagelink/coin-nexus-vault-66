@@ -35,8 +35,7 @@ export function PortfolioSummary() {
       const { data, error } = await supabase
         .from('portfolio_positions')
         .select('*')
-        .eq('user_id', user?.id)
-        .eq('status', 'open');
+        .eq('user_id', user?.id);
       
       if (error) throw error;
       return data;
