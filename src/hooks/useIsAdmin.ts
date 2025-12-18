@@ -6,26 +6,24 @@ import { useAuth } from "@/hooks/useAuth";
 export function useIsAdmin() {
   const { user } = useAuth();
 
-  const { data: profile, isLoading, error } = useQuery({
-    queryKey: ["profile-role", user?.id],
+  const { data: isAdmin, isLoading, error } = useQuery({
+    queryKey: ["user-admin-role", user?.id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user) return false;
       const { data, error } = await supabase
-        .from("profiles")
+        .from("user_roles")
         .select("role")
-        .eq("id", user.id)
-        .single();
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
       if (error) throw error;
-      console.log("Fetched profile role:", data?.role);
-      return data;
+      console.log("Fetched admin role:", !!data);
+      return !!data;
     },
     enabled: !!user,
-    // Ensure fresh role after promotion
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
-  const isAdmin = profile?.role === "admin";
-
-  return { isAdmin, isLoading, error };
+  return { isAdmin: isAdmin ?? false, isLoading, error };
 }
