@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,22 +28,19 @@ const cryptoMapping = {
 };
 
 export function LiveMomentum() {
-  // Use TAAPI for all prices
   const symbols = Object.keys(cryptoMapping);
-  const { prices: taapiPrices, isLoading, error, refresh } = usePriceData(symbols);
+  const { prices, isLoading, error, refresh } = usePriceData(symbols);
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Persist price history across renders for accurate momentum
-  const priceHistoryRef = useRef<Record<string, number[]>>({});
-  // Cache last known prices to prevent flicker during live updates/search
-  const lastPriceRef = useRef<Record<string, { priceUSD: number; priceINR: number; lastUpdate: number }>>({});
+  // Track previous prices for visual momentum indication
+  const prevPricesRef = useRef<Record<string, number>>({});
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     await refresh();
-    setIsRefreshing(false);
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   const handleTrade = (symbol: string, price: number, type: 'buy' | 'sell') => {
@@ -56,57 +52,34 @@ export function LiveMomentum() {
     });
   };
 
-  // Calculate momentum and format data from TAAPI prices
+  // Calculate momentum and format data
   const tradingPairs = useMemo(() => {
-    // When the user is searching, freeze to last known prices to avoid flicker
-    const sourcePrices = searchTerm ? lastPriceRef.current : taapiPrices;
-
     return symbols
       .map(symbol => {
-        // Update last known price cache whenever live data is available
-        const live = taapiPrices[symbol];
-        if (live) {
-          lastPriceRef.current[symbol] = {
-            priceUSD: live.priceUSD,
-            priceINR: live.priceINR,
-            lastUpdate: live.lastUpdate,
-          };
-        }
-
-        const priceData = sourcePrices[symbol];
-        if (!priceData) return null; // Nothing to show yet
+        const priceData = prices[symbol];
+        if (!priceData) return null;
         
         const crypto = cryptoMapping[symbol as keyof typeof cryptoMapping];
         const priceUSD = priceData.priceUSD;
+        const change24h = priceData.change24h || 0;
         
-        // Track price history for momentum using ref
-        if (!priceHistoryRef.current[symbol]) priceHistoryRef.current[symbol] = [];
-        priceHistoryRef.current[symbol].push(priceUSD);
-        if (priceHistoryRef.current[symbol].length > 10) priceHistoryRef.current[symbol].shift();
+        // Calculate momentum from 24h change (absolute value for sorting)
+        const momentum = Math.abs(change24h);
         
-        // Calculate momentum from price changes
-        let momentum = 0;
-        if (priceHistoryRef.current[symbol].length >= 2) {
-          const changes = priceHistoryRef.current[symbol].map((p, i, arr) => 
-            i > 0 ? ((p - arr[i-1]) / arr[i-1]) * 100 : 0
-          );
-          momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
-        }
-        
-        // Calculate 24h change (simulated from recent changes)
-        const changePercent = priceHistoryRef.current[symbol].length >= 2 
-          ? ((priceUSD - priceHistoryRef.current[symbol][0]) / priceHistoryRef.current[symbol][0]) * 100 
-          : 0;
+        // Track if price went up or down from last update
+        const prevPrice = prevPricesRef.current[symbol] || priceUSD;
+        const priceDirection = priceUSD > prevPrice ? 'up' : priceUSD < prevPrice ? 'down' : 'same';
+        prevPricesRef.current[symbol] = priceUSD;
         
         return {
           symbol,
           name: crypto.name,
           price: priceUSD,
           priceINR: priceData.priceINR,
-          changePercent,
+          changePercent: change24h,
           momentum,
-          trend: changePercent > 0.1 ? 'up' as const : changePercent < -0.1 ? 'down' as const : 'neutral' as const,
-          volume24h: 10000000 + Math.random() * 50000000, // Simulated volume
+          trend: change24h > 0.1 ? 'up' as const : change24h < -0.1 ? 'down' as const : 'neutral' as const,
+          priceDirection,
           lastUpdate: priceData.lastUpdate
         };
       })
@@ -116,9 +89,9 @@ export function LiveMomentum() {
         crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => b.momentum - a.momentum);
-  }, [symbols, taapiPrices, searchTerm]);
+  }, [symbols, prices, searchTerm]);
 
-  if (isLoading) {
+  if (isLoading && Object.keys(prices).length === 0) {
     return (
       <Card className="glass w-full">
         <CardContent className="flex items-center justify-center py-6 md:py-8">
@@ -131,7 +104,7 @@ export function LiveMomentum() {
     );
   }
 
-  if (error) {
+  if (error && Object.keys(prices).length === 0) {
     return (
       <Card className="glass w-full">
         <CardContent className="flex items-center justify-center py-6 md:py-8">
@@ -156,7 +129,7 @@ export function LiveMomentum() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-sm md:text-base font-semibold">
               <Activity className="h-4 w-4 text-primary animate-pulse" />
-              <span className="text-foreground">Market Positions</span>
+              <span className="text-foreground">Live Momentum</span>
               {isLive && (
                 <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30 animate-pulse">
                   LIVE
@@ -191,7 +164,7 @@ export function LiveMomentum() {
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="hidden sm:inline">Live updates every 5s</span>
+              <span className="hidden sm:inline">Auto-refresh every 5s</span>
               <span className="sm:hidden">Live 5s</span>
             </div>
             {lastUpdate > 0 && (
@@ -208,7 +181,10 @@ export function LiveMomentum() {
               {tradingPairs.map((crypto) => (
                 <div
                   key={crypto.symbol}
-                  className="group relative p-3 md:p-4 rounded-xl bg-gradient-to-br from-background/90 to-background/70 border border-border/40 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 backdrop-blur-sm"
+                  className={`group relative p-3 md:p-4 rounded-xl bg-gradient-to-br from-background/90 to-background/70 border border-border/40 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 backdrop-blur-sm ${
+                    crypto.priceDirection === 'up' ? 'border-l-2 border-l-green-500' : 
+                    crypto.priceDirection === 'down' ? 'border-l-2 border-l-red-500' : ''
+                  }`}
                 >
                   {/* Main container */}
                   <div className="space-y-3 md:space-y-4">
@@ -221,23 +197,27 @@ export function LiveMomentum() {
                             <p className="text-xs md:text-sm text-muted-foreground truncate">{crypto.name}</p>
                           </div>
                           
-                          {/* Live Momentum Badge */}
+                          {/* Live Momentum Badge - shows 24h volatility */}
                           <Badge 
                             variant="outline" 
-                            className={`text-xs font-medium px-2 md:px-3 py-1 animate-pulse shrink-0 ${
-                              crypto.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
-                              crypto.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
+                            className={`text-xs font-medium px-2 md:px-3 py-1 shrink-0 ${
+                              crypto.momentum > 5 ? 'bg-red-500/15 text-red-400 border-red-500/30 animate-pulse' :
+                              crypto.momentum > 2 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
                               'bg-green-500/15 text-green-400 border-green-500/30'
                             }`}
                           >
-                            🔥 {crypto.momentum.toFixed(1)}
+                            🔥 {crypto.momentum.toFixed(1)}%
                           </Badge>
                         </div>
                         
                         {/* Price display */}
                         <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                           <div className="space-y-1">
-                            <div className="text-lg md:text-xl font-bold gradient-text">
+                            <div className={`text-lg md:text-xl font-bold transition-colors duration-300 ${
+                              crypto.priceDirection === 'up' ? 'text-green-400' :
+                              crypto.priceDirection === 'down' ? 'text-red-400' :
+                              'gradient-text'
+                            }`}>
                               ₹{crypto.priceINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                             </div>
                             <div className="text-xs md:text-sm text-muted-foreground">
@@ -266,7 +246,7 @@ export function LiveMomentum() {
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Vol: {(crypto.volume24h / 1000000).toFixed(1)}M
+                          24h Change
                         </div>
                       </div>
                     </div>

@@ -5,13 +5,12 @@ export type PriceData = {
   symbol: string;
   priceUSD: number;
   priceINR: number;
-  change24h?: number;
+  change24h: number;
   lastUpdate: number;
 };
 
 const USD_TO_INR = 84;
-const CACHE_DURATION = 10000; // 10 seconds
-const UPDATE_INTERVAL = 15000; // 15 seconds
+const UPDATE_INTERVAL = 5000; // 5 seconds - faster updates for realtime feel
 
 /**
  * Centralized price data hook - uses CoinMarketCap API with key rotation
@@ -21,7 +20,6 @@ export function usePriceData(symbols: string[]) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<number | null>(null);
-  const lastFetchRef = useRef<number>(0);
   const isFetchingRef = useRef<boolean>(false);
 
   const uniqueSymbols = useMemo(() => 
@@ -37,19 +35,11 @@ export function usePriceData(symbols: string[]) {
 
     // Prevent concurrent fetches
     if (isFetchingRef.current) return;
-    
-    const now = Date.now();
-    // Skip if recently fetched
-    if (now - lastFetchRef.current < CACHE_DURATION) {
-      setIsLoading(false);
-      return;
-    }
-
     isFetchingRef.current = true;
 
     try {
-      console.log("Fetching CMC prices for:", uniqueSymbols);
       const cmcPrices = await getCryptoPrices(uniqueSymbols);
+      const now = Date.now();
       
       const newPrices: Record<string, PriceData> = {};
       cmcPrices.forEach((p: CMCPrice) => {
@@ -57,14 +47,13 @@ export function usePriceData(symbols: string[]) {
           symbol: p.symbol,
           priceUSD: p.price,
           priceINR: p.price * USD_TO_INR,
-          change24h: p.percent_change_24h,
+          change24h: p.percent_change_24h || 0,
           lastUpdate: now,
         };
       });
 
       if (Object.keys(newPrices).length > 0) {
         setPrices(newPrices);
-        lastFetchRef.current = now;
       }
       
       setError(null);
@@ -78,12 +67,15 @@ export function usePriceData(symbols: string[]) {
   }, [uniqueSymbols]);
 
   useEffect(() => {
+    // Initial fetch
     fetchAllPrices();
     
+    // Clear existing interval
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
     }
     
+    // Set up polling for realtime updates
     intervalRef.current = window.setInterval(fetchAllPrices, UPDATE_INTERVAL);
     
     return () => {
