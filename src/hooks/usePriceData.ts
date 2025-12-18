@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCryptoPrices, CMCPrice } from "@/services/cmcProxy";
 
 export type PriceData = {
   symbol: string;
@@ -10,11 +9,12 @@ export type PriceData = {
 };
 
 const USD_TO_INR = 84;
-const UPDATE_INTERVAL = 3000; // 3 seconds for realtime feel
+const UPDATE_INTERVAL = 5000; // 5 seconds polling
+const BINANCE_API_URL = "https://api.binance.com/api/v3/ticker/24hr";
 
 /**
- * Centralized price data hook - uses CoinMarketCap API with key rotation
- * Updates every 3 seconds for realtime momentum display
+ * Centralized price data hook - uses Binance API (free, no rate limits)
+ * Updates every 5 seconds for realtime momentum display
  */
 export function usePriceData(symbols: string[]) {
   const [state, setState] = useState<{
@@ -45,18 +45,28 @@ export function usePriceData(symbols: string[]) {
     isFetchingRef.current = true;
 
     try {
-      const cmcPrices = await getCryptoPrices(uniqueSymbols);
+      // Use Binance REST API - free with high rate limits
+      const response = await fetch(BINANCE_API_URL);
+      if (!response.ok) throw new Error('Binance API error');
+      
+      const allTickers = await response.json();
       const now = Date.now();
       
       const newPrices: Record<string, PriceData> = {};
-      cmcPrices.forEach((p: CMCPrice) => {
-        newPrices[p.symbol] = {
-          symbol: p.symbol,
-          priceUSD: p.price,
-          priceINR: p.price * USD_TO_INR,
-          change24h: p.percent_change_24h || 0,
-          lastUpdate: now,
-        };
+      
+      uniqueSymbols.forEach(symbol => {
+        const ticker = allTickers.find((t: any) => t.symbol === `${symbol}USDT`);
+        if (ticker) {
+          const priceUSD = parseFloat(ticker.lastPrice);
+          const change24h = parseFloat(ticker.priceChangePercent);
+          newPrices[symbol] = {
+            symbol,
+            priceUSD,
+            priceINR: priceUSD * USD_TO_INR,
+            change24h,
+            lastUpdate: now,
+          };
+        }
       });
 
       if (Object.keys(newPrices).length > 0) {
@@ -86,7 +96,7 @@ export function usePriceData(symbols: string[]) {
       window.clearInterval(intervalRef.current);
     }
     
-    // Set up polling for realtime updates every 3 seconds
+    // Set up polling for realtime updates
     intervalRef.current = window.setInterval(fetchAllPrices, UPDATE_INTERVAL);
     
     return () => {
