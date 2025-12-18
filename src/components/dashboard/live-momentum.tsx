@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +31,21 @@ const cryptoMapping: Record<string, { name: string; symbol: string }> = {
 const SYMBOLS = Object.keys(cryptoMapping);
 
 export function LiveMomentum() {
-  // All hooks must be called unconditionally at the top
-  const { prices, isLoading, error, refresh } = usePriceData(SYMBOLS);
+  // All hooks called unconditionally at top
+  const { prices, isLoading, error, refresh, updateCount } = usePriceData(SYMBOLS);
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const prevPricesRef = useRef<Record<string, number>>({});
+
+  // Update time every second for "X seconds ago" display
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -57,7 +66,7 @@ export function LiveMomentum() {
     setSelectedCrypto(null);
   }, []);
 
-  // Calculate momentum and format data
+  // Calculate trading pairs with momentum
   const tradingPairs = useMemo(() => {
     return SYMBOLS
       .map(symbol => {
@@ -71,6 +80,7 @@ export function LiveMomentum() {
         const change24h = priceData.change24h || 0;
         const momentum = Math.abs(change24h);
         
+        // Track price direction for visual feedback
         const prevPrice = prevPricesRef.current[symbol] || priceUSD;
         const priceDirection = priceUSD > prevPrice ? 'up' : priceUSD < prevPrice ? 'down' : 'same';
         prevPricesRef.current[symbol] = priceUSD;
@@ -93,9 +103,10 @@ export function LiveMomentum() {
         crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => b.momentum - a.momentum);
-  }, [prices, searchTerm]);
+  }, [prices, searchTerm, updateCount]); // Include updateCount to force recalculation
 
-  const lastUpdate = tradingPairs.length > 0 ? tradingPairs[0].lastUpdate : Date.now();
+  const latestUpdate = tradingPairs.length > 0 ? tradingPairs[0].lastUpdate : 0;
+  const secondsAgo = latestUpdate > 0 ? Math.floor((currentTime - latestUpdate) / 1000) : 0;
   const isLive = tradingPairs.length > 0;
   const hasNoPrices = Object.keys(prices).length === 0;
 
@@ -167,13 +178,11 @@ export function LiveMomentum() {
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span>Auto-refresh 5s</span>
+              <span>Auto-refresh 3s</span>
             </div>
-            {lastUpdate > 0 && (
-              <span className="text-primary/70">
-                {Math.floor((Date.now() - lastUpdate) / 1000)}s ago
-              </span>
-            )}
+            <span className="text-primary/70 font-medium">
+              {secondsAgo}s ago • Update #{updateCount}
+            </span>
           </div>
         </CardHeader>
         
@@ -205,7 +214,7 @@ export function LiveMomentum() {
                               'bg-green-500/15 text-green-400 border-green-500/30'
                             }`}
                           >
-                            🔥 {crypto.momentum.toFixed(1)}%
+                            🔥 {crypto.momentum.toFixed(2)}%
                           </Badge>
                         </div>
                         
