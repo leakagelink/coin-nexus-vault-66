@@ -10,20 +10,22 @@ export type PriceData = {
 };
 
 const USD_TO_INR = 84;
-const UPDATE_INTERVAL = 5000;
+const UPDATE_INTERVAL = 3000; // 3 seconds for realtime feel
 
 /**
  * Centralized price data hook - uses CoinMarketCap API with key rotation
+ * Updates every 3 seconds for realtime momentum display
  */
 export function usePriceData(symbols: string[]) {
   const [prices, setPrices] = useState<Record<string, PriceData>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updateCount, setUpdateCount] = useState(0); // Force re-render
   const intervalRef = useRef<number | null>(null);
   const isFetchingRef = useRef<boolean>(false);
   const symbolsRef = useRef<string[]>([]);
   
-  // Store symbols in ref to avoid dependency issues
+  // Store symbols in ref
   symbolsRef.current = symbols.filter(Boolean).map(s => s.toUpperCase());
 
   const fetchAllPrices = useCallback(async () => {
@@ -54,6 +56,7 @@ export function usePriceData(symbols: string[]) {
 
       if (Object.keys(newPrices).length > 0) {
         setPrices(newPrices);
+        setUpdateCount(c => c + 1); // Force re-render
       }
       
       setError(null);
@@ -67,12 +70,15 @@ export function usePriceData(symbols: string[]) {
   }, []);
 
   useEffect(() => {
+    // Initial fetch immediately
     fetchAllPrices();
     
+    // Clear existing interval
     if (intervalRef.current) {
       window.clearInterval(intervalRef.current);
     }
     
+    // Set up polling for realtime updates every 3 seconds
     intervalRef.current = window.setInterval(fetchAllPrices, UPDATE_INTERVAL);
     
     return () => {
@@ -91,6 +97,7 @@ export function usePriceData(symbols: string[]) {
     isLoading, 
     error,
     getPrice,
-    refresh: fetchAllPrices
+    refresh: fetchAllPrices,
+    updateCount // Expose update count for UI reactivity
   };
 }
