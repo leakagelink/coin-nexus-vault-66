@@ -1,11 +1,9 @@
-
-
 import { useNavigate } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoCard } from "./crypto-card";
-import { usePriceData } from "@/hooks/usePriceData";
-import { Loader2, TrendingUp, Activity } from "lucide-react";
+import { useBinanceWebSocket } from "@/hooks/useBinanceWebSocket";
+import { Loader2, TrendingUp, Activity, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const cryptoMapping = {
@@ -14,67 +12,47 @@ const cryptoMapping = {
   'BNB': { name: 'BNB', symbol: 'BNBUSDT', minAmount: 150 },
   'ADA': { name: 'Cardano', symbol: 'ADAUSDT', minAmount: 150 },
   'SOL': { name: 'Solana', symbol: 'SOLUSDT', minAmount: 150 },
-  'USDT': { name: 'Tether', symbol: 'USDTUSDT', minAmount: 50 }
 };
 
-// Move symbols outside component to prevent recreation on each render
-const SYMBOLS = ['BTC','ETH','BNB','ADA','SOL','USDT'] as const;
+const SYMBOLS = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL'] as const;
 
 export function MarketOverview() {
-  const { prices: taapiPrices, isLoading, error } = usePriceData([...SYMBOLS]);
+  const { prices, isConnected, error, updateCount, connectionMode } = useBinanceWebSocket([...SYMBOLS]);
   const navigate = useNavigate();
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleChartClick = (symbol: string, name: string) => {
     const tradingSymbol = cryptoMapping[symbol as keyof typeof cryptoMapping]?.symbol || `${symbol}USDT`;
-    console.log(`Navigating to chart page for ${tradingSymbol} - ${name}`);
     navigate(`/chart/${tradingSymbol}`);
   };
 
-  const handleCryptoCardClick = (symbol: string, name: string) => {
-    handleChartClick(symbol, name);
-  };
-
-  // Calculate momentum and stats from TAAPI prices
   const pricesWithMomentum = useMemo(() => {
-    const priceHistory: Record<string, number[]> = {};
-    
     return SYMBOLS.map(symbol => {
-      const priceData = taapiPrices[symbol];
+      const priceData = prices[symbol];
       if (!priceData) return null;
       
-      // Track price history for momentum
-      if (!priceHistory[symbol]) priceHistory[symbol] = [];
-      priceHistory[symbol].push(priceData.priceUSD);
-      if (priceHistory[symbol].length > 10) priceHistory[symbol].shift();
-      
-      // Calculate momentum
-      let momentum = 0;
-      if (priceHistory[symbol].length >= 2) {
-        const changes = priceHistory[symbol].map((p, i, arr) => 
-          i > 0 ? ((p - arr[i-1]) / arr[i-1]) * 100 : 0
-        );
-        momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
-      }
-      
-      const changePercent = priceHistory[symbol].length >= 2 
-        ? ((priceData.priceUSD - priceHistory[symbol][0]) / priceHistory[symbol][0]) * 100 
-        : 0;
+      const momentum = Math.abs(priceData.change24h);
       
       return {
         symbol,
         price: priceData.priceUSD,
         priceINR: priceData.priceINR,
         momentum,
-        changePercent,
-        change24h: (priceData.priceUSD * changePercent) / 100,
-        marketCap: priceData.priceUSD * 1000000000, // Simulated
+        changePercent: priceData.change24h,
+        change24h: priceData.change24h,
+        marketCap: priceData.priceUSD * 1000000000,
         volume24h: 10000000 + Math.random() * 50000000,
         lastUpdate: priceData.lastUpdate
       };
     }).filter(Boolean);
-  }, [taapiPrices]);
+  }, [prices, updateCount]);
 
-  // Calculate market stats
   const marketStats = pricesWithMomentum.reduce((acc, priceData) => {
     if (!priceData) return acc;
     acc.totalMarketCap += priceData.marketCap || 0;
@@ -87,9 +65,10 @@ export function MarketOverview() {
   const lastUpdate = pricesWithMomentum.length > 0 && pricesWithMomentum[0] 
     ? pricesWithMomentum[0].lastUpdate 
     : Date.now();
-  const isLive = pricesWithMomentum.length > 0;
+  const secondsAgo = lastUpdate > 0 ? Math.floor((currentTime - lastUpdate) / 1000) : 0;
+  const hasNoPrices = Object.keys(prices).length === 0;
 
-  if (isLoading) {
+  if (!isConnected && hasNoPrices) {
     return (
       <Card className="glass">
         <CardHeader>
@@ -98,14 +77,16 @@ export function MarketOverview() {
         <CardContent>
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-3 text-sm text-muted-foreground">Loading live market data...</span>
+            <span className="ml-3 text-sm text-muted-foreground">
+              {connectionMode === 'connecting' ? 'Connecting to live stream...' : 'Loading prices...'}
+            </span>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  if (error) {
+  if (error && hasNoPrices) {
     return (
       <Card className="glass">
         <CardHeader>
@@ -113,11 +94,8 @@ export function MarketOverview() {
         </CardHeader>
         <CardContent>
           <div className="text-center py-12">
-            <div className="mb-4">
-              <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-              <p className="text-red-500 font-medium">{error}</p>
-              <p className="text-sm text-muted-foreground mt-2">Please check your connection and try again</p>
-            </div>
+            <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+            <p className="text-red-500 font-medium">{error}</p>
           </div>
         </CardContent>
       </Card>
@@ -184,32 +162,41 @@ export function MarketOverview() {
               <p className="text-sm text-muted-foreground mt-1">Click any coin to view professional trading chart</p>
             </div>
             <div className="flex items-center gap-3">
-              {isLive && (
-                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs">LIVE</span>
-                  </div>
-                </Badge>
-              )}
-              {lastUpdate > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  Updated {Math.floor((Date.now() - lastUpdate) / 1000)}s ago
-                </span>
-              )}
+              <Badge 
+                variant="outline" 
+                className={`${connectionMode === 'websocket' 
+                  ? 'bg-green-500/10 text-green-400 border-green-500/30' 
+                  : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {connectionMode === 'websocket' ? (
+                    <Wifi className="h-3 w-3" />
+                  ) : (
+                    <Activity className="h-3 w-3" />
+                  )}
+                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs">
+                    {connectionMode === 'websocket' ? 'REALTIME' : 'LIVE'}
+                  </span>
+                </div>
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {secondsAgo}s ago • #{updateCount}
+              </span>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
-            {SYMBOLS.filter(sym => sym !== 'USDT').map((sym) => {
+            {SYMBOLS.map((sym) => {
               const crypto = cryptoMapping[sym as keyof typeof cryptoMapping];
               const priceData = pricesWithMomentum.find(p => p?.symbol === sym);
               
               if (!priceData) return null;
               
               return (
-                <div key={sym} onClick={() => handleCryptoCardClick(sym, crypto.name)} className="cursor-pointer">
+                <div key={sym} onClick={() => handleChartClick(sym, crypto.name)} className="cursor-pointer">
                   <CryptoCard
                     symbol={sym}
                     name={crypto.name}
