@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCryptoPrices, CMCPrice } from "@/services/cmcProxy";
 
 export type WebSocketPriceData = {
   symbol: string;
@@ -11,11 +10,12 @@ export type WebSocketPriceData = {
 
 const USD_TO_INR = 84;
 const BINANCE_WS_URL = "wss://stream.binance.com:9443/ws";
-const FALLBACK_INTERVAL = 2000; // 2 second polling fallback
+const BINANCE_API_URL = "https://api.binance.com/api/v3/ticker/24hr";
+const FALLBACK_INTERVAL = 3000; // 3 second polling fallback
 
 /**
  * WebSocket-based price data hook using Binance real-time streams
- * Falls back to polling if WebSocket fails
+ * Falls back to Binance REST API polling if WebSocket fails (no CMC rate limits)
  */
 export function useBinanceWebSocket(symbols: string[]) {
   const [prices, setPrices] = useState<Record<string, WebSocketPriceData>>({});
@@ -30,24 +30,34 @@ export function useBinanceWebSocket(symbols: string[]) {
   const connectionAttempts = useRef(0);
   const symbolsKey = symbols.filter(Boolean).map(s => s.toLowerCase()).join(',');
 
-  // Fallback polling using CMC API
+  // Fallback polling using Binance REST API (free, high rate limits)
   const fetchPricesViaAPI = useCallback(async () => {
     const uniqueSymbols = [...new Set(symbols.filter(Boolean).map(s => s.toUpperCase()))];
     if (uniqueSymbols.length === 0) return;
 
     try {
-      const cmcPrices = await getCryptoPrices(uniqueSymbols);
+      // Fetch all tickers from Binance API
+      const response = await fetch(BINANCE_API_URL);
+      if (!response.ok) throw new Error('Binance API error');
+      
+      const allTickers = await response.json();
       const now = Date.now();
       
       const newPrices: Record<string, WebSocketPriceData> = {};
-      cmcPrices.forEach((p: CMCPrice) => {
-        newPrices[p.symbol] = {
-          symbol: p.symbol,
-          priceUSD: p.price,
-          priceINR: p.price * USD_TO_INR,
-          change24h: p.percent_change_24h || 0,
-          lastUpdate: now,
-        };
+      
+      uniqueSymbols.forEach(symbol => {
+        const ticker = allTickers.find((t: any) => t.symbol === `${symbol}USDT`);
+        if (ticker) {
+          const priceUSD = parseFloat(ticker.lastPrice);
+          const change24h = parseFloat(ticker.priceChangePercent);
+          newPrices[symbol] = {
+            symbol,
+            priceUSD,
+            priceINR: priceUSD * USD_TO_INR,
+            change24h,
+            lastUpdate: now,
+          };
+        }
       });
 
       if (Object.keys(newPrices).length > 0) {
@@ -57,7 +67,7 @@ export function useBinanceWebSocket(symbols: string[]) {
         setError(null);
       }
     } catch (e) {
-      console.error("Fallback API fetch error:", e);
+      console.error("Binance API fallback error:", e);
     }
   }, [symbols]);
 
