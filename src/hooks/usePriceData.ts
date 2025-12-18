@@ -1,58 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getLatestTaapiPriceUSD } from "@/services/taapiProxy";
+import { getCryptoPrices, CMCPrice } from "@/services/cmcProxy";
 
 export type PriceData = {
   symbol: string;
   priceUSD: number;
   priceINR: number;
+  change24h?: number;
   lastUpdate: number;
 };
 
 const USD_TO_INR = 84;
-const CACHE_DURATION = 5000; // 5 seconds
-const UPDATE_INTERVAL = 5000; // 5 seconds
+const CACHE_DURATION = 10000; // 10 seconds
+const UPDATE_INTERVAL = 15000; // 15 seconds
 
 /**
- * Centralized price data hook - single source of truth for all prices
- * This prevents conflicts between different price hooks
+ * Centralized price data hook - uses CoinMarketCap API with key rotation
  */
 export function usePriceData(symbols: string[]) {
   const [prices, setPrices] = useState<Record<string, PriceData>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<number | null>(null);
-  const lastFetchRef = useRef<Record<string, number>>({});
+  const lastFetchRef = useRef<number>(0);
 
   const uniqueSymbols = useMemo(() => 
-    Array.from(new Set(symbols)).filter(Boolean), 
+    Array.from(new Set(symbols)).filter(Boolean).map(s => s.toUpperCase()), 
     [symbols]
   );
-
-  const fetchPriceForSymbol = useCallback(async (symbol: string): Promise<PriceData | null> => {
-    const now = Date.now();
-    const lastFetch = lastFetchRef.current[symbol] || 0;
-    
-    // Return cached if still valid
-    if (now - lastFetch < CACHE_DURATION && prices[symbol]) {
-      return prices[symbol];
-    }
-
-    try {
-      const usd = await getLatestTaapiPriceUSD(symbol, "1m");
-      const priceData: PriceData = {
-        symbol,
-        priceUSD: usd,
-        priceINR: usd * USD_TO_INR,
-        lastUpdate: now,
-      };
-      
-      lastFetchRef.current[symbol] = now;
-      return priceData;
-    } catch (e) {
-      console.error(`Failed to fetch price for ${symbol}:`, e);
-      return null;
-    }
-  }, [prices]);
 
   const fetchAllPrices = useCallback(async () => {
     if (uniqueSymbols.length === 0) {
@@ -60,30 +34,40 @@ export function usePriceData(symbols: string[]) {
       return;
     }
 
-    try {
-      const results = await Promise.all(
-        uniqueSymbols.map(sym => fetchPriceForSymbol(sym))
-      );
+    const now = Date.now();
+    // Skip if recently fetched
+    if (now - lastFetchRef.current < CACHE_DURATION && Object.keys(prices).length > 0) {
+      return;
+    }
 
-      const newPrices: Record<string, PriceData> = { ...prices };
-      results.forEach((result) => {
-        if (result) {
-          newPrices[result.symbol] = result;
-        }
+    try {
+      console.log("Fetching prices for:", uniqueSymbols);
+      const cmcPrices = await getCryptoPrices(uniqueSymbols);
+      
+      const newPrices: Record<string, PriceData> = {};
+      cmcPrices.forEach((p: CMCPrice) => {
+        newPrices[p.symbol] = {
+          symbol: p.symbol,
+          priceUSD: p.price,
+          priceINR: p.price * USD_TO_INR,
+          change24h: p.percent_change_24h,
+          lastUpdate: now,
+        };
       });
 
       if (Object.keys(newPrices).length > 0) {
         setPrices(newPrices);
+        lastFetchRef.current = now;
       }
       
       setError(null);
     } catch (e: any) {
-      setError(e?.message || "Failed to load prices");
       console.error("Price fetch error:", e);
+      setError(e?.message || "Failed to load prices");
     } finally {
       setIsLoading(false);
     }
-  }, [uniqueSymbols, fetchPriceForSymbol, prices]);
+  }, [uniqueSymbols, prices]);
 
   useEffect(() => {
     fetchAllPrices();
@@ -102,7 +86,7 @@ export function usePriceData(symbols: string[]) {
   }, [fetchAllPrices]);
 
   const getPrice = useCallback((symbol: string): PriceData | null => {
-    return prices[symbol] || null;
+    return prices[symbol.toUpperCase()] || null;
   }, [prices]);
 
   return { 
