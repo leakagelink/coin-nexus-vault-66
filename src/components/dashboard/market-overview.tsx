@@ -17,9 +17,11 @@ const cryptoMapping = {
   'USDT': { name: 'Tether', symbol: 'USDTUSDT', minAmount: 50 }
 };
 
+// Move symbols outside component to prevent recreation on each render
+const SYMBOLS = ['BTC','ETH','BNB','ADA','SOL','USDT'] as const;
+
 export function MarketOverview() {
-  const symbols = ['BTC','ETH','BNB','ADA','SOL','USDT'];
-  const { prices: taapiPrices, isLoading, error } = usePriceData(symbols);
+  const { prices: taapiPrices, isLoading, error } = usePriceData([...SYMBOLS]);
   const navigate = useNavigate();
 
   const handleChartClick = (symbol: string, name: string) => {
@@ -36,7 +38,7 @@ export function MarketOverview() {
   const pricesWithMomentum = useMemo(() => {
     const priceHistory: Record<string, number[]> = {};
     
-    return symbols.map(symbol => {
+    return SYMBOLS.map(symbol => {
       const priceData = taapiPrices[symbol];
       if (!priceData) return null;
       
@@ -70,7 +72,7 @@ export function MarketOverview() {
         lastUpdate: priceData.lastUpdate
       };
     }).filter(Boolean);
-  }, [taapiPrices, symbols]);
+  }, [taapiPrices]);
 
   // Calculate market stats
   const marketStats = pricesWithMomentum.reduce((acc, priceData) => {
@@ -200,7 +202,7 @@ export function MarketOverview() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
-            {symbols.filter(sym => sym !== 'USDT').map((sym) => {
+            {SYMBOLS.filter(sym => sym !== 'USDT').map((sym) => {
               const crypto = cryptoMapping[sym as keyof typeof cryptoMapping];
               const priceData = pricesWithMomentum.find(p => p?.symbol === sym);
               

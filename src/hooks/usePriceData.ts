@@ -17,22 +17,27 @@ const UPDATE_INTERVAL = 3000; // 3 seconds for realtime feel
  * Updates every 3 seconds for realtime momentum display
  */
 export function usePriceData(symbols: string[]) {
-  const [prices, setPrices] = useState<Record<string, PriceData>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [updateCount, setUpdateCount] = useState(0); // Force re-render
+  const [state, setState] = useState<{
+    prices: Record<string, PriceData>;
+    isLoading: boolean;
+    error: string | null;
+    updateCount: number;
+  }>({
+    prices: {},
+    isLoading: true,
+    error: null,
+    updateCount: 0,
+  });
+  
   const intervalRef = useRef<number | null>(null);
   const isFetchingRef = useRef<boolean>(false);
-  const symbolsRef = useRef<string[]>([]);
-  
-  // Store symbols in ref
-  symbolsRef.current = symbols.filter(Boolean).map(s => s.toUpperCase());
+  const symbolsKey = symbols.filter(Boolean).map(s => s.toUpperCase()).join(',');
 
   const fetchAllPrices = useCallback(async () => {
-    const uniqueSymbols = [...new Set(symbolsRef.current)];
+    const uniqueSymbols = [...new Set(symbols.filter(Boolean).map(s => s.toUpperCase()))];
     
     if (uniqueSymbols.length === 0) {
-      setIsLoading(false);
+      setState(prev => ({ ...prev, isLoading: false }));
       return;
     }
 
@@ -55,19 +60,22 @@ export function usePriceData(symbols: string[]) {
       });
 
       if (Object.keys(newPrices).length > 0) {
-        setPrices(newPrices);
-        setUpdateCount(c => c + 1); // Force re-render
+        setState(prev => ({
+          ...prev,
+          prices: newPrices,
+          isLoading: false,
+          error: null,
+          updateCount: prev.updateCount + 1,
+        }));
       }
-      
-      setError(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Failed to load prices";
       console.error("Price fetch error:", e);
-      setError(e?.message || "Failed to load prices");
+      setState(prev => ({ ...prev, isLoading: false, error: errorMessage }));
     } finally {
-      setIsLoading(false);
       isFetchingRef.current = false;
     }
-  }, []);
+  }, [symbolsKey]);
 
   useEffect(() => {
     // Initial fetch immediately
@@ -89,15 +97,15 @@ export function usePriceData(symbols: string[]) {
   }, [fetchAllPrices]);
 
   const getPrice = useCallback((symbol: string): PriceData | null => {
-    return prices[symbol.toUpperCase()] || null;
-  }, [prices]);
+    return state.prices[symbol.toUpperCase()] || null;
+  }, [state.prices]);
 
   return { 
-    prices, 
-    isLoading, 
-    error,
+    prices: state.prices, 
+    isLoading: state.isLoading, 
+    error: state.error,
     getPrice,
     refresh: fetchAllPrices,
-    updateCount // Expose update count for UI reactivity
+    updateCount: state.updateCount
   };
 }
