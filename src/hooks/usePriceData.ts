@@ -22,6 +22,7 @@ export function usePriceData(symbols: string[]) {
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<number | null>(null);
   const lastFetchRef = useRef<number>(0);
+  const isFetchingRef = useRef<boolean>(false);
 
   const uniqueSymbols = useMemo(() => 
     Array.from(new Set(symbols)).filter(Boolean).map(s => s.toUpperCase()), 
@@ -34,14 +35,20 @@ export function usePriceData(symbols: string[]) {
       return;
     }
 
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) return;
+    
     const now = Date.now();
     // Skip if recently fetched
-    if (now - lastFetchRef.current < CACHE_DURATION && Object.keys(prices).length > 0) {
+    if (now - lastFetchRef.current < CACHE_DURATION) {
+      setIsLoading(false);
       return;
     }
 
+    isFetchingRef.current = true;
+
     try {
-      console.log("Fetching prices for:", uniqueSymbols);
+      console.log("Fetching CMC prices for:", uniqueSymbols);
       const cmcPrices = await getCryptoPrices(uniqueSymbols);
       
       const newPrices: Record<string, PriceData> = {};
@@ -66,8 +73,9 @@ export function usePriceData(symbols: string[]) {
       setError(e?.message || "Failed to load prices");
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
-  }, [uniqueSymbols, prices]);
+  }, [uniqueSymbols]);
 
   useEffect(() => {
     fetchAllPrices();
