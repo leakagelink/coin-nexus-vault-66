@@ -144,16 +144,12 @@ export function WithdrawalRequestsTable() {
   const reject = async (id: string) => {
     if (!user) return;
     console.log("Rejecting withdrawal", id);
-    const { error } = await supabase
-      .from('withdrawal_requests')
-      .update({
-        status: 'rejected',
-        admin_notes: 'Rejected by admin',
-        processed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-    
+    const { data, error } = await supabase.rpc("reject_request", {
+      request_id: id,
+      request_type: "withdrawal",
+      admin_id: user.id,
+      notes: "Rejected by admin",
+    });
     if (error) {
       console.error("Reject withdrawal error:", error);
       toast({

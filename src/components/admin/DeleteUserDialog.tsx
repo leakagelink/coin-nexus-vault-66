@@ -36,29 +36,17 @@ export function DeleteUserDialog({ userId, userLabel, onSuccess }: DeleteUserDia
         throw new Error("Not authenticated");
       }
 
-      // Delete user data in order (respecting foreign key constraints)
-      // 1. Delete watchlist
-      await supabase.from('watchlist').delete().eq('user_id', userId);
-      // 2. Delete portfolio positions
-      await supabase.from('portfolio_positions').delete().eq('user_id', userId);
-      // 3. Delete trades
-      await supabase.from('trades').delete().eq('user_id', userId);
-      // 4. Delete transactions
-      await supabase.from('transactions').delete().eq('user_id', userId);
-      // 5. Delete withdrawal requests
-      await supabase.from('withdrawal_requests').delete().eq('user_id', userId);
-      // 6. Delete deposit requests
-      await supabase.from('deposit_requests').delete().eq('user_id', userId);
-      // 7. Delete bank accounts
-      await supabase.from('bank_accounts').delete().eq('user_id', userId);
-      // 8. Delete KYC documents
-      await supabase.from('kyc_documents').delete().eq('user_id', userId);
-      // 9. Delete wallet
-      await supabase.from('wallets').delete().eq('user_id', userId);
-      // 10. Delete user roles
-      await supabase.from('user_roles').delete().eq('user_id', userId);
-      // 11. Delete profile
-      await supabase.from('profiles').delete().eq('id', userId);
+      const { data, error } = await supabase.rpc("admin_delete_user", {
+        target_user_id: userId,
+        admin_id: user.id,
+      });
+
+      if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string };
+      if (!result.success) {
+        throw new Error(result.error || "Failed to delete user");
+      }
 
       toast({
         title: "User Deleted Successfully",

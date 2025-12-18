@@ -171,6 +171,8 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
             amount: parsedQty,
             buy_price: parsedPrice,
             current_price: parsedPrice, // Use entered price for admin trades
+            position_type: 'long',
+            status: 'open',
             admin_price_override: true, // Mark as admin-edited
           };
 
