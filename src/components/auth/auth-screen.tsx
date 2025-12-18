@@ -73,9 +73,8 @@ export function AuthScreen() {
 
         const { error } = await signUp(email, password, fullName, mobile);
         if (!error) {
-          // Success - show confirmation screen
-          setSignupEmail(email);
-          setStep('email-confirmation');
+          // Auto-confirm is enabled, user will be logged in automatically
+          // No need to show email confirmation screen
           resetFields();
         }
       } else if (step === 'forgot-password') {
