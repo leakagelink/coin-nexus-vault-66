@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Search, Wifi, WifiOff } from "lucide-react";
+import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Search, Wifi } from "lucide-react";
 import { useBinanceWebSocket } from "@/hooks/useBinanceWebSocket";
 import { TradingModal } from "@/components/trading/trading-modal";
 
@@ -20,23 +20,20 @@ const cryptoMapping: Record<string, { name: string; symbol: string }> = {
   'LTC': { name: 'Litecoin', symbol: 'LTCUSDT' },
   'DOGE': { name: 'Dogecoin', symbol: 'DOGEUSDT' },
   'TRX': { name: 'Tron', symbol: 'TRXUSDT' },
-  'TON': { name: 'Toncoin', symbol: 'TONUSDT' },
   'MATIC': { name: 'Polygon', symbol: 'MATICUSDT' },
   'BCH': { name: 'Bitcoin Cash', symbol: 'BCHUSDT' },
   'AVAX': { name: 'Avalanche', symbol: 'AVAXUSDT' }
 };
 
-// Stable array of symbols
 const SYMBOLS = Object.keys(cryptoMapping);
 
 export function LiveMomentum() {
-  const { prices, isConnected, error, reconnect, updateCount } = useBinanceWebSocket(SYMBOLS);
+  const { prices, isConnected, error, reconnect, updateCount, connectionMode } = useBinanceWebSocket(SYMBOLS);
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const prevPricesRef = useRef<Record<string, number>>({});
 
-  // Update time every second for "X seconds ago" display
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
@@ -57,7 +54,6 @@ export function LiveMomentum() {
     setSelectedCrypto(null);
   }, []);
 
-  // Calculate trading pairs with momentum
   const tradingPairs = useMemo(() => {
     return SYMBOLS
       .map(symbol => {
@@ -71,7 +67,6 @@ export function LiveMomentum() {
         const change24h = priceData.change24h || 0;
         const momentum = Math.abs(change24h);
         
-        // Track price direction for visual feedback
         const prevPrice = prevPricesRef.current[symbol] || priceUSD;
         const priceDirection = priceUSD > prevPrice ? 'up' : priceUSD < prevPrice ? 'down' : 'same';
         prevPricesRef.current[symbol] = priceUSD;
@@ -100,21 +95,21 @@ export function LiveMomentum() {
   const secondsAgo = latestUpdate > 0 ? Math.floor((currentTime - latestUpdate) / 1000) : 0;
   const hasNoPrices = Object.keys(prices).length === 0;
 
-  // Loading state
   if (!isConnected && hasNoPrices) {
     return (
       <Card className="glass w-full">
         <CardContent className="flex items-center justify-center py-6 md:py-8">
           <div className="flex items-center gap-3">
             <Activity className="h-6 w-6 animate-pulse text-primary" />
-            <span className="text-sm text-muted-foreground">Connecting to live stream...</span>
+            <span className="text-sm text-muted-foreground">
+              {connectionMode === 'connecting' ? 'Connecting to live stream...' : 'Loading prices...'}
+            </span>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  // Error state
   if (error && hasNoPrices) {
     return (
       <Card className="glass w-full">
@@ -140,23 +135,18 @@ export function LiveMomentum() {
               <span className="text-foreground">Live Momentum</span>
               <Badge 
                 variant="outline" 
-                className={`text-xs ${isConnected 
+                className={`text-xs ${connectionMode === 'websocket' 
                   ? 'bg-green-500/10 text-green-400 border-green-500/30' 
-                  : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                  : 'bg-blue-500/10 text-blue-400 border-blue-500/30'
                 }`}
               >
                 <div className="flex items-center gap-1">
-                  {isConnected ? (
-                    <>
-                      <Wifi className="h-3 w-3" />
-                      <span>LIVE</span>
-                    </>
+                  {connectionMode === 'websocket' ? (
+                    <Wifi className="h-3 w-3" />
                   ) : (
-                    <>
-                      <WifiOff className="h-3 w-3" />
-                      <span>RECONNECTING</span>
-                    </>
+                    <Activity className="h-3 w-3" />
                   )}
+                  <span>{connectionMode === 'websocket' ? 'REALTIME' : 'LIVE'}</span>
                 </div>
               </Badge>
             </CardTitle>
@@ -182,8 +172,8 @@ export function LiveMomentum() {
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></div>
-              <span>{isConnected ? 'WebSocket Stream' : 'Reconnecting...'}</span>
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span>{connectionMode === 'websocket' ? 'WebSocket Stream' : 'Auto-refresh 2s'}</span>
             </div>
             <span className="text-primary/70 font-medium">
               {secondsAgo}s ago • #{updateCount}

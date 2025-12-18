@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getCryptoPrices, CMCPrice } from "@/services/cmcProxy";
 
 export type WebSocketPriceData = {
   symbol: string;
@@ -9,55 +10,118 @@ export type WebSocketPriceData = {
 };
 
 const USD_TO_INR = 84;
-
-// Binance WebSocket streams for real-time prices
 const BINANCE_WS_URL = "wss://stream.binance.com:9443/ws";
+const FALLBACK_INTERVAL = 2000; // 2 second polling fallback
 
 /**
  * WebSocket-based price data hook using Binance real-time streams
- * Provides instant price updates without polling
+ * Falls back to polling if WebSocket fails
  */
 export function useBinanceWebSocket(symbols: string[]) {
   const [prices, setPrices] = useState<Record<string, WebSocketPriceData>>({});
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updateCount, setUpdateCount] = useState(0);
+  const [connectionMode, setConnectionMode] = useState<'connecting' | 'websocket' | 'polling'>('connecting');
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+  const fallbackIntervalRef = useRef<number | null>(null);
+  const connectionAttempts = useRef(0);
   const symbolsKey = symbols.filter(Boolean).map(s => s.toLowerCase()).join(',');
 
-  const connect = useCallback(() => {
+  // Fallback polling using CMC API
+  const fetchPricesViaAPI = useCallback(async () => {
+    const uniqueSymbols = [...new Set(symbols.filter(Boolean).map(s => s.toUpperCase()))];
+    if (uniqueSymbols.length === 0) return;
+
+    try {
+      const cmcPrices = await getCryptoPrices(uniqueSymbols);
+      const now = Date.now();
+      
+      const newPrices: Record<string, WebSocketPriceData> = {};
+      cmcPrices.forEach((p: CMCPrice) => {
+        newPrices[p.symbol] = {
+          symbol: p.symbol,
+          priceUSD: p.price,
+          priceINR: p.price * USD_TO_INR,
+          change24h: p.percent_change_24h || 0,
+          lastUpdate: now,
+        };
+      });
+
+      if (Object.keys(newPrices).length > 0) {
+        setPrices(newPrices);
+        setUpdateCount(c => c + 1);
+        setIsConnected(true);
+        setError(null);
+      }
+    } catch (e) {
+      console.error("Fallback API fetch error:", e);
+    }
+  }, [symbols]);
+
+  // Start fallback polling
+  const startFallbackPolling = useCallback(() => {
+    console.log("Starting fallback polling mode");
+    setConnectionMode('polling');
+    
+    // Clear any existing interval
+    if (fallbackIntervalRef.current) {
+      clearInterval(fallbackIntervalRef.current);
+    }
+    
+    // Initial fetch
+    fetchPricesViaAPI();
+    
+    // Set up polling interval
+    fallbackIntervalRef.current = window.setInterval(fetchPricesViaAPI, FALLBACK_INTERVAL);
+  }, [fetchPricesViaAPI]);
+
+  // WebSocket connection
+  const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     const uniqueSymbols = [...new Set(symbols.filter(Boolean).map(s => s.toLowerCase()))];
     if (uniqueSymbols.length === 0) return;
 
-    // Create combined stream for all symbols (miniTicker gives us price + 24h change)
+    // Create combined stream for all symbols
     const streams = uniqueSymbols.map(s => `${s}usdt@miniTicker`).join('/');
     const wsUrl = `${BINANCE_WS_URL}/${streams}`;
 
-    console.log('Connecting to Binance WebSocket:', wsUrl);
+    console.log('Attempting Binance WebSocket connection:', wsUrl);
+    setConnectionMode('connecting');
     
     try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
+      // Set connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.log('WebSocket connection timeout, falling back to polling');
+          ws.close();
+          startFallbackPolling();
+        }
+      }, 5000);
+
       ws.onopen = () => {
-        console.log('Binance WebSocket connected');
+        console.log('Binance WebSocket connected successfully!');
+        clearTimeout(connectionTimeout);
         setIsConnected(true);
+        setConnectionMode('websocket');
         setError(null);
+        connectionAttempts.current = 0;
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           
-          // Handle miniTicker data
           if (data.e === '24hrMiniTicker') {
-            const symbol = data.s.replace('USDT', ''); // Remove USDT suffix
-            const priceUSD = parseFloat(data.c); // Current price
-            const openPrice = parseFloat(data.o); // Open price 24h ago
+            const symbol = data.s.replace('USDT', '');
+            const priceUSD = parseFloat(data.c);
+            const openPrice = parseFloat(data.o);
             const change24h = openPrice > 0 ? ((priceUSD - openPrice) / openPrice) * 100 : 0;
             
             setPrices(prev => ({
@@ -79,34 +143,49 @@ export function useBinanceWebSocket(symbols: string[]) {
 
       ws.onerror = (event) => {
         console.error('WebSocket error:', event);
-        setError('WebSocket connection error');
+        clearTimeout(connectionTimeout);
+        connectionAttempts.current++;
+        
+        if (connectionAttempts.current >= 2) {
+          console.log('WebSocket failed multiple times, switching to polling');
+          startFallbackPolling();
+        }
       };
 
       ws.onclose = (event) => {
         console.log('WebSocket closed:', event.code, event.reason);
+        clearTimeout(connectionTimeout);
         setIsConnected(false);
         wsRef.current = null;
         
-        // Reconnect after 3 seconds
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
+        // If already in polling mode, don't try to reconnect WebSocket
+        if (connectionMode === 'polling') return;
+        
+        // Try to reconnect WebSocket after delay
+        if (connectionAttempts.current < 2) {
+          reconnectTimeoutRef.current = window.setTimeout(() => {
+            console.log('Attempting WebSocket reconnection...');
+            connectWebSocket();
+          }, 3000);
+        } else {
+          startFallbackPolling();
         }
-        reconnectTimeoutRef.current = window.setTimeout(() => {
-          console.log('Attempting to reconnect...');
-          connect();
-        }, 3000);
       };
 
     } catch (e) {
       console.error('Failed to create WebSocket:', e);
-      setError('Failed to connect to price stream');
+      startFallbackPolling();
     }
-  }, [symbolsKey]);
+  }, [symbolsKey, startFallbackPolling]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+    }
+    if (fallbackIntervalRef.current) {
+      clearInterval(fallbackIntervalRef.current);
+      fallbackIntervalRef.current = null;
     }
     if (wsRef.current) {
       wsRef.current.close();
@@ -115,10 +194,17 @@ export function useBinanceWebSocket(symbols: string[]) {
     setIsConnected(false);
   }, []);
 
+  const reconnect = useCallback(() => {
+    disconnect();
+    connectionAttempts.current = 0;
+    setConnectionMode('connecting');
+    connectWebSocket();
+  }, [disconnect, connectWebSocket]);
+
   useEffect(() => {
-    connect();
+    connectWebSocket();
     return () => disconnect();
-  }, [connect, disconnect]);
+  }, [connectWebSocket, disconnect]);
 
   const getPrice = useCallback((symbol: string): WebSocketPriceData | null => {
     return prices[symbol.toUpperCase()] || null;
@@ -129,7 +215,8 @@ export function useBinanceWebSocket(symbols: string[]) {
     isConnected, 
     error,
     getPrice,
-    reconnect: connect,
-    updateCount
+    reconnect,
+    updateCount,
+    connectionMode
   };
 }
