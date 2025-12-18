@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Search } from "lucide-react";
-import { usePriceData } from "@/hooks/usePriceData";
+import { Activity, TrendingUp, TrendingDown, ShoppingCart, Wallet, RefreshCw, Search, Wifi, WifiOff } from "lucide-react";
+import { useBinanceWebSocket } from "@/hooks/useBinanceWebSocket";
 import { TradingModal } from "@/components/trading/trading-modal";
 
 const cryptoMapping: Record<string, { name: string; symbol: string }> = {
@@ -14,7 +14,6 @@ const cryptoMapping: Record<string, { name: string; symbol: string }> = {
   'BNB': { name: 'BNB', symbol: 'BNBUSDT' },
   'ADA': { name: 'Cardano', symbol: 'ADAUSDT' },
   'SOL': { name: 'Solana', symbol: 'SOLUSDT' },
-  'USDT': { name: 'Tether', symbol: 'USDTUSDT' },
   'XRP': { name: 'Ripple', symbol: 'XRPUSDT' },
   'DOT': { name: 'Polkadot', symbol: 'DOTUSDT' },
   'LINK': { name: 'Chainlink', symbol: 'LINKUSDT' },
@@ -31,10 +30,9 @@ const cryptoMapping: Record<string, { name: string; symbol: string }> = {
 const SYMBOLS = Object.keys(cryptoMapping);
 
 export function LiveMomentum() {
-  const { prices, isLoading, error, refresh, updateCount } = usePriceData(SYMBOLS);
+  const { prices, isConnected, error, reconnect, updateCount } = useBinanceWebSocket(SYMBOLS);
   const [selectedCrypto, setSelectedCrypto] = useState<{ symbol: string; name: string; price: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const prevPricesRef = useRef<Record<string, number>>({});
 
@@ -45,12 +43,6 @@ export function LiveMomentum() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const handleManualRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await refresh();
-    setTimeout(() => setIsRefreshing(false), 500);
-  }, [refresh]);
 
   const handleTrade = useCallback((symbol: string, price: number) => {
     const crypto = cryptoMapping[symbol];
@@ -102,21 +94,20 @@ export function LiveMomentum() {
         crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => b.momentum - a.momentum);
-  }, [prices, searchTerm, updateCount]); // Include updateCount to force recalculation
+  }, [prices, searchTerm, updateCount]);
 
   const latestUpdate = tradingPairs.length > 0 ? tradingPairs[0].lastUpdate : 0;
   const secondsAgo = latestUpdate > 0 ? Math.floor((currentTime - latestUpdate) / 1000) : 0;
-  const isLive = tradingPairs.length > 0;
   const hasNoPrices = Object.keys(prices).length === 0;
 
   // Loading state
-  if (isLoading && hasNoPrices) {
+  if (!isConnected && hasNoPrices) {
     return (
       <Card className="glass w-full">
         <CardContent className="flex items-center justify-center py-6 md:py-8">
           <div className="flex items-center gap-3">
             <Activity className="h-6 w-6 animate-pulse text-primary" />
-            <span className="text-sm text-muted-foreground">Loading live market data...</span>
+            <span className="text-sm text-muted-foreground">Connecting to live stream...</span>
           </div>
         </CardContent>
       </Card>
@@ -130,8 +121,8 @@ export function LiveMomentum() {
         <CardContent className="flex items-center justify-center py-6 md:py-8">
           <div className="text-center">
             <p className="text-red-500 text-sm">{error}</p>
-            <Button size="sm" onClick={handleManualRefresh} className="mt-2">
-              Try Again
+            <Button size="sm" onClick={reconnect} className="mt-2">
+              Reconnect
             </Button>
           </div>
         </CardContent>
@@ -147,20 +138,35 @@ export function LiveMomentum() {
             <CardTitle className="flex items-center gap-2 text-sm md:text-base font-semibold">
               <Activity className="h-4 w-4 text-primary animate-pulse" />
               <span className="text-foreground">Live Momentum</span>
-              {isLive && (
-                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30 animate-pulse">
-                  LIVE
-                </Badge>
-              )}
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${isConnected 
+                  ? 'bg-green-500/10 text-green-400 border-green-500/30' 
+                  : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  {isConnected ? (
+                    <>
+                      <Wifi className="h-3 w-3" />
+                      <span>LIVE</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-3 w-3" />
+                      <span>RECONNECTING</span>
+                    </>
+                  )}
+                </div>
+              </Badge>
             </CardTitle>
             <Button
               size="sm"
               variant="outline"
-              onClick={handleManualRefresh}
-              disabled={isRefreshing}
+              onClick={reconnect}
               className="h-8 w-8 p-0 border-border/50 hover:bg-muted/50"
             >
-              <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className="h-3 w-3" />
             </Button>
           </div>
           
@@ -176,11 +182,11 @@ export function LiveMomentum() {
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span>Auto-refresh 3s</span>
+              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></div>
+              <span>{isConnected ? 'WebSocket Stream' : 'Reconnecting...'}</span>
             </div>
             <span className="text-primary/70 font-medium">
-              {secondsAgo}s ago • Update #{updateCount}
+              {secondsAgo}s ago • #{updateCount}
             </span>
           </div>
         </CardHeader>
