@@ -27,12 +27,12 @@ export function AppManagement() {
       // Delete existing file first
       await supabase.storage
         .from('app-downloads')
-        .remove(['nadex-app.apk']);
+        .remove(['bitexa-app.apk']);
 
       // Upload new file
       const { data, error } = await supabase.storage
         .from('app-downloads')
-        .upload('nadex-app.apk', file, {
+        .upload('bitexa-app.apk', file, {
           cacheControl: '3600',
           upsert: true
         });
@@ -58,17 +58,17 @@ export function AppManagement() {
       // Fetch the pre-loaded APK file
       const response = await fetch('/lovable-uploads/app-release.apk');
       const blob = await response.blob();
-      const file = new File([blob], 'nadex-app.apk', { type: 'application/vnd.android.package-archive' });
+      const file = new File([blob], 'bitexa-app.apk', { type: 'application/vnd.android.package-archive' });
 
       // Delete existing file first
       await supabase.storage
         .from('app-downloads')
-        .remove(['nadex-app.apk']);
+        .remove(['bitexa-app.apk']);
 
       // Upload new file
       const { error } = await supabase.storage
         .from('app-downloads')
-        .upload('nadex-app.apk', file, {
+        .upload('bitexa-app.apk', file, {
           cacheControl: '3600',
           upsert: true
         });
@@ -91,14 +91,14 @@ export function AppManagement() {
       const { data, error } = await supabase
         .storage
         .from('app-downloads')
-        .download('nadex-app.apk');
+        .download('bitexa-app.apk');
       
       if (error) throw error;
       
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'Nadex-App-Test.apk';
+      a.download = 'Bitexa-App-Test.apk';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
