@@ -29,16 +29,32 @@ export function QuickDepositModal({ isOpen, onClose }: QuickDepositModalProps) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const creditedRef = useRef(false);
 
-  const { settings } = useAdminSettings();
+  const { settings, isLoading: settingsLoading } = useAdminSettings();
 
   // Convert Google Drive link to direct image URL
   const convertDriveLink = (url: string) => {
     if (!url) return '';
+    // Check if it's a Google Drive link
     const driveMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (driveMatch) {
       return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
     }
+    // Check for drive.google.com/file/d/ format
+    const driveMatch2 = url.match(/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch2) {
+      return `https://drive.google.com/uc?export=view&id=${driveMatch2[1]}`;
+    }
     return url;
+  };
+
+  // Get QR code - use admin settings or fallback to static file
+  const getQrCode = () => {
+    const adminQr = settings?.upi_details?.qr_code;
+    if (adminQr) {
+      return convertDriveLink(adminQr);
+    }
+    // Fallback to static QR code in public folder
+    return '/lovable-uploads/upi-qr-code.jpeg';
   };
 
   // Format time as mm:ss
@@ -181,7 +197,7 @@ export function QuickDepositModal({ isOpen, onClose }: QuickDepositModalProps) {
   };
 
   const upiId = settings?.upi_details?.upi_id || 'payment@upi';
-  const qrCode = convertDriveLink(settings?.upi_details?.qr_code || '');
+  const qrCode = getQrCode();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -255,22 +271,26 @@ export function QuickDepositModal({ isOpen, onClose }: QuickDepositModalProps) {
                 </div>
               </div>
 
-              {qrCode && (
-                <div className="mt-4">
-                  <span className="text-sm font-medium">Scan QR Code:</span>
-                  <div className="mt-2 p-3 bg-background rounded-lg border">
-                    <img 
-                      src={qrCode} 
-                      alt="Payment QR Code" 
-                      className="w-48 h-48 mx-auto object-contain"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.style.display = 'none';
-                      }}
-                    />
-                  </div>
+              <div className="mt-4">
+                <span className="text-sm font-medium">Scan QR Code:</span>
+                <div className="mt-2 p-3 bg-white rounded-lg border flex items-center justify-center">
+                  <img 
+                    src={qrCode} 
+                    alt="Payment QR Code" 
+                    className="w-48 h-48 object-contain"
+                    onError={(e) => {
+                      // Fallback to static QR if dynamic fails
+                      const target = e.currentTarget;
+                      if (target.src !== '/lovable-uploads/upi-qr-code.jpeg') {
+                        target.src = '/lovable-uploads/upi-qr-code.jpeg';
+                      }
+                    }}
+                  />
                 </div>
-              )}
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Scan this QR code with your UPI app
+                </p>
+              </div>
             </div>
 
             {/* Instructions */}
