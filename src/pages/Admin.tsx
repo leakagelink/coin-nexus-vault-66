@@ -1,9 +1,10 @@
 
 import { Layout } from "@/components/layout/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShieldCheck, Users, Smartphone } from "lucide-react";
+import { ShieldCheck, Users, Smartphone, Zap } from "lucide-react";
 import { DepositRequestsTable } from "@/components/admin/DepositRequestsTable";
 import { WithdrawalRequestsTable } from "@/components/admin/WithdrawalRequestsTable";
+import { QuickDepositsTable } from "@/components/admin/QuickDepositsTable";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminUsersTable } from "@/components/admin/AdminUsersTable";
@@ -26,8 +27,12 @@ const Admin = () => {
           <div className="text-center py-8 text-muted-foreground">Checking permissions...</div>
         ) : isAdmin ? (
           <Tabs defaultValue="deposits" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 glass">
+            <TabsList className="grid w-full grid-cols-6 glass">
               <TabsTrigger value="deposits">Deposits</TabsTrigger>
+              <TabsTrigger value="quick-deposits" className="flex items-center gap-1">
+                <Zap className="h-4 w-4" />
+                Quick
+              </TabsTrigger>
               <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
               <TabsTrigger value="users" className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
@@ -42,6 +47,10 @@ const Admin = () => {
 
             <TabsContent value="deposits" className="space-y-4">
               <DepositRequestsTable />
+            </TabsContent>
+
+            <TabsContent value="quick-deposits" className="space-y-4">
+              <QuickDepositsTable />
             </TabsContent>
 
             <TabsContent value="withdrawals" className="space-y-4">
