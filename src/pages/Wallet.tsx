@@ -4,9 +4,10 @@ import { Layout } from "@/components/layout/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet as WalletIcon, Plus, Minus } from "lucide-react";
+import { Wallet as WalletIcon, Plus, Minus, Lock } from "lucide-react";
 import { DepositModal } from "@/components/wallet/deposit-modal";
 import { WithdrawalModal } from "@/components/wallet/withdrawal-modal";
+import { QuickDepositModal } from "@/components/wallet/quick-deposit-modal";
 import { TransactionHistory } from "@/components/wallet/transaction-history";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 const Wallet = () => {
   const [depositModalOpen, setDepositModalOpen] = useState(false);
   const [withdrawalModalOpen, setWithdrawalModalOpen] = useState(false);
+  const [quickDepositModalOpen, setQuickDepositModalOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState('');
   const { user } = useAuth();
 
@@ -23,7 +25,7 @@ const Wallet = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("wallets")
-        .select("balance")
+        .select("balance, locked_balance")
         .eq("user_id", user?.id)
         .single();
       if (error) throw error;
@@ -43,8 +45,9 @@ const Wallet = () => {
     setWithdrawalModalOpen(true);
   };
 
-  const inrBalance = Number(wallet?.balance || 0);
-  const usdtBalance = inrBalance / 84; // 1 USD ≈ 84 INR
+  const availableBalance = Number(wallet?.balance || 0);
+  const lockedBalance = Number(wallet?.locked_balance || 0);
+  const usdtBalance = availableBalance / 84; // 1 USD ≈ 84 INR
 
   return (
     <Layout>
@@ -56,16 +59,36 @@ const Wallet = () => {
 
         <Card className="glass hover-glow">
           <CardHeader>
-            <CardTitle>Available Balance</CardTitle>
+            <CardTitle>Wallet Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 mb-4">
-              <div className="text-3xl font-bold gradient-text">
-                {balanceLoading ? "Loading..." : `$${usdtBalance.toFixed(2)} USDT`}
+            <div className="space-y-4 mb-4">
+              {/* Available Balance */}
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Available Balance</p>
+                <div className="text-3xl font-bold gradient-text">
+                  {balanceLoading ? "Loading..." : `$${usdtBalance.toFixed(2)} USDT`}
+                </div>
+                <div className="text-lg text-muted-foreground">
+                  ₹{availableBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                </div>
               </div>
-              <div className="text-lg text-muted-foreground">
-                ₹{inrBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
-              </div>
+              
+              {/* Locked Balance - only show if > 0 */}
+              {lockedBalance > 0 && (
+                <div className="p-3 bg-muted/50 rounded-lg border border-border/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Lock className="h-4 w-4 text-yellow-500" />
+                    <p className="text-sm text-muted-foreground">Locked Balance</p>
+                  </div>
+                  <div className="text-xl font-semibold text-yellow-600 dark:text-yellow-400">
+                    ₹{lockedBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Pending admin approval • Cannot be used for trading or withdrawal
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button 
@@ -78,7 +101,7 @@ const Wallet = () => {
               <Button 
                 variant="secondary" 
                 className="flex-1" 
-                onClick={() => window.open('https://razorpay.me/@kunaljat', '_blank')}
+                onClick={() => setQuickDepositModalOpen(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Quick Deposit
@@ -186,6 +209,11 @@ const Wallet = () => {
           isOpen={withdrawalModalOpen}
           onClose={() => setWithdrawalModalOpen(false)}
           method={selectedMethod}
+        />
+
+        <QuickDepositModal
+          isOpen={quickDepositModalOpen}
+          onClose={() => setQuickDepositModalOpen(false)}
         />
       </div>
     </Layout>

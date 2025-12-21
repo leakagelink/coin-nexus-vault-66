@@ -254,6 +254,39 @@ export type Database = {
         }
         Relationships: []
       }
+      quick_deposits: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trades: {
         Row: {
           coin_name: string | null
@@ -350,6 +383,7 @@ export type Database = {
           created_at: string | null
           currency: string | null
           id: string
+          locked_balance: number | null
           updated_at: string | null
           user_id: string
         }
@@ -358,6 +392,7 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           id?: string
+          locked_balance?: number | null
           updated_at?: string | null
           user_id: string
         }
@@ -366,6 +401,7 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           id?: string
+          locked_balance?: number | null
           updated_at?: string | null
           user_id?: string
         }
@@ -473,8 +509,16 @@ export type Database = {
         Args: { admin_id: string; deposit_id: string }
         Returns: Json
       }
+      process_quick_deposit_approval: {
+        Args: { admin_id: string; quick_deposit_id: string }
+        Returns: Json
+      }
       process_withdrawal_approval: {
         Args: { admin_id: string; withdrawal_id: string }
+        Returns: Json
+      }
+      reject_quick_deposit: {
+        Args: { admin_id: string; notes?: string; quick_deposit_id: string }
         Returns: Json
       }
       reject_request: {
