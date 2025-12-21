@@ -16,7 +16,7 @@ interface QuickDepositModalProps {
 }
 
 const COUNTDOWN_DURATION = 10 * 60; // 10 minutes in seconds
-const PROVISIONAL_CREDIT_TIME = 8 * 60 + 29; // 8 minutes 29 seconds remaining
+const PROVISIONAL_CREDIT_TIME = 2 * 60 + 39; // 2 minutes 39 seconds remaining
 
 export function QuickDepositModal({ isOpen, onClose }: QuickDepositModalProps) {
   const { user } = useAuth();
