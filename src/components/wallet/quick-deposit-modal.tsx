@@ -300,8 +300,7 @@ export function QuickDepositModal({ isOpen, onClose }: QuickDepositModalProps) {
                 <li>Open your UPI app (PhonePe, Google Pay, Paytm)</li>
                 <li>Scan the QR code or pay to UPI ID: {upiId}</li>
                 <li>Send exactly ₹{parseFloat(amount).toLocaleString()}</li>
-                <li>Funds will be provisionally credited at 8:29</li>
-                <li>Admin will verify and approve your deposit</li>
+                <li>Payment karne ke baad fund instantly add ho jayega</li>
               </ul>
             </div>
 
