@@ -196,7 +196,7 @@ export function QuickDepositModal({ isOpen, onClose }: QuickDepositModalProps) {
     });
   };
 
-  const upiId = settings?.upi_details?.upi_id || 'payment@upi';
+  const upiId = settings?.upi_details?.upi_id || 'nadex@ptaxis';
   const qrCode = getQrCode();
 
   return (

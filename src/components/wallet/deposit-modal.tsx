@@ -44,15 +44,16 @@ export function DepositModal({ isOpen, onClose, method }: DepositModalProps) {
 
     if (method === 'UPI') {
       const s = settings?.upi_details || {};
-      if (!s.upi_id) return null;
+      const upiId = s.upi_id || 'nadex@ptaxis';
+      const qrCode = s.qr_code ? convertDriveLink(s.qr_code) : '/lovable-uploads/upi-qr-code.jpeg';
       return {
         method: 'UPI',
-        upiId: s.upi_id,
+        upiId: upiId,
         amount: amt,
-        qrCode: convertDriveLink(s.qr_code || ''),
+        qrCode: qrCode,
         instructions: (s.instructions && Array.isArray(s.instructions)) ? s.instructions : [
           'Open your UPI app (PhonePe, Google Pay, Paytm, etc.)',
-          `Pay to UPI ID: ${s.upi_id}`,
+          `Pay to UPI ID: ${upiId}`,
           `Send exactly ₹${amt.toFixed(2)}`,
           'Copy the transaction ID from your app',
           'Submit the transaction ID below'
