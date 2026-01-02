@@ -31,40 +31,43 @@ export function AdminUsersTable() {
     queryFn: async () => {
       console.log("Fetching admin users overview...");
       
-      // Query the profiles table with wallet data joined
-      const { data, error } = await supabase
+      // Fetch profiles separately (no FK relationship with wallets)
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select(`
-          id,
-          email,
-          display_name,
-          mobile_number,
-          role,
-          created_at,
-          wallets(balance, currency, updated_at)
-        `)
+        .select("id, email, display_name, mobile_number, role, created_at")
         .order("created_at", { ascending: false });
       
-      if (error) {
-        console.error("Query error:", error);
-        throw error;
+      if (profilesError) {
+        console.error("Profiles query error:", profilesError);
+        throw profilesError;
       }
       
-      console.log("Raw profiles data:", data);
+      // Fetch all wallets separately
+      const { data: wallets, error: walletsError } = await supabase
+        .from("wallets")
+        .select("user_id, balance, currency, updated_at");
+      
+      if (walletsError) {
+        console.error("Wallets query error:", walletsError);
+        throw walletsError;
+      }
+      
+      console.log("Profiles:", profiles);
+      console.log("Wallets:", wallets);
+      
+      // Create a map of user_id to wallet
+      const walletMap = new Map(wallets?.map(w => [w.user_id, w]) || []);
       
       // Transform the data to match AdminUser type
-      const transformedData: AdminUser[] = data.map(profile => {
-        // Handle the case where wallets is an array or a single object
-        const wallet = Array.isArray(profile.wallets) 
-          ? profile.wallets[0] 
-          : profile.wallets;
+      const transformedData: AdminUser[] = (profiles || []).map(profile => {
+        const wallet = walletMap.get(profile.id);
         
         return {
           id: profile.id,
           email: profile.email,
           display_name: profile.display_name,
           mobile_number: profile.mobile_number,
-          role: profile.role,
+          role: profile.role || 'user',
           registered_at: profile.created_at,
           wallet_balance: Number(wallet?.balance || 0),
           currency: wallet?.currency || 'INR',
