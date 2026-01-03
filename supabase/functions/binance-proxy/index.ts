@@ -71,7 +71,9 @@ serve(async (req: Request): Promise<Response> => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      url = `${BINANCE_BASE_URL}/klines?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=${encodeURIComponent(String(limit))}`;
+      // Auto-append USDT if not already present for klines
+      const klinesSymbol = symbol.endsWith('USDT') ? symbol : `${symbol}USDT`;
+      url = `${BINANCE_BASE_URL}/klines?symbol=${encodeURIComponent(klinesSymbol)}&interval=${encodeURIComponent(interval)}&limit=${encodeURIComponent(String(limit))}`;
     } else if (endpoint === "ticker") {
       if (!symbol) {
         return new Response(
@@ -79,7 +81,9 @@ serve(async (req: Request): Promise<Response> => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      url = `${BINANCE_BASE_URL}/ticker/24hr?symbol=${encodeURIComponent(symbol)}`;
+      // Auto-append USDT if not already present
+      const fullSymbol = symbol.endsWith('USDT') ? symbol : `${symbol}USDT`;
+      url = `${BINANCE_BASE_URL}/ticker/24hr?symbol=${encodeURIComponent(fullSymbol)}`;
     } else if (endpoint === "tickers") {
       // Fetch all 24hr tickers - for dashboard price display
       url = `${BINANCE_BASE_URL}/ticker/24hr`;
