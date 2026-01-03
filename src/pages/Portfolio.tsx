@@ -26,6 +26,7 @@ type PortfolioPosition = {
   pnl: number;
   pnl_percentage: number;
   admin_adjustment_pct?: number;
+  admin_price_override?: boolean;
 };
 
 const Portfolio = () => {
@@ -70,15 +71,35 @@ const Portfolio = () => {
   // Fetch live prices (separate from database updates)
   const { prices: livePrices, updateCount } = usePriceData(symbolsForPrices);
   
-  // Calculate momentum for each position
+  // Calculate live P&L for display (doesn't affect database)
+  // This also handles admin-adjusted positions with simulated momentum
+  const updatedPositions = usePositionCalculations(positions, livePrices);
+  
+  // Calculate momentum for each position (for non-admin-adjusted positions)
   const priceHistoryRef = useRef<Record<string, number[]>>({});
   
   const positionsWithMomentum = useMemo(() => {
-    if (!positions || !livePrices) return positions || [];
+    if (!updatedPositions || !livePrices) return updatedPositions || [];
     
-    return positions.map(position => {
+    return updatedPositions.map(position => {
+      // Check if this is an admin-adjusted position
+      const isAdminAdjusted = (position as any)._isAdminAdjusted;
+      
+      if (isAdminAdjusted) {
+        // Use simulated momentum for admin-adjusted positions
+        const simulatedMomentum = (position as any)._simulatedMomentum || 0;
+        const simulatedDirection = (position as any)._simulatedDirection || 1;
+        return { 
+          ...position, 
+          momentum: simulatedMomentum, 
+          isUp: simulatedDirection > 0,
+          isAdminAdjusted: true 
+        };
+      }
+      
+      // For normal positions: use live market momentum
       const priceData = livePrices[position.symbol];
-      if (!priceData) return { ...position, momentum: 0, isUp: true };
+      if (!priceData) return { ...position, momentum: 0, isUp: true, isAdminAdjusted: false };
       
       // Track price history for momentum
       const symbol = position.symbol;
@@ -96,12 +117,9 @@ const Portfolio = () => {
         isUp = arr[arr.length - 1] >= arr[arr.length - 2];
       }
       
-      return { ...position, momentum, isUp };
+      return { ...position, momentum, isUp, isAdminAdjusted: false };
     });
-  }, [positions, livePrices, updateCount]);
-  
-  // Calculate live P&L for display (doesn't affect database)
-  const updatedPositions = usePositionCalculations(positionsWithMomentum, livePrices);
+  }, [updatedPositions, livePrices, updateCount]);
   
   // Background updater (syncs DB with live prices)
   usePositionUpdater(user?.id);
@@ -123,8 +141,8 @@ const Portfolio = () => {
     };
   }, [user, refetch]);
 
-  const totalInvestment = updatedPositions?.reduce((sum, p) => sum + p.total_investment, 0) || 0;
-  const totalCurrentValue = updatedPositions?.reduce((sum, p) => sum + p.current_value, 0) || 0;
+  const totalInvestment = positionsWithMomentum?.reduce((sum, p) => sum + p.total_investment, 0) || 0;
+  const totalCurrentValue = positionsWithMomentum?.reduce((sum, p) => sum + p.current_value, 0) || 0;
   const totalPnL = totalCurrentValue - totalInvestment;
   const totalPnLPercentage = totalInvestment > 0 ? (totalPnL / totalInvestment) * 100 : 0;
 
@@ -236,12 +254,13 @@ const Portfolio = () => {
           <CardContent>
             {isLoading ? (
               <div className="text-center py-6 text-muted-foreground">Loading...</div>
-            ) : updatedPositions && updatedPositions.length > 0 ? (
+            ) : positionsWithMomentum && positionsWithMomentum.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-1">
-                {updatedPositions.map((position) => {
+                {positionsWithMomentum.map((position) => {
                   const isPositive = position.pnl >= 0;
                   const momentum = (position as any).momentum || 0;
                   const isUp = (position as any).isUp !== false;
+                  const isAdminAdjusted = (position as any).isAdminAdjusted === true;
                   
                   return (
                     <div key={position.id} className="p-4 border rounded-lg bg-card/50 hover:bg-card/80 transition-colors">
@@ -286,12 +305,12 @@ const Portfolio = () => {
                               </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Current Price (Market)</p>
+                              <p className="text-muted-foreground">Current Price</p>
                               <p className="font-medium">
-                                ${(livePrices[position.symbol]?.priceUSD ?? (Number(position.current_price) / 84)).toFixed(2)} USDT
+                                ${(Number(position.current_price) / 84).toFixed(2)} USDT
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                ₹{(livePrices[position.symbol]?.priceINR ?? Number(position.current_price)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                                ₹{Number(position.current_price).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
                               </p>
                             </div>
                             <div>

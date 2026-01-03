@@ -95,8 +95,24 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
   
   const positionsWithMomentum = useMemo(() => {
     return displayPositions.map(position => {
+      // Check if this is an admin-adjusted position
+      const isAdminAdjusted = (position as any)._isAdminAdjusted;
+      
+      if (isAdminAdjusted) {
+        // Use simulated momentum for admin-adjusted positions
+        const simulatedMomentum = (position as any)._simulatedMomentum || 0;
+        const simulatedDirection = (position as any)._simulatedDirection || 1;
+        return { 
+          ...position, 
+          momentum: simulatedMomentum, 
+          isUp: simulatedDirection > 0,
+          isAdminAdjusted: true 
+        };
+      }
+      
+      // For normal positions: use live market momentum
       const priceData = livePrices[position.symbol];
-      if (!priceData) return { ...position, momentum: 0, isUp: true };
+      if (!priceData) return { ...position, momentum: 0, isUp: true, isAdminAdjusted: false };
       
       // Track price history for momentum
       const symbol = position.symbol;
@@ -114,7 +130,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         isUp = arr[arr.length - 1] >= arr[arr.length - 2];
       }
       
-      return { ...position, momentum, isUp };
+      return { ...position, momentum, isUp, isAdminAdjusted: false };
     });
   }, [displayPositions, livePrices, updateCount]);
 
@@ -332,17 +348,24 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={`text-xs font-medium animate-pulse ${
-                          position.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
-                          position.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
-                          'bg-green-500/15 text-green-400 border-green-500/30'
-                        }`}
-                      >
-                        {position.isUp ? <TrendingUp className="h-3 w-3 mr-1 inline" /> : <TrendingDown className="h-3 w-3 mr-1 inline" />}
-                        🔥 {position.momentum.toFixed(1)}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs font-medium animate-pulse ${
+                            position.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+                            position.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
+                            'bg-green-500/15 text-green-400 border-green-500/30'
+                          }`}
+                        >
+                          {position.isUp ? <TrendingUp className="h-3 w-3 mr-1 inline" /> : <TrendingDown className="h-3 w-3 mr-1 inline" />}
+                          🔥 {position.momentum.toFixed(1)}
+                        </Badge>
+                        {position.isAdminAdjusted && (
+                          <Badge variant="secondary" className="text-xs bg-purple-500/15 text-purple-400 border-purple-500/30">
+                            EDITED
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -368,11 +391,16 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                     </TableCell>
                     <TableCell className="text-right">
                       <div className={position.isUp ? 'text-green-600' : 'text-red-600'}>
-                        ₹{(livePrices[position.symbol]?.priceINR ?? Number(position.current_price)).toFixed(2)}
+                        ₹{Number(position.current_price).toFixed(2)}
+                        {position.isAdminAdjusted && (
+                          <span className="text-purple-400 text-xs ml-1">⚡</span>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        ${(livePrices[position.symbol]?.priceUSD ?? Number(position.current_price) / 84).toFixed(2)}
-                      </div>
+                      {!position.isAdminAdjusted && (
+                        <div className="text-xs text-muted-foreground">
+                          ${(livePrices[position.symbol]?.priceUSD ?? Number(position.current_price) / 84).toFixed(2)}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       ₹{Number(position.total_investment).toFixed(2)}
