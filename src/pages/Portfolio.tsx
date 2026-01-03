@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUpIcon } from "lucide-react";
+import { TrendingUpIcon, TrendingDown, Activity } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { TradingModal } from "@/components/trading/trading-modal";
 import { useToast } from "@/hooks/use-toast";
@@ -68,7 +68,7 @@ const Portfolio = () => {
   const symbolsForPrices = (positions || []).map(p => p.symbol);
   
   // Fetch live prices (separate from database updates)
-  const { prices: livePrices } = usePriceData(symbolsForPrices);
+  const { prices: livePrices, updateCount } = usePriceData(symbolsForPrices);
   
   // Calculate momentum for each position
   const priceHistoryRef = useRef<Record<string, number[]>>({});
@@ -78,7 +78,7 @@ const Portfolio = () => {
     
     return positions.map(position => {
       const priceData = livePrices[position.symbol];
-      if (!priceData) return { ...position, momentum: 0 };
+      if (!priceData) return { ...position, momentum: 0, isUp: true };
       
       // Track price history for momentum
       const symbol = position.symbol;
@@ -86,18 +86,19 @@ const Portfolio = () => {
       priceHistoryRef.current[symbol].push(priceData.priceUSD);
       if (priceHistoryRef.current[symbol].length > 10) priceHistoryRef.current[symbol].shift();
       
-      // Calculate momentum
+      // Calculate momentum and direction
       let momentum = 0;
+      let isUp = true;
       if (priceHistoryRef.current[symbol].length >= 2) {
-        const changes = priceHistoryRef.current[symbol].map((p, i, arr) => 
-          i > 0 ? ((p - arr[i-1]) / arr[i-1]) * 100 : 0
-        );
+        const arr = priceHistoryRef.current[symbol];
+        const changes = arr.map((p, i, a) => i > 0 ? ((p - a[i-1]) / a[i-1]) * 100 : 0);
         momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
+        isUp = arr[arr.length - 1] >= arr[arr.length - 2];
       }
       
-      return { ...position, momentum };
+      return { ...position, momentum, isUp };
     });
-  }, [positions, livePrices]);
+  }, [positions, livePrices, updateCount]);
   
   // Calculate live P&L for display (doesn't affect database)
   const updatedPositions = usePositionCalculations(positionsWithMomentum, livePrices);
@@ -221,10 +222,16 @@ const Portfolio = () => {
         {/* Holdings */}
         <Card className="glass">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUpIcon className="h-5 w-5" />
-              Your Holdings
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUpIcon className="h-5 w-5" />
+                Your Holdings
+              </CardTitle>
+              <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+                <Activity className="h-3 w-3 mr-1 animate-pulse" />
+                LIVE
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -234,6 +241,7 @@ const Portfolio = () => {
                 {updatedPositions.map((position) => {
                   const isPositive = position.pnl >= 0;
                   const momentum = (position as any).momentum || 0;
+                  const isUp = (position as any).isUp !== false;
                   
                   return (
                     <div key={position.id} className="p-4 border rounded-lg bg-card/50 hover:bg-card/80 transition-colors">
@@ -243,7 +251,7 @@ const Portfolio = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-semibold text-lg">{position.symbol}</span>
-                                {/* Live Momentum Badge */}
+                                {/* Live Momentum Badge with direction */}
                                 <Badge 
                                   variant="outline" 
                                   className={`text-xs font-medium px-2 py-1 animate-pulse ${
@@ -252,6 +260,7 @@ const Portfolio = () => {
                                     'bg-green-500/15 text-green-400 border-green-500/30'
                                   }`}
                                 >
+                                  {isUp ? <TrendingUpIcon className="h-3 w-3 mr-1 inline text-green-500" /> : <TrendingDown className="h-3 w-3 mr-1 inline text-red-500" />}
                                   🔥 {momentum.toFixed(1)}
                                 </Badge>
                               </div>
