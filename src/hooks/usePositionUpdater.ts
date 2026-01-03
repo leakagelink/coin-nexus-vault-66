@@ -6,7 +6,7 @@ const USD_TO_INR = 84;
 
 /**
  * Background updater that syncs database positions with live prices
- * This runs independently and doesn't affect UI display
+ * IMPORTANT: Does NOT update admin-adjusted positions - those are controlled by admin_adjustment_pct
  */
 export const usePositionUpdater = (userId?: string) => {
   const queryClient = useQueryClient();
@@ -16,12 +16,13 @@ export const usePositionUpdater = (userId?: string) => {
 
     const updatePositions = async () => {
       try {
-        // Get all open positions
+        // Get all open positions that are NOT admin-overridden
         const { data: positions, error } = await supabase
           .from('portfolio_positions')
           .select('*')
           .eq('user_id', userId)
-          .eq('status', 'open');
+          .eq('status', 'open')
+          .eq('admin_price_override', false); // Only update non-admin positions
 
         if (error || !positions || positions.length === 0) return;
 
@@ -54,22 +55,6 @@ export const usePositionUpdater = (userId?: string) => {
 
         // Update positions in database
         const updates = positions.map(async (position) => {
-          // For admin-overridden positions, add small fluctuation to simulate live movement
-          if (position.admin_price_override) {
-            const basePrice = position.current_price;
-            // Add random fluctuation between -0.5% to +0.5% to keep it feeling live
-            const fluctuation = (Math.random() - 0.5) * 0.01; // -0.5% to +0.5%
-            const newPrice = basePrice * (1 + fluctuation);
-            
-            return supabase
-              .from('portfolio_positions')
-              .update({
-                current_price: newPrice,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', position.id);
-          }
-          
           const livePriceINR = priceMap[position.symbol];
           if (!livePriceINR) return;
 
@@ -78,16 +63,10 @@ export const usePositionUpdater = (userId?: string) => {
           if (priceDiff < livePriceINR * 0.001) return;
 
           const currentValue = position.amount * livePriceINR;
-          let pnl = currentValue - position.total_investment;
-          let pnlPercentage = position.total_investment > 0 
+          const pnl = currentValue - position.total_investment;
+          const pnlPercentage = position.total_investment > 0 
             ? (pnl / position.total_investment) * 100 
             : 0;
-
-          // Apply admin adjustment if present
-          if (position.admin_adjustment_pct) {
-            pnlPercentage += position.admin_adjustment_pct;
-            pnl = (pnlPercentage / 100) * position.total_investment;
-          }
 
           return supabase
             .from('portfolio_positions')

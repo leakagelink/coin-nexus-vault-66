@@ -144,30 +144,19 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
         throw new Error('Position not found');
       }
 
-      // Base on current stored P&L% to ensure exact ±5% steps per click
-      const currentFinalPct = Number(position.pnl_percentage) || 0;
-      const targetFinalPct = currentFinalPct + percentageChange; // desired final P&L%
+      // Get the CURRENT admin_adjustment_pct and add to it
+      const currentAdjustment = Number(position.admin_adjustment_pct) || 0;
+      const newAdjustment = currentAdjustment + percentageChange;
 
-      const buyPrice = Number(position.buy_price) || 0;
-      if (buyPrice <= 0) {
-        throw new Error('Invalid buy price for position');
-      }
+      console.log(`Adjusting P&L for position ${positionId}: ${currentAdjustment}% -> ${newAdjustment}%`);
 
-      // IMPORTANT: Always use long-style formula to match DB trigger logic
-      // DB trigger computes: pnl% = ((current_price - buy_price) / buy_price) * 100
-      const newCurrentPrice = buyPrice * (1 + targetFinalPct / 100);
-
-      // Ensure price doesn't go below a minimal positive value
-      const safeCurrentPrice = Math.max(0.01, Number(newCurrentPrice.toFixed(2)));
-
-      // Update position: set the derived current_price directly
-      // The database trigger will automatically calculate current_value, pnl, and pnl_percentage
+      // Update position with new admin_adjustment_pct
+      // The frontend will use this to calculate the simulated P&L
       const { error } = await supabase
         .from('portfolio_positions')
         .update({
-          current_price: safeCurrentPrice,
-          admin_price_override: true, // Prevent live updates from overriding admin edits
-          admin_adjustment_pct: 0, // Use price override only for exact ±5% steps
+          admin_adjustment_pct: newAdjustment,
+          admin_price_override: true, // Flag to disconnect from live prices
           updated_at: new Date().toISOString(),
         })
         .eq('id', positionId);
@@ -176,7 +165,7 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
 
       toast({
         title: "P&L updated",
-        description: `${percentageChange > 0 ? 'Increased' : 'Decreased'} by ${Math.abs(percentageChange)}%`,
+        description: `Total adjustment now: ${newAdjustment > 0 ? '+' : ''}${newAdjustment}%`,
       });
 
       // Refresh data
