@@ -1,12 +1,12 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, X, TrendingUp, TrendingDown, Plus, Minus } from "lucide-react";
+import { Eye, X, TrendingUp, TrendingDown, Plus, Minus, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePriceData } from "@/hooks/usePriceData";
@@ -85,10 +85,38 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
 
   // Get symbols for live prices
   const symbolsForPrices = positions.map(p => p.symbol);
-  const { prices: livePrices } = usePriceData(symbolsForPrices);
+  const { prices: livePrices, updateCount } = usePriceData(symbolsForPrices);
   
-  // Calculate live P&L for display
+  // Calculate live P&L and momentum for display
   const displayPositions = usePositionCalculations(positions, livePrices);
+  
+  // Calculate momentum for each position
+  const priceHistoryRef = useRef<Record<string, number[]>>({});
+  
+  const positionsWithMomentum = useMemo(() => {
+    return displayPositions.map(position => {
+      const priceData = livePrices[position.symbol];
+      if (!priceData) return { ...position, momentum: 0, isUp: true };
+      
+      // Track price history for momentum
+      const symbol = position.symbol;
+      if (!priceHistoryRef.current[symbol]) priceHistoryRef.current[symbol] = [];
+      priceHistoryRef.current[symbol].push(priceData.priceUSD);
+      if (priceHistoryRef.current[symbol].length > 10) priceHistoryRef.current[symbol].shift();
+      
+      // Calculate momentum
+      let momentum = 0;
+      let isUp = true;
+      if (priceHistoryRef.current[symbol].length >= 2) {
+        const arr = priceHistoryRef.current[symbol];
+        const changes = arr.map((p, i, a) => i > 0 ? ((p - a[i-1]) / a[i-1]) * 100 : 0);
+        momentum = Math.abs(changes.reduce((sum, c) => sum + c, 0));
+        isUp = arr[arr.length - 1] >= arr[arr.length - 2];
+      }
+      
+      return { ...position, momentum, isUp };
+    });
+  }, [displayPositions, livePrices, updateCount]);
 
   const adjustPnlPercentage = async (positionId: string, percentageChange: number) => {
     if (!user) return;
@@ -274,14 +302,19 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
           <div className="text-center py-6 text-muted-foreground">Loading positions...</div>
         ) : positions.length > 0 ? (
           <div className="w-full overflow-x-auto max-h-96">
+            <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+              <Activity className="h-3 w-3 animate-pulse text-green-500" />
+              <span>Live prices updating every 5s</span>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Coin</TableHead>
+                  <TableHead>Momentum</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">Buy Price</TableHead>
-                  <TableHead className="text-right">Current Price</TableHead>
+                  <TableHead className="text-right">Live Price</TableHead>
                   <TableHead className="text-right">Investment</TableHead>
                   <TableHead className="text-right">Current Value</TableHead>
                   <TableHead className="text-right">P&L</TableHead>
@@ -290,13 +323,26 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayPositions.map((position) => (
+                {positionsWithMomentum.map((position) => (
                   <TableRow key={position.id}>
                     <TableCell className="font-medium">
                       <div>
                         <div className="font-semibold">{position.symbol}</div>
                         <div className="text-xs text-muted-foreground">{position.coin_name}</div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs font-medium animate-pulse ${
+                          position.momentum > 15 ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+                          position.momentum > 8 ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' :
+                          'bg-green-500/15 text-green-400 border-green-500/30'
+                        }`}
+                      >
+                        {position.isUp ? <TrendingUp className="h-3 w-3 mr-1 inline" /> : <TrendingDown className="h-3 w-3 mr-1 inline" />}
+                        🔥 {position.momentum.toFixed(1)}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -321,7 +367,12 @@ export function UserPositionsDialog({ userId, userLabel }: UserPositionsDialogPr
                       ₹{Number(position.buy_price).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      ₹{Number(position.current_price).toFixed(2)}
+                      <div className={position.isUp ? 'text-green-600' : 'text-red-600'}>
+                        ₹{(livePrices[position.symbol]?.priceINR ?? Number(position.current_price)).toFixed(2)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        ${(livePrices[position.symbol]?.priceUSD ?? Number(position.current_price) / 84).toFixed(2)}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       ₹{Number(position.total_investment).toFixed(2)}
