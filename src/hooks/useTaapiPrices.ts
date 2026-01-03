@@ -1,6 +1,5 @@
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getLatestTaapiPriceUSD } from "@/services/taapiProxy";
+import { supabase } from "@/integrations/supabase/client";
 
 export type TaapiPrice = {
   symbol: string;
@@ -20,37 +19,48 @@ export function useTaapiPrices(symbols: string[]) {
   const uniqueSymbols = useMemo(() => Array.from(new Set(symbols)).filter(Boolean), [symbols]);
 
   const fetchAll = useCallback(async () => {
-    if (uniqueSymbols.length === 0) return;
+    if (uniqueSymbols.length === 0) {
+      setIsLoading(false);
+      return;
+    }
+    
     try {
-      const now = Date.now();
-      const results: (TaapiPrice | null)[] = [];
-      for (const sym of uniqueSymbols) {
-        try {
-          const usd = await getLatestTaapiPriceUSD(sym, "1m");
-          results.push({
-            symbol: sym,
-            priceUSD: usd,
-            priceINR: usd * USD_TO_INR,
-            lastUpdate: now,
-          } as TaapiPrice);
-        } catch (e) {
-          results.push(null);
+      // Use Binance proxy for reliable price fetching
+      const { data, error: fetchError } = await supabase.functions.invoke('binance-proxy', {
+        body: { 
+          endpoint: 'tickersMulti',
+          symbols: uniqueSymbols
         }
-        // Stagger requests to avoid rate limits
-        await new Promise((r) => setTimeout(r, 200));
-      }
-
-      const map: Record<string, TaapiPrice> = {};
-      results.forEach((r) => {
-        if (r) map[r.symbol] = r;
       });
+
+      if (fetchError) throw fetchError;
+
+      const now = Date.now();
+      const tickers = Array.isArray(data) ? data : [data];
+      const map: Record<string, TaapiPrice> = {};
+
+      tickers.forEach((ticker: any) => {
+        if (ticker?.symbol) {
+          const cleanSymbol = ticker.symbol.replace('USDT', '');
+          const priceUSD = parseFloat(ticker.lastPrice);
+          if (priceUSD > 0) {
+            map[cleanSymbol] = {
+              symbol: cleanSymbol,
+              priceUSD,
+              priceINR: priceUSD * USD_TO_INR,
+              lastUpdate: now,
+            };
+          }
+        }
+      });
+
       if (Object.keys(map).length > 0) {
         setPrices(map);
       }
       setError(null);
     } catch (e: any) {
-      setError(e?.message || "Failed to load TAAPI prices");
-      console.error(e);
+      setError(e?.message || "Failed to load prices");
+      console.error('Price fetch error:', e);
     } finally {
       setIsLoading(false);
     }
@@ -58,8 +68,8 @@ export function useTaapiPrices(symbols: string[]) {
 
   useEffect(() => {
     fetchAll();
-    // refresh every 30s to avoid hitting provider rate limits
-    intervalRef.current = window.setInterval(fetchAll, 30000);
+    // Refresh every 10 seconds
+    intervalRef.current = window.setInterval(fetchAll, 10000);
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
     };
