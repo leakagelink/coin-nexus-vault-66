@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type WebSocketPriceData = {
@@ -10,231 +10,171 @@ export type WebSocketPriceData = {
 };
 
 const USD_TO_INR = 84;
-const BINANCE_WS_URL = "wss://stream.binance.com:9443/ws";
-const FALLBACK_INTERVAL = 3000; // 3 second polling fallback
+const POLLING_INTERVAL = 5000; // 5 second polling
+
+// Global singleton state to prevent multiple instances
+let globalPrices: Record<string, WebSocketPriceData> = {};
+let globalIsConnected = false;
+let globalError: string | null = null;
+let globalUpdateCount = 0;
+let globalConnectionMode: 'connecting' | 'websocket' | 'polling' = 'connecting';
+let pollingInterval: number | null = null;
+let isPollingActive = false;
+let lastFetchTime = 0;
+const subscribers = new Set<() => void>();
+
+function notifySubscribers() {
+  subscribers.forEach(callback => callback());
+}
+
+function subscribe(callback: () => void) {
+  subscribers.add(callback);
+  return () => subscribers.delete(callback);
+}
+
+function getSnapshot() {
+  return {
+    prices: globalPrices,
+    isConnected: globalIsConnected,
+    error: globalError,
+    updateCount: globalUpdateCount,
+    connectionMode: globalConnectionMode,
+  };
+}
+
+// Fetch prices via edge function proxy
+async function fetchPrices(symbols: string[]) {
+  const uniqueSymbols = [...new Set(symbols.filter(Boolean).map(s => s.toUpperCase()))];
+  if (uniqueSymbols.length === 0) return;
+
+  // Debounce - prevent fetching more than once per second
+  const now = Date.now();
+  if (now - lastFetchTime < 1000) {
+    return;
+  }
+  lastFetchTime = now;
+
+  try {
+    const { data, error: fnError } = await supabase.functions.invoke('binance-proxy', {
+      body: { 
+        endpoint: 'tickersMulti',
+        symbols: uniqueSymbols
+      }
+    });
+
+    if (fnError) throw fnError;
+    
+    const newPrices: Record<string, WebSocketPriceData> = {};
+    const tickers = Array.isArray(data) ? data : [data];
+    
+    uniqueSymbols.forEach(symbol => {
+      const ticker = tickers.find((t: any) => t.symbol === `${symbol}USDT`);
+      if (ticker) {
+        const priceUSD = parseFloat(ticker.lastPrice);
+        const change24h = parseFloat(ticker.priceChangePercent);
+        newPrices[symbol] = {
+          symbol,
+          priceUSD,
+          priceINR: priceUSD * USD_TO_INR,
+          change24h,
+          lastUpdate: Date.now(),
+        };
+      }
+    });
+
+    if (Object.keys(newPrices).length > 0) {
+      globalPrices = newPrices;
+      globalUpdateCount++;
+      globalIsConnected = true;
+      globalError = null;
+      globalConnectionMode = 'polling';
+      notifySubscribers();
+    }
+  } catch (e) {
+    console.error("Binance proxy error:", e);
+    globalError = "Failed to fetch prices";
+    notifySubscribers();
+  }
+}
+
+// Start global polling
+function startPolling(symbols: string[]) {
+  if (isPollingActive) return;
+  isPollingActive = true;
+  
+  console.log("Starting price polling with symbols:", symbols);
+  globalConnectionMode = 'connecting';
+  notifySubscribers();
+  
+  // Immediate first fetch
+  fetchPrices(symbols);
+  
+  // Set up interval
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+  }
+  pollingInterval = window.setInterval(() => {
+    fetchPrices(symbols);
+  }, POLLING_INTERVAL);
+}
+
+function stopPolling() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+  isPollingActive = false;
+}
 
 /**
- * WebSocket-based price data hook using Binance real-time streams
- * Falls back to Supabase edge function proxy if WebSocket fails
+ * Price data hook using Supabase edge function proxy
+ * Uses singleton pattern to prevent multiple API calls
  */
 export function useBinanceWebSocket(symbols: string[]) {
-  const [prices, setPrices] = useState<Record<string, WebSocketPriceData>>({});
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [updateCount, setUpdateCount] = useState(0);
-  const [connectionMode, setConnectionMode] = useState<'connecting' | 'websocket' | 'polling'>('connecting');
+  const symbolsKey = symbols.filter(Boolean).map(s => s.toUpperCase()).join(',');
+  const symbolsRef = useRef(symbols);
+  symbolsRef.current = symbols;
   
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
-  const fallbackIntervalRef = useRef<number | null>(null);
-  const connectionAttempts = useRef(0);
-  const symbolsKey = symbols.filter(Boolean).map(s => s.toLowerCase()).join(',');
+  const [localState, setLocalState] = useState(getSnapshot);
 
-  // Fallback polling using Supabase edge function proxy (avoids CORS issues)
-  const fetchPricesViaAPI = useCallback(async () => {
-    const uniqueSymbols = [...new Set(symbols.filter(Boolean).map(s => s.toUpperCase()))];
-    if (uniqueSymbols.length === 0) return;
-
-    try {
-      // Use Supabase edge function proxy to avoid CORS
-      const { data, error: fnError } = await supabase.functions.invoke('binance-proxy', {
-        body: { 
-          endpoint: 'tickersMulti',
-          symbols: uniqueSymbols
-        }
-      });
-
-      if (fnError) throw fnError;
-      
-      const now = Date.now();
-      const newPrices: Record<string, WebSocketPriceData> = {};
-      
-      // Handle both array and single object response
-      const tickers = Array.isArray(data) ? data : [data];
-      
-      uniqueSymbols.forEach(symbol => {
-        const ticker = tickers.find((t: any) => t.symbol === `${symbol}USDT`);
-        if (ticker) {
-          const priceUSD = parseFloat(ticker.lastPrice);
-          const change24h = parseFloat(ticker.priceChangePercent);
-          newPrices[symbol] = {
-            symbol,
-            priceUSD,
-            priceINR: priceUSD * USD_TO_INR,
-            change24h,
-            lastUpdate: now,
-          };
-        }
-      });
-
-      if (Object.keys(newPrices).length > 0) {
-        setPrices(newPrices);
-        setUpdateCount(c => c + 1);
-        setIsConnected(true);
-        setError(null);
+  useEffect(() => {
+    const unsubscribe = subscribe(() => {
+      setLocalState(getSnapshot());
+    });
+    
+    // Start polling if not already active
+    if (!isPollingActive && symbols.length > 0) {
+      startPolling(symbols);
+    }
+    
+    return () => {
+      unsubscribe();
+      // Only stop if no more subscribers
+      if (subscribers.size === 0) {
+        stopPolling();
       }
-    } catch (e) {
-      console.error("Binance proxy fallback error:", e);
-      setError("Failed to fetch prices");
-    }
-  }, [symbols]);
+    };
+  }, [symbolsKey]);
 
-  // Start fallback polling
-  const startFallbackPolling = useCallback(() => {
-    console.log("Starting fallback polling mode");
-    setConnectionMode('polling');
-    
-    // Clear any existing interval
-    if (fallbackIntervalRef.current) {
-      clearInterval(fallbackIntervalRef.current);
-    }
-    
-    // Initial fetch
-    fetchPricesViaAPI();
-    
-    // Set up polling interval
-    fallbackIntervalRef.current = window.setInterval(fetchPricesViaAPI, FALLBACK_INTERVAL);
-  }, [fetchPricesViaAPI]);
-
-  // WebSocket connection
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-
-    const uniqueSymbols = [...new Set(symbols.filter(Boolean).map(s => s.toLowerCase()))];
-    if (uniqueSymbols.length === 0) return;
-
-    // Create combined stream for all symbols
-    const streams = uniqueSymbols.map(s => `${s}usdt@miniTicker`).join('/');
-    const wsUrl = `${BINANCE_WS_URL}/${streams}`;
-
-    console.log('Attempting Binance WebSocket connection:', wsUrl);
-    setConnectionMode('connecting');
-    
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      // Set connection timeout
-      const connectionTimeout = setTimeout(() => {
-        if (ws.readyState !== WebSocket.OPEN) {
-          console.log('WebSocket connection timeout, falling back to polling');
-          ws.close();
-          startFallbackPolling();
-        }
-      }, 5000);
-
-      ws.onopen = () => {
-        console.log('Binance WebSocket connected successfully!');
-        clearTimeout(connectionTimeout);
-        setIsConnected(true);
-        setConnectionMode('websocket');
-        setError(null);
-        connectionAttempts.current = 0;
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.e === '24hrMiniTicker') {
-            const symbol = data.s.replace('USDT', '');
-            const priceUSD = parseFloat(data.c);
-            const openPrice = parseFloat(data.o);
-            const change24h = openPrice > 0 ? ((priceUSD - openPrice) / openPrice) * 100 : 0;
-            
-            setPrices(prev => ({
-              ...prev,
-              [symbol]: {
-                symbol,
-                priceUSD,
-                priceINR: priceUSD * USD_TO_INR,
-                change24h,
-                lastUpdate: Date.now(),
-              }
-            }));
-            setUpdateCount(c => c + 1);
-          }
-        } catch (e) {
-          console.error('Error parsing WebSocket message:', e);
-        }
-      };
-
-      ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        clearTimeout(connectionTimeout);
-        connectionAttempts.current++;
-        
-        if (connectionAttempts.current >= 2) {
-          console.log('WebSocket failed multiple times, switching to polling');
-          startFallbackPolling();
-        }
-      };
-
-      ws.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
-        clearTimeout(connectionTimeout);
-        setIsConnected(false);
-        wsRef.current = null;
-        
-        // If already in polling mode, don't try to reconnect WebSocket
-        if (connectionMode === 'polling') return;
-        
-        // Try to reconnect WebSocket after delay
-        if (connectionAttempts.current < 2) {
-          reconnectTimeoutRef.current = window.setTimeout(() => {
-            console.log('Attempting WebSocket reconnection...');
-            connectWebSocket();
-          }, 3000);
-        } else {
-          startFallbackPolling();
-        }
-      };
-
-    } catch (e) {
-      console.error('Failed to create WebSocket:', e);
-      startFallbackPolling();
-    }
-  }, [symbolsKey, startFallbackPolling]);
-
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    if (fallbackIntervalRef.current) {
-      clearInterval(fallbackIntervalRef.current);
-      fallbackIntervalRef.current = null;
-    }
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    setIsConnected(false);
+  const getPrice = useCallback((symbol: string): WebSocketPriceData | null => {
+    return globalPrices[symbol.toUpperCase()] || null;
   }, []);
 
   const reconnect = useCallback(() => {
-    disconnect();
-    connectionAttempts.current = 0;
-    setConnectionMode('connecting');
-    connectWebSocket();
-  }, [disconnect, connectWebSocket]);
-
-  useEffect(() => {
-    connectWebSocket();
-    return () => disconnect();
-  }, [connectWebSocket, disconnect]);
-
-  const getPrice = useCallback((symbol: string): WebSocketPriceData | null => {
-    return prices[symbol.toUpperCase()] || null;
-  }, [prices]);
+    stopPolling();
+    globalIsConnected = false;
+    globalConnectionMode = 'connecting';
+    notifySubscribers();
+    startPolling(symbolsRef.current);
+  }, []);
 
   return { 
-    prices, 
-    isConnected, 
-    error,
+    prices: localState.prices, 
+    isConnected: localState.isConnected, 
+    error: localState.error,
     getPrice,
     reconnect,
-    updateCount,
-    connectionMode
+    updateCount: localState.updateCount,
+    connectionMode: localState.connectionMode
   };
 }

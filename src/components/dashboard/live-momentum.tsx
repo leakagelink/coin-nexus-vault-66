@@ -173,7 +173,7 @@ export function LiveMomentum() {
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span>{connectionMode === 'websocket' ? 'WebSocket Stream' : 'Auto-refresh 2s'}</span>
+              <span>{connectionMode === 'websocket' ? 'WebSocket Stream' : 'Auto-refresh 5s'}</span>
             </div>
             <span className="text-primary/70 font-medium">
               {secondsAgo}s ago • #{updateCount}
