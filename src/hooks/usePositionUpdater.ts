@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { binanceAPI } from '@/services/binanceApi';
+
+const USD_TO_INR = 84;
 
 /**
  * Background updater that syncs database positions with live prices
@@ -24,27 +25,31 @@ export const usePositionUpdater = (userId?: string) => {
 
         if (error || !positions || positions.length === 0) return;
 
-        // Get unique symbols and convert to Binance format (add USDT)
-        const symbols = Array.from(new Set(positions.map(p => `${p.symbol}USDT`)));
+        // Get unique symbols
+        const symbols = Array.from(new Set(positions.map(p => p.symbol)));
         
-        // Fetch prices from Binance for all symbols in parallel
-        const pricePromises = symbols.map(async (symbol) => {
-          try {
-            const priceData = await binanceAPI.getPrice(symbol);
-            const priceUSD = parseFloat(priceData.price);
-            const priceINR = priceUSD * 84;
-            const cleanSymbol = symbol.replace('USDT', '');
-            return { symbol: cleanSymbol, priceINR };
-          } catch (e) {
-            console.error(`Failed to fetch Binance price for ${symbol}:`, e);
-            return null;
+        // Fetch prices via edge function proxy
+        const { data: tickerData, error: fetchError } = await supabase.functions.invoke('binance-proxy', {
+          body: { 
+            endpoint: 'tickersMulti',
+            symbols: symbols
           }
         });
 
-        const priceResults = await Promise.all(pricePromises);
+        if (fetchError) {
+          console.error('Failed to fetch prices:', fetchError);
+          return;
+        }
+
+        const tickers = Array.isArray(tickerData) ? tickerData : [tickerData];
         const priceMap: Record<string, number> = {};
-        priceResults.forEach(result => {
-          if (result) priceMap[result.symbol] = result.priceINR;
+        
+        tickers.forEach((ticker: any) => {
+          if (ticker?.symbol) {
+            const cleanSymbol = ticker.symbol.replace('USDT', '');
+            const priceUSD = parseFloat(ticker.lastPrice);
+            priceMap[cleanSymbol] = priceUSD * USD_TO_INR;
+          }
         });
 
         // Update positions in database
