@@ -16,15 +16,17 @@ export const usePositionUpdater = (userId?: string) => {
 
     const updatePositions = async () => {
       try {
-        // Get all open positions that are NOT admin-overridden
-        const { data: positions, error } = await supabase
+        // Get all open positions
+        const { data: allPositions, error } = await supabase
           .from('portfolio_positions')
           .select('*')
           .eq('user_id', userId)
-          .eq('status', 'open')
-          .eq('admin_price_override', false); // Only update non-admin positions
+          .eq('status', 'open');
 
-        if (error || !positions || positions.length === 0) return;
+        if (error || !allPositions || allPositions.length === 0) return;
+        
+        // Filter out admin-overridden positions (check for null OR false)
+        const positions = allPositions.filter(p => p.admin_price_override !== true);
 
         // Get unique symbols
         const symbols = Array.from(new Set(positions.map(p => p.symbol)));
