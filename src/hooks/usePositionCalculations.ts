@@ -58,6 +58,15 @@ export function usePositionCalculations(
     const now = Date.now();
 
     return positions.map(position => {
+      // Ensure we have valid numeric values (handle null/undefined from DB)
+      const totalInvestment = Number(position.total_investment) || 0;
+      const amount = Number(position.amount) || 0;
+      const buyPrice = Number(position.buy_price) || 0;
+      const currentPrice = Number(position.current_price) || buyPrice;
+      
+      // If total_investment is 0, calculate it from amount * buy_price
+      const effectiveInvestment = totalInvestment > 0 ? totalInvestment : (amount * buyPrice);
+      
       // Check if this position has admin override
       const hasAdminOverride = position.admin_price_override === true;
       const adminPct = Number(position.admin_adjustment_pct) || 0;
@@ -117,20 +126,20 @@ export function usePositionCalculations(
         simulatedDirection = displayPnlPercentage >= 0 ? 1 : -1;
       } else {
         // For normal positions: use live market price
-        const livePrice = livePrices[position.symbol]?.priceINR || position.current_price;
-        const currentValue = position.amount * livePrice;
-        const pnl = currentValue - position.total_investment;
-        displayPnlPercentage = position.total_investment > 0 
-          ? (pnl / position.total_investment) * 100 
+        const livePrice = livePrices[position.symbol]?.priceINR || currentPrice;
+        const currentValue = amount * livePrice;
+        const pnl = currentValue - effectiveInvestment;
+        displayPnlPercentage = effectiveInvestment > 0 
+          ? (pnl / effectiveInvestment) * 100 
           : 0;
       }
 
       // Calculate display values based on P&L percentage
-      const displayPnl = (displayPnlPercentage / 100) * position.total_investment;
-      const displayCurrentValue = position.total_investment + displayPnl;
-      const displayCurrentPrice = position.amount > 0 
-        ? displayCurrentValue / position.amount 
-        : position.buy_price;
+      const displayPnl = (displayPnlPercentage / 100) * effectiveInvestment;
+      const displayCurrentValue = effectiveInvestment + displayPnl;
+      const displayCurrentPrice = amount > 0 
+        ? displayCurrentValue / amount 
+        : buyPrice;
 
       return {
         ...position,
