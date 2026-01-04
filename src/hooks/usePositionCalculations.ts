@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { PriceData } from "./usePriceData";
 
 export type Position = {
@@ -19,20 +19,43 @@ export type Position = {
   created_at?: string;
 };
 
+// Store simulated momentum data outside component to persist across renders
+const simulatedMomentumStore: Record<string, { 
+  offset: number; 
+  direction: number; 
+  lastUpdate: number;
+  baseAdminPct: number;
+}> = {};
+
 /**
  * Calculates live P&L for positions without modifying database
  * For admin-adjusted positions: disconnects from live market and uses admin_adjustment_pct as the P&L %
- * with simulated momentum (±2-3%) around that value
+ * with simulated momentum (±5%) around that value
  */
 export function usePositionCalculations(
   positions: Position[] | undefined,
   livePrices: Record<string, PriceData>
 ) {
-  // Track simulated momentum for admin-adjusted positions
-  const simulatedMomentumRef = useRef<Record<string, { offset: number; direction: number; lastUpdate: number }>>({});
+  // Force re-render every 2 seconds for momentum animation
+  const [tick, setTick] = useState(0);
+  
+  // Check if there are any admin-adjusted positions
+  const hasAdminAdjusted = positions?.some(p => p.admin_price_override === true) || false;
+  
+  useEffect(() => {
+    if (!hasAdminAdjusted) return;
+    
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 2000); // Update every 2 seconds
+    
+    return () => clearInterval(interval);
+  }, [hasAdminAdjusted]);
 
   return useMemo(() => {
     if (!positions) return [];
+
+    const now = Date.now();
 
     return positions.map(position => {
       // Check if this position has admin override
@@ -43,41 +66,54 @@ export function usePositionCalculations(
       let simulatedMomentum = 0;
       let simulatedDirection = 1;
 
-      if (hasAdminOverride && adminPct !== 0) {
+      if (hasAdminOverride) {
         // For admin-adjusted positions: P&L is ENTIRELY controlled by admin_adjustment_pct
-        // Plus simulated momentum of ±2-3% around that value
+        // Plus simulated momentum of ±5% around that value in the direction admin set
         const positionId = position.id;
-        const now = Date.now();
         
-        if (!simulatedMomentumRef.current[positionId]) {
-          // Initialize with random offset
-          simulatedMomentumRef.current[positionId] = {
-            offset: (Math.random() - 0.5) * 4, // -2% to +2%
-            direction: adminPct >= 0 ? 1 : -1, // Bias in direction of admin adjustment
-            lastUpdate: now
+        // Initialize or reset if admin changed the adjustment
+        if (!simulatedMomentumStore[positionId] || 
+            simulatedMomentumStore[positionId].baseAdminPct !== adminPct) {
+          // Direction based on admin adjustment sign
+          const dir = adminPct >= 0 ? 1 : -1;
+          simulatedMomentumStore[positionId] = {
+            offset: (Math.random() * 2.5) * dir, // 0 to 2.5% in admin direction
+            direction: dir,
+            lastUpdate: now,
+            baseAdminPct: adminPct
           };
         }
 
-        const simData = simulatedMomentumRef.current[positionId];
+        const simData = simulatedMomentumStore[positionId];
         
-        // Update momentum every ~2-3 seconds with small changes
-        if (now - simData.lastUpdate > 2000) {
-          // Random walk within bounds, biased towards admin direction
-          const directionBias = adminPct >= 0 ? 0.6 : 0.4;
-          const change = (Math.random() - directionBias) * 1.5 * simData.direction;
-          simData.offset = Math.max(-3, Math.min(3, simData.offset + change));
+        // Update momentum with random walk, staying within ±5% of admin value
+        // Biased towards admin direction
+        if (now - simData.lastUpdate > 1500) {
+          const dir = adminPct >= 0 ? 1 : -1;
           
-          // Occasionally reverse direction
-          if (Math.random() < 0.15) {
-            simData.direction *= -1;
+          // Random change biased in admin direction
+          const biasedRandom = Math.random() * 0.6 + 0.2; // 0.2 to 0.8
+          const change = (biasedRandom - 0.4) * 1.2 * dir;
+          
+          // Keep offset within ±5% range, biased in admin direction
+          let newOffset = simData.offset + change;
+          if (dir > 0) {
+            // Positive direction: keep between -2% and +5%
+            newOffset = Math.max(-2, Math.min(5, newOffset));
+          } else {
+            // Negative direction: keep between -5% and +2%
+            newOffset = Math.max(-5, Math.min(2, newOffset));
           }
+          
+          simData.offset = newOffset;
           simData.lastUpdate = now;
         }
 
-        // P&L % = admin set value + small simulated momentum
+        // P&L % = admin set value + simulated momentum offset
         displayPnlPercentage = adminPct + simData.offset;
         
-        simulatedMomentum = Math.abs(simData.offset);
+        // Calculate momentum value for display (how much it's moving)
+        simulatedMomentum = Math.abs(simData.offset) + Math.random() * 0.5;
         simulatedDirection = displayPnlPercentage >= 0 ? 1 : -1;
       } else {
         // For normal positions: use live market price
@@ -103,10 +139,10 @@ export function usePositionCalculations(
         pnl: displayPnl,
         pnl_percentage: displayPnlPercentage,
         // Add simulated momentum data for admin-adjusted positions
-        _isAdminAdjusted: hasAdminOverride && adminPct !== 0,
+        _isAdminAdjusted: hasAdminOverride,
         _simulatedMomentum: simulatedMomentum,
         _simulatedDirection: simulatedDirection,
       };
     });
-  }, [positions, livePrices]);
+  }, [positions, livePrices, tick]); // tick triggers re-render for momentum
 }
