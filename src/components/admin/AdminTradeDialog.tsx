@@ -183,21 +183,25 @@ export function AdminTradeDialog({ userId, userLabel, onSuccess }: AdminTradeDia
           if (error) throw error;
           console.log(`Updated existing position for ${selectedCoin}`);
         } else {
+          // Ensure all numeric values are properly set as numbers
           const positionData = {
             user_id: userId,
             symbol: selectedCoin,
             coin_name: selectedCoinData?.name || selectedCoin,
-            amount: computed.qty,
-            buy_price: parsedPrice,
-            current_price: parsedPrice,
-            total_investment: computed.total,
-            current_value: computed.total,
+            amount: Number(computed.qty) || 0,
+            buy_price: Number(parsedPrice) || 0,
+            current_price: Number(parsedPrice) || 0,
+            total_investment: Number(computed.total) || 0,
+            current_value: Number(computed.total) || 0,
             pnl: 0,
             pnl_percentage: 0,
             position_type: 'long',
             status: 'open',
             admin_price_override: true,
+            admin_adjustment_pct: 0,
           };
+
+          console.log('Creating new position with data:', positionData);
 
           const { error } = await supabase
             .from('portfolio_positions')
