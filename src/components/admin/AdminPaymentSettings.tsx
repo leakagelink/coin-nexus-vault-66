@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminSettings } from "@/hooks/useAdminSettings";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Upload, Loader2 } from "lucide-react";
 
 function ensureArray(val: any): string[] {
   if (!val) return [];
@@ -34,6 +34,8 @@ export function AdminPaymentSettings() {
   const [usdtInstructions, setUsdtInstructions] = useState("");
 
   const [saving, setSaving] = useState<string | null>(null);
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const qrInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!settings) return;
@@ -86,6 +88,68 @@ export function AdminPaymentSettings() {
     }
   };
 
+  // Handle QR code file upload
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please upload an image file (PNG, JPG, JPEG)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Max 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploadingQr(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `upi-qr-${Date.now()}.${fileExt}`;
+      const filePath = `payment-qr/${fileName}`;
+
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('uploads')
+        .upload(filePath, file, { upsert: true });
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(filePath);
+
+      setUpiQrCode(publicUrl);
+      toast({
+        title: "QR Code uploaded",
+        description: "Now click 'Save UPI' to apply changes",
+      });
+    } catch (error: any) {
+      console.error('Error uploading QR:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Please try again",
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingQr(false);
+      // Reset input
+      if (qrInputRef.current) qrInputRef.current.value = '';
+    }
+  };
+
   return (
     <Card className="glass">
       <CardHeader>
@@ -107,21 +171,53 @@ export function AdminPaymentSettings() {
                   <label className="text-sm text-muted-foreground">UPI ID</label>
                   <Input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="company@upi" />
                 </div>
-                <div>
-                  <label className="text-sm text-muted-foreground">QR Code URL</label>
-                  <Input value={upiQrCode} onChange={(e) => setUpiQrCode(e.target.value)} placeholder="/lovable-uploads/upi-qr-code.jpeg" />
-                  <p className="text-xs text-green-600 mt-1 font-medium">
-                    ✓ New QR uploaded: /lovable-uploads/upi-qr-code.jpeg (nadex@ptaxis)
-                  </p>
-                  <p className="text-xs text-amber-600 mt-1">
-                    ⚠️ Click "Save UPI Settings" niche button ko press karke settings save karo
-                  </p>
+                <div className="space-y-2">
+                  <label className="text-sm text-muted-foreground">QR Code</label>
+                  
+                  {/* Upload Button */}
+                  <div className="flex gap-2">
+                    <input
+                      ref={qrInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQrUpload}
+                      className="hidden"
+                      id="qr-upload"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => qrInputRef.current?.click()}
+                      disabled={uploadingQr}
+                      className="flex items-center gap-2"
+                    >
+                      {uploadingQr ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      {uploadingQr ? "Uploading..." : "Upload QR"}
+                    </Button>
+                  </div>
+
+                  {/* URL Input */}
+                  <Input 
+                    value={upiQrCode} 
+                    onChange={(e) => setUpiQrCode(e.target.value)} 
+                    placeholder="/lovable-uploads/upi-qr-code.jpeg"
+                    className="text-xs"
+                  />
+                  
+                  {/* QR Preview */}
                   {upiQrCode && (
                     <div className="mt-2 p-2 bg-muted rounded border">
-                      <img src={upiQrCode} alt="QR Preview" className="w-32 h-32 mx-auto object-contain" 
+                      <img 
+                        src={upiQrCode} 
+                        alt="QR Preview" 
+                        className="w-32 h-32 mx-auto object-contain" 
                         onError={(e) => {
-                          e.currentTarget.src = '';
-                          e.currentTarget.alt = 'QR load nahi ho raha - path check karo';
+                          e.currentTarget.style.display = 'none';
                         }}
                       />
                       <p className="text-xs text-center text-muted-foreground mt-1">Preview</p>
