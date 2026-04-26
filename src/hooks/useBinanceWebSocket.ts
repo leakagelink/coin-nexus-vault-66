@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { readApiKillSwitch } from "./useApiKillSwitch";
 
 export type WebSocketPriceData = {
   symbol: string;
@@ -53,6 +54,20 @@ async function fetchPrices(symbols: string[]) {
     return;
   }
   lastFetchTime = now;
+
+  // Global kill switch
+  const killed = await readApiKillSwitch();
+  if (killed) {
+    if (Object.keys(globalPrices).length > 0 || globalIsConnected) {
+      globalPrices = {};
+      globalIsConnected = false;
+      globalError = null;
+      globalConnectionMode = 'connecting';
+      globalUpdateCount++;
+      notifySubscribers();
+    }
+    return;
+  }
 
   try {
     const { data, error: fnError } = await supabase.functions.invoke('binance-proxy', {
