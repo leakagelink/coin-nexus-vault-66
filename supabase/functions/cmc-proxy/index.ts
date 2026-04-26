@@ -144,6 +144,15 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
+    // ===== GLOBAL API KILL SWITCH =====
+    if (await isApiKilled()) {
+      console.log("[cmc-proxy] API kill switch ENABLED — request blocked");
+      return new Response(
+        JSON.stringify({ disabled: true, error: "API disabled by admin", data: [] }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
     // Get symbols from GET param or POST body
     let symbols = DEFAULT_SYMBOLS;
     if (req.method === "GET") {
