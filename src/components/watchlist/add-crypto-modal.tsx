@@ -81,7 +81,6 @@ export function AddCryptoModal({ isOpen, onClose, onCryptoAdded, mode = 'watchli
         .from('watchlist')
         .insert({
           user_id: user.id,
-          coin_id: crypto.coin_id,
           symbol: crypto.symbol,
           coin_name: crypto.name,
         });
@@ -177,7 +176,6 @@ export function AddCryptoModal({ isOpen, onClose, onCryptoAdded, mode = 'watchli
           .from('portfolio_positions')
           .update({
             amount: newQty,
-            quantity: newQty,
             buy_price: newAvgPrice,
             current_price: currentPrice,
             total_investment: newTotalInvestment,
@@ -198,15 +196,12 @@ export function AddCryptoModal({ isOpen, onClose, onCryptoAdded, mode = 'watchli
             symbol: selectedCrypto.symbol,
             coin_name: selectedCrypto.name,
             amount: qty,
-            quantity: qty,
             buy_price: currentPrice,
             current_price: currentPrice,
             total_investment: totalCost,
             current_value: qty * currentPrice,
             pnl: 0,
             pnl_percentage: 0,
-            open_price: currentPrice,
-            trade_type: 'buy',
             status: 'open',
             position_type: 'long',
           });

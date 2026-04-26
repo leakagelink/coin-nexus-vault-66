@@ -73,7 +73,6 @@ export function EditBalanceDialog({ userId, currentBalance, userLabel, onSuccess
         user_id: userId,
         transaction_type: 'admin_balance_update',
         amount: value - currentBalance,
-        total_value: value,
         status: 'completed',
       });
 
