@@ -207,7 +207,8 @@ export function AdminPaymentSettings() {
           <div className="text-center text-muted-foreground py-4">Loading settings...</div>
         ) : (
           <>
-            {/* API Kill Switch */}
+            {/* API Kill Switch (hidden from UI — logic still active in backend) */}
+            {false && (
             <div
               className={`rounded-lg border-2 p-4 space-y-3 ${
                 apiKilled
@@ -260,6 +261,7 @@ export function AdminPaymentSettings() {
                 </div>
               )}
             </div>
+            )}
 
             {/* UPI Settings */}
             <div className="space-y-3">
