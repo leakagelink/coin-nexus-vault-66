@@ -496,6 +496,7 @@ export type Database = {
         Args: { admin_id: string; target_user_id: string }
         Returns: Json
       }
+      get_api_kill_switch: { Args: never; Returns: boolean }
       get_public_admin_settings: { Args: never; Returns: Json }
       has_role: {
         Args: {

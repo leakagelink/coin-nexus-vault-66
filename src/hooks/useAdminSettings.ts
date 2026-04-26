@@ -22,10 +22,15 @@ type PublicUSDT = {
   instructions?: string[];
 };
 
+type ApiKillSwitch = {
+  enabled?: boolean;
+};
+
 type PublicAdminSettings = {
   upi_details?: PublicUPI;
   bank_details?: PublicBank;
   usdt_details?: PublicUSDT;
+  api_kill_switch?: ApiKillSwitch;
 };
 
 export function useAdminSettings() {

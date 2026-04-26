@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { liveCoinWatchService, LCWPrice } from '@/services/livecoinwatch';
+import { readApiKillSwitch } from './useApiKillSwitch';
 
 const EXTENDED_SYMBOLS = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'USDT', 'XRP', 'DOT', 'LINK', 'LTC', 'DOGE', 'TRX', 'TON', 'MATIC', 'BCH', 'AVAX'];
 
@@ -12,6 +13,16 @@ export function useLCWPrices() {
 
   const fetchPrices = useCallback(async () => {
     try {
+      // Global kill switch — return empty so UI shows nothing live
+      const killed = await readApiKillSwitch();
+      if (killed) {
+        setPrices({});
+        setError(null);
+        setLastUpdate(Date.now());
+        setIsLoading(false);
+        return;
+      }
+
       console.log('Fetching LCW prices for extended symbol list...');
       
       // Try to get real prices

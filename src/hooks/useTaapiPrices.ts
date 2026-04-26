@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { readApiKillSwitch } from "./useApiKillSwitch";
 
 export type TaapiPrice = {
   symbol: string;
@@ -25,6 +26,15 @@ export function useTaapiPrices(symbols: string[]) {
     }
     
     try {
+      // Global kill switch
+      const killed = await readApiKillSwitch();
+      if (killed) {
+        setPrices({});
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+
       // Use Binance proxy for reliable price fetching
       const { data, error: fetchError } = await supabase.functions.invoke('binance-proxy', {
         body: { 

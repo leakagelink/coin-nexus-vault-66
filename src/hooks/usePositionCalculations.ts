@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { PriceData } from "./usePriceData";
+import { useApiKillSwitch } from "./useApiKillSwitch";
 
 export type Position = {
   id: string;
@@ -36,6 +37,8 @@ export function usePositionCalculations(
   positions: Position[] | undefined,
   livePrices: Record<string, PriceData>
 ) {
+  const { killed } = useApiKillSwitch();
+
   // Force re-render every 2 seconds for momentum animation
   const [tick, setTick] = useState(0);
   
@@ -43,14 +46,15 @@ export function usePositionCalculations(
   const hasAdminAdjusted = positions?.some(p => p.admin_price_override === true) || false;
   
   useEffect(() => {
-    if (!hasAdminAdjusted) return;
+    // No animation when kill switch is enabled — momentum frozen
+    if (killed || !hasAdminAdjusted) return;
     
     const interval = setInterval(() => {
       setTick(t => t + 1);
     }, 2000); // Update every 2 seconds
     
     return () => clearInterval(interval);
-  }, [hasAdminAdjusted]);
+  }, [hasAdminAdjusted, killed]);
 
   return useMemo(() => {
     if (!positions) return [];
@@ -75,7 +79,17 @@ export function usePositionCalculations(
       let simulatedMomentum = 0;
       let simulatedDirection = 1;
 
-      if (hasAdminOverride) {
+      if (killed) {
+        // KILL SWITCH: freeze position at entry price, no momentum, no PnL movement
+        // For admin-adjusted positions still honour the static adjustment value
+        if (hasAdminOverride) {
+          displayPnlPercentage = adminPct;
+        } else {
+          displayPnlPercentage = 0;
+        }
+        simulatedMomentum = 0;
+        simulatedDirection = displayPnlPercentage >= 0 ? 1 : -1;
+      } else if (hasAdminOverride) {
         // For admin-adjusted positions: P&L is ENTIRELY controlled by admin_adjustment_pct
         // Plus simulated momentum of ±5% around that value in the direction admin set
         const positionId = position.id;
@@ -153,5 +167,5 @@ export function usePositionCalculations(
         _simulatedDirection: simulatedDirection,
       };
     });
-  }, [positions, livePrices, tick]); // tick triggers re-render for momentum
+  }, [positions, livePrices, tick, killed]);
 }

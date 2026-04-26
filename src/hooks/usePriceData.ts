@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { readApiKillSwitch } from "./useApiKillSwitch";
 
 export type PriceData = {
   symbol: string;
@@ -45,6 +46,18 @@ export function usePriceData(symbols: string[]) {
     isFetchingRef.current = true;
 
     try {
+      // Global kill switch — when enabled, do not call any API
+      const killed = await readApiKillSwitch();
+      if (killed) {
+        setState(prev => ({
+          ...prev,
+          prices: {},
+          isLoading: false,
+          error: null,
+        }));
+        return;
+      }
+
       // Use edge function proxy to avoid CORS
       const { data, error: fetchError } = await supabase.functions.invoke('binance-proxy', {
         body: { 

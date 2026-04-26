@@ -9,6 +9,36 @@ const corsHeaders: Record<string, string> = {
 
 const BINANCE_BASE_URL = "https://api.binance.com/api/v3";
 
+// ----- Kill switch helpers -----
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+let cachedKilled: boolean | null = null;
+let cachedAt = 0;
+const KILL_CACHE_MS = 5_000;
+
+async function isApiKilled(): Promise<boolean> {
+  const now = Date.now();
+  if (cachedKilled !== null && now - cachedAt < KILL_CACHE_MS) return cachedKilled;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_api_kill_switch`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: "{}",
+    });
+    const data = await res.json();
+    cachedKilled = Boolean(data);
+  } catch (_e) {
+    // Fail-safe: treat as killed if we can't read the flag
+    cachedKilled = true;
+  }
+  cachedAt = now;
+  return cachedKilled;
+}
+
 serve(async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -16,6 +46,15 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
+    // ===== GLOBAL API KILL SWITCH =====
+    if (await isApiKilled()) {
+      console.log("[binance-proxy] API kill switch ENABLED — request blocked");
+      return new Response(
+        JSON.stringify({ disabled: true, error: "API disabled by admin", data: [] }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     let endpoint: string | undefined;
     let symbol: string | undefined;
     let interval = "1h";

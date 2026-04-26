@@ -7,6 +7,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ----- Kill switch helpers -----
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+let cachedKilled: boolean | null = null;
+let cachedAt = 0;
+const KILL_CACHE_MS = 5_000;
+
+async function isApiKilled(): Promise<boolean> {
+  const now = Date.now();
+  if (cachedKilled !== null && now - cachedAt < KILL_CACHE_MS) return cachedKilled;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_api_kill_switch`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: "{}",
+    });
+    const data = await res.json();
+    cachedKilled = Boolean(data);
+  } catch (_e) {
+    cachedKilled = true;
+  }
+  cachedAt = now;
+  return cachedKilled;
+}
+
 interface TaapiRequest {
   symbol: string;
   exchange: string;
@@ -46,6 +75,15 @@ serve(async (req) => {
   }
 
   try {
+    // ===== GLOBAL API KILL SWITCH =====
+    if (await isApiKilled()) {
+      console.log("[taapi-proxy] API kill switch ENABLED — request blocked");
+      return new Response(
+        JSON.stringify({ disabled: true, error: "API disabled by admin", candles: [], indicators: {} }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { symbol, exchange = 'binance', interval = '1h', period = 100, indicators = [] }: TaapiRequest = await req.json();
     
     const taapiKey = Deno.env.get('TAAPI_API_KEY');
