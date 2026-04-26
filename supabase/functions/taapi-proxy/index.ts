@@ -75,6 +75,15 @@ serve(async (req) => {
   }
 
   try {
+    // ===== GLOBAL API KILL SWITCH =====
+    if (await isApiKilled()) {
+      console.log("[taapi-proxy] API kill switch ENABLED — request blocked");
+      return new Response(
+        JSON.stringify({ disabled: true, error: "API disabled by admin", candles: [], indicators: {} }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { symbol, exchange = 'binance', interval = '1h', period = 100, indicators = [] }: TaapiRequest = await req.json();
     
     const taapiKey = Deno.env.get('TAAPI_API_KEY');
