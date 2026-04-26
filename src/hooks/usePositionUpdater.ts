@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { readApiKillSwitch } from './useApiKillSwitch';
 
 const USD_TO_INR = 84;
 
@@ -16,6 +17,10 @@ export const usePositionUpdater = (userId?: string) => {
 
     const updatePositions = async () => {
       try {
+        // Global kill switch — do NOT touch DB positions with live prices
+        const killed = await readApiKillSwitch();
+        if (killed) return;
+
         // Get all open positions
         const { data: allPositions, error } = await supabase
           .from('portfolio_positions')
