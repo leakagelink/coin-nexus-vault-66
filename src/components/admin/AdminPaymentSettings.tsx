@@ -4,10 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminSettings } from "@/hooks/useAdminSettings";
-import { ShieldCheck, Upload, Loader2 } from "lucide-react";
+import { invalidateKillSwitchCache } from "@/hooks/useApiKillSwitch";
+import { useQueryClient } from "@tanstack/react-query";
+import { ShieldCheck, Upload, Loader2, AlertTriangle, PowerOff } from "lucide-react";
 
 function ensureArray(val: any): string[] {
   if (!val) return [];
@@ -18,6 +21,7 @@ function ensureArray(val: any): string[] {
 export function AdminPaymentSettings() {
   const { toast } = useToast();
   const { settings, isLoading, refetch } = useAdminSettings();
+  const queryClient = useQueryClient();
 
   const [upiId, setUpiId] = useState("");
   const [upiQrCode, setUpiQrCode] = useState("");
@@ -36,6 +40,10 @@ export function AdminPaymentSettings() {
   const [saving, setSaving] = useState<string | null>(null);
   const [uploadingQr, setUploadingQr] = useState(false);
   const qrInputRef = useRef<HTMLInputElement>(null);
+
+  // API Kill Switch state
+  const [apiKilled, setApiKilled] = useState<boolean>(true);
+  const [savingKillSwitch, setSavingKillSwitch] = useState(false);
 
   useEffect(() => {
     if (!settings) return;
@@ -65,6 +73,10 @@ export function AdminPaymentSettings() {
     setUsdtAddress(usdt.wallet_address || "");
     setUsdtNetwork(usdt.network || "TRC20");
     setUsdtInstructions(Array.isArray(usdt.instructions) ? usdt.instructions.join("\n") : (usdt.instructions || ""));
+
+    // Kill switch
+    const ks = settings.api_kill_switch;
+    setApiKilled(ks?.enabled ?? true);
   }, [settings]);
 
   const saveOne = async (key: "upi_details" | "bank_details" | "usdt_details", value: any) => {
@@ -86,6 +98,38 @@ export function AdminPaymentSettings() {
       toast({ title: "Saved", description: "Settings updated successfully." });
       refetch();
     }
+  };
+
+  const toggleKillSwitch = async (next: boolean) => {
+    setSavingKillSwitch(true);
+    setApiKilled(next); // optimistic
+    const { error } = await supabase
+      .from("admin_settings")
+      .upsert(
+        [{ setting_key: "api_kill_switch", setting_value: { enabled: next }, updated_at: new Date().toISOString() }],
+        { onConflict: "setting_key" }
+      );
+    setSavingKillSwitch(false);
+    if (error) {
+      console.error("Save kill switch error:", error);
+      setApiKilled(!next); // rollback
+      toast({
+        title: "Failed to update API status",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    invalidateKillSwitchCache();
+    queryClient.invalidateQueries({ queryKey: ["api-kill-switch"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-settings-public"] });
+    refetch();
+    toast({
+      title: next ? "All APIs disabled" : "APIs enabled",
+      description: next
+        ? "Live prices and momentum are now OFF across the app."
+        : "Live prices and momentum are now ON.",
+    });
   };
 
   // Handle QR code file upload
