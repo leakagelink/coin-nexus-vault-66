@@ -30,6 +30,35 @@ const DEFAULT_SYMBOLS = [
   "LTC", "DOT", "BCH", "LINK", "AVAX",
 ];
 
+// ----- Kill switch helpers -----
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+let cachedKilled: boolean | null = null;
+let cachedAt = 0;
+const KILL_CACHE_MS = 5_000;
+
+async function isApiKilled(): Promise<boolean> {
+  const now = Date.now();
+  if (cachedKilled !== null && now - cachedAt < KILL_CACHE_MS) return cachedKilled;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_api_kill_switch`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: "{}",
+    });
+    const data = await res.json();
+    cachedKilled = Boolean(data);
+  } catch (_e) {
+    cachedKilled = true;
+  }
+  cachedAt = now;
+  return cachedKilled;
+}
+
 // Get all API keys from environment
 function getApiKeys(): string[] {
   const keys: string[] = [];
