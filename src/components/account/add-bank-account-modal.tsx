@@ -42,7 +42,6 @@ export function AddBankAccountModal({ isOpen, onClose, onBankAdded }: AddBankAcc
           account_holder_name: formData.accountHolderName,
           bank_name: formData.bankName,
           ifsc_code: formData.ifscCode,
-          account_type: formData.accountType,
         });
 
       if (error) throw error;
