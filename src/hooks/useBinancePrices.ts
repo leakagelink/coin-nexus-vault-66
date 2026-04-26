@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { binanceService } from '@/services/binanceService';
+import { readApiKillSwitch } from './useApiKillSwitch';
 
 export interface BinancePrice {
   symbol: string;
@@ -69,6 +70,19 @@ export function useBinancePrices() {
   }, []);
 
   const connectWebSockets = useCallback(() => {
+    // Respect global kill switch — don't open any WS connections
+    readApiKillSwitch().then((killed) => {
+      if (killed) {
+        console.log('🛑 API Kill Switch ENABLED — Binance WebSockets blocked');
+        setIsLoading(false);
+        setPrices({});
+        return;
+      }
+      _connectWebSocketsImpl();
+    });
+  }, []);
+
+  const _connectWebSocketsImpl = useCallback(() => {
     console.log('🔗 Connecting to Binance WebSockets for live price data...');
     
     BINANCE_SYMBOLS.forEach(({ symbol }) => {
@@ -126,6 +140,15 @@ export function useBinancePrices() {
 
   const fetchInitialPrices = useCallback(async () => {
     try {
+      const killed = await readApiKillSwitch();
+      if (killed) {
+        console.log('🛑 API Kill Switch ENABLED — initial price fetch blocked');
+        setPrices({});
+        setIsLoading(false);
+        setError(null);
+        return;
+      }
+
       console.log('📊 Fetching initial prices from Binance...');
       setIsLoading(true);
       setError(null);
