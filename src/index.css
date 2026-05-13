@@ -7,11 +7,11 @@
 @layer base {
   :root {
     /* Core Colors - HSL only */
-    --background: 210 24% 7%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 100%;
+    --foreground: 210 24% 7%;
     
-    --card: 215 25% 12%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 24% 7%;
     
     --primary: 186 100% 42%;
     --primary-foreground: 210 24% 7%;
@@ -49,8 +49,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background-image: radial-gradient(circle at 25% 25%, hsl(186 100% 42% / 0.1) 0%, transparent 50%),
-                      radial-gradient(circle at 75% 75%, hsl(264 83% 58% / 0.1) 0%, transparent 50%);
+    background-color: hsl(0 0% 100%);
   }
 }
 
